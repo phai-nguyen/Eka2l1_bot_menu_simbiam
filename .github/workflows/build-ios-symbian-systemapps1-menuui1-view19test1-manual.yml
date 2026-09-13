@@ -163,7 +163,11 @@ jobs:
             steps.append((name,wd,'\n'.join(body)+'\n')); i=k
         names=[x[0] for x in steps]
         target='Apply SYMBIAN-SYSTEMAPPS1 AppList enumeration and direct UID launcher UI'
+        importer='Install N-Gage Classic R2A FIX3 multi-format importer'
+        old_nem4_sha='606abe79138c4089c3d0d666b45a377badc6e2a641092fc9536f4619689a7da8'
+        frozen_nem4_sha='e7b0a4778fb04fdcba8c11a5b2f42e63bbe4139b50d0d669d5db91878a33b8c4'
         if names.count(target) != 1: raise SystemExit(f'Expected one SYSTEMAPPS1 target, found {names.count(target)}')
+        if names.count(importer) != 1: raise SystemExit(f'Expected one N-Gage importer step, found {names.count(importer)}')
         if not any('RUNTIMEFIX1' in n for n in names): raise SystemExit('RUNTIMEFIX1 baseline step not found')
         env=os.environ.copy(); rt=Path(env['RUNNER_TEMP'])
         envf=rt/'replay-github-env.txt'; pathf=rt/'replay-github-path.txt'
@@ -180,23 +184,27 @@ jobs:
             support_zip=rt/'eka2l1-java-bundle'/'EKA2L1-JAVA-R1-PHONEME-SUPPORT1-LIBUVFIX1'/'EKA2L1-NGAGE-R2FX2-R2-CRASHFIX1-SUPPORT1.zip'
             target_patch=rt/'eka2l1-ngage-support'/'payload'/'NGAGE_CLASSIC_R1_BUNDLED_NEM4_PATCH.py'
             expected_zip='10877e51ad6c4415623162a6aabb1c11cd60a3ddd55cea30ae4af6ad84020e16'
-            expected_patch='606abe79138c4089c3d0d666b45a377badc6e2a641092fc9536f4619689a7da8'
-            if not support_zip.is_file(): raise SystemExit(f'REPLAYFIX1 missing frozen SUPPORT1 ZIP: {support_zip}')
+            expected_patch=frozen_nem4_sha
+            if not support_zip.is_file(): raise SystemExit(f'REPLAYFIX2 missing frozen SUPPORT1 ZIP: {support_zip}')
             got_zip=hashlib.sha256(support_zip.read_bytes()).hexdigest()
-            if got_zip != expected_zip: raise SystemExit(f'REPLAYFIX1 SUPPORT1 ZIP SHA mismatch: {got_zip}')
+            if got_zip != expected_zip: raise SystemExit(f'REPLAYFIX2 SUPPORT1 ZIP SHA mismatch: {got_zip}')
             p=subprocess.run(['/usr/bin/unzip','-p',str(support_zip),'payload/NGAGE_CLASSIC_R1_BUNDLED_NEM4_PATCH.py'],stdout=subprocess.PIPE,check=True)
             got_patch=hashlib.sha256(p.stdout).hexdigest()
-            if got_patch != expected_patch: raise SystemExit(f'REPLAYFIX1 pristine NEM4 helper SHA mismatch: {got_patch}')
+            if got_patch != expected_patch: raise SystemExit(f'REPLAYFIX2 pristine NEM4 helper SHA mismatch: {got_patch}')
             target_patch.parent.mkdir(parents=True,exist_ok=True)
             target_patch.write_bytes(p.stdout)
-            print(f'REPLAYFIX1: restored pristine NEM4 helper sha256={got_patch}',flush=True)
+            print(f'REPLAYFIX2: restored frozen NEM4 helper sha256={got_patch}',flush=True)
         ran=0; skipped=[]
         for name,wd,script in steps:
             if 'RUNTIMEFIX1' in name or name == 'Package unsigned IPA':
                 skipped.append(name); continue
             if name == target: script=menu_script; wd=None
-            if name == 'Install N-Gage Classic R2A FIX3 multi-format importer':
+            if name == importer:
                 restore_pristine_nem4_helper()
+                if script.count(old_nem4_sha) != 1:
+                    raise SystemExit(f'REPLAYFIX2 expected exactly one legacy NEM4 SHA gate, found {script.count(old_nem4_sha)}')
+                script=script.replace(old_nem4_sha,frozen_nem4_sha,1)
+                print(f'REPLAYFIX2: importer NEM4 checksum gate {old_nem4_sha[:12]} -> {frozen_nem4_sha[:12]}',flush=True)
             cwd=(Path(env['GITHUB_WORKSPACE'])/(wd or '')).resolve()
             print(f'\n=== REPLAY STEP: {name} (cwd={cwd}) ===',flush=True)
             rc=subprocess.run(['bash','-e','-o','pipefail','-c',script],cwd=str(cwd),env=env).returncode
@@ -204,7 +212,7 @@ jobs:
             sync_env(); ran += 1
         print(f'Replay complete: ran={ran} skipped={len(skipped)}')
         for n in skipped: print('  skipped:',n)
-        print('MENUUI1 VIEW19TEST1 REPLAYFIX1 baseline replay: PASS')
+        print('MENUUI1 VIEW19TEST1 REPLAYFIX2 baseline replay: PASS')
         PY_REPLAY
 
     - name: Package MENUUI1 VIEW19TEST1 unsigned IPA
