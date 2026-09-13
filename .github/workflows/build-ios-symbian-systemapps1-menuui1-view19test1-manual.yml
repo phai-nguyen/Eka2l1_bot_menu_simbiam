@@ -45,7 +45,7 @@ jobs:
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
         PATCH_ZIP="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-source-patch.zip"
         PATCH_DIR="$RUNNER_TEMP/eka2l1-symbian-systemapps1"
-        
+
         EXPECTED_PATCH_SHA="2c54ca98eb689e7759092caf972fa4c980b762cdfef6a86eb1fa5c807ee4a635"
         echo "$EXPECTED_PATCH_SHA  $PATCH_ZIP" | shasum -a 256 -c -
         echo "MENUUI1 standalone patch: OK ($EXPECTED_PATCH_SHA)"
@@ -56,9 +56,7 @@ jobs:
         test -f "$PAYLOAD/apply_symbian_systemapps1.py"
         test -f "$PAYLOAD/SHA256SUMS.txt"
         (cd "$PAYLOAD" && shasum -a 256 -c SHA256SUMS.txt)
-        
-        # Freeze every accepted Java/N-Gage compatibility file that SYSTEMAPPS1 does not own.
-        # EKAUnifiedLibraryViewController.mm is deliberately excluded because UI1 adds the Hệ thống section there.
+
         python3 - "$UPSTREAM" <<'PY_SYS_FROZEN_BEFORE'
         import hashlib, json, sys
         from pathlib import Path
@@ -81,9 +79,9 @@ jobs:
         Path('/tmp/eka2l1-systemapps1-frozen-before.json').write_text(json.dumps(out,sort_keys=True))
         print('SYMBIAN-SYSTEMAPPS1 frozen baseline hashes captured')
         PY_SYS_FROZEN_BEFORE
-        
+
         python3 "$PAYLOAD/apply_symbian_systemapps1.py" "$UPSTREAM"
-        
+
         python3 - "$UPSTREAM" <<'PY_SYS_FROZEN_AFTER'
         import hashlib, json, sys
         from pathlib import Path
@@ -104,7 +102,7 @@ jobs:
             raise SystemExit('SYSTEMAPPS1 touched frozen baseline files: ' + ', '.join(bad))
         print('JAVA-STABLE1 + N-GAGE-STABILITY1-CUBEB1 + COMPAT1-T9AKN1 frozen files: byte-identical PASS')
         PY_SYS_FROZEN_AFTER
-        
+
         LAUNCHER_H="$UPSTREAM/src/emu/ios/include/ios/launcher.h"
         LAUNCHER_CPP="$UPSTREAM/src/emu/ios/src/launcher.cpp"
         BRIDGE_H="$UPSTREAM/src/emu/ios/include/ios/emu_bridge.h"
@@ -139,7 +137,7 @@ jobs:
         bash -n "$MENU_STEP"
 
         python3 - "$BASE_YML" "$MENU_STEP" <<'PY_REPLAY'
-        import os, subprocess, sys
+        import hashlib, os, subprocess, sys
         from pathlib import Path
         yml=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
         menu_script=Path(sys.argv[2]).read_text(encoding='utf-8')
@@ -178,11 +176,27 @@ jobs:
             adds=[x for x in pathf.read_text().splitlines() if x]
             if adds: env['PATH']=os.pathsep.join(reversed(adds))+os.pathsep+env.get('PATH','')
             pathf.write_text('')
+        def restore_pristine_nem4_helper():
+            support_zip=rt/'eka2l1-java-bundle'/'EKA2L1-JAVA-R1-PHONEME-SUPPORT1-LIBUVFIX1'/'EKA2L1-NGAGE-R2FX2-R2-CRASHFIX1-SUPPORT1.zip'
+            target_patch=rt/'eka2l1-ngage-support'/'payload'/'NGAGE_CLASSIC_R1_BUNDLED_NEM4_PATCH.py'
+            expected_zip='10877e51ad6c4415623162a6aabb1c11cd60a3ddd55cea30ae4af6ad84020e16'
+            expected_patch='606abe79138c4089c3d0d666b45a377badc6e2a641092fc9536f4619689a7da8'
+            if not support_zip.is_file(): raise SystemExit(f'REPLAYFIX1 missing frozen SUPPORT1 ZIP: {support_zip}')
+            got_zip=hashlib.sha256(support_zip.read_bytes()).hexdigest()
+            if got_zip != expected_zip: raise SystemExit(f'REPLAYFIX1 SUPPORT1 ZIP SHA mismatch: {got_zip}')
+            p=subprocess.run(['/usr/bin/unzip','-p',str(support_zip),'payload/NGAGE_CLASSIC_R1_BUNDLED_NEM4_PATCH.py'],stdout=subprocess.PIPE,check=True)
+            got_patch=hashlib.sha256(p.stdout).hexdigest()
+            if got_patch != expected_patch: raise SystemExit(f'REPLAYFIX1 pristine NEM4 helper SHA mismatch: {got_patch}')
+            target_patch.parent.mkdir(parents=True,exist_ok=True)
+            target_patch.write_bytes(p.stdout)
+            print(f'REPLAYFIX1: restored pristine NEM4 helper sha256={got_patch}',flush=True)
         ran=0; skipped=[]
         for name,wd,script in steps:
             if 'RUNTIMEFIX1' in name or name == 'Package unsigned IPA':
                 skipped.append(name); continue
             if name == target: script=menu_script; wd=None
+            if name == 'Install N-Gage Classic R2A FIX3 multi-format importer':
+                restore_pristine_nem4_helper()
             cwd=(Path(env['GITHUB_WORKSPACE'])/(wd or '')).resolve()
             print(f'\n=== REPLAY STEP: {name} (cwd={cwd}) ===',flush=True)
             rc=subprocess.run(['bash','-e','-o','pipefail','-c',script],cwd=str(cwd),env=env).returncode
@@ -190,7 +204,7 @@ jobs:
             sync_env(); ran += 1
         print(f'Replay complete: ran={ran} skipped={len(skipped)}')
         for n in skipped: print('  skipped:',n)
-        print('MENUUI1 VIEW19TEST1 baseline replay: PASS')
+        print('MENUUI1 VIEW19TEST1 REPLAYFIX1 baseline replay: PASS')
         PY_REPLAY
 
     - name: Package MENUUI1 VIEW19TEST1 unsigned IPA
