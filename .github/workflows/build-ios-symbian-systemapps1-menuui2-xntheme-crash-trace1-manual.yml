@@ -1,4 +1,4 @@
-name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI1 VIEW19TEST1 Manual IPA
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI2 XNTHEME CRASH TRACE1 Manual IPA
 
 on:
   workflow_dispatch:
@@ -17,19 +17,19 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Replay frozen baseline with MENUUI1 VIEW19TEST1
+    - name: Replay frozen baseline with MENUUI2 XNTHEME CRASH TRACE1
       run: |
         set -euo pipefail
         BASELINE_COMMIT="5c3358a65d82e3ca83ea174d51e35b35815b49d4"
         BASELINE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-runtimefix1-manual.yml"
-        CURRENT_PAYLOAD="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-BASELINE-PAYLOAD.zip"
+        CURRENT_PAYLOAD="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-BASELINE-PAYLOAD.zip"
         LEGACY_PAYLOAD="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-FIX1-PAYLOAD.zip"
-        MENU_PATCH="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-source-patch.zip"
+        MENU_PATCH="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-source-patch.zip"
         BASE_YML="$RUNNER_TEMP/systemapps1-runtimefix1-baseline.yml"
-        MENU_STEP="$RUNNER_TEMP/menuui1-view19-step.sh"
+        MENU_STEP="$RUNNER_TEMP/menuui2-xntheme-crash-trace1-step.sh"
 
         echo "e130ca8345e762842753aba351ed6a108165c81e79a8d847768c9334f31d7304  $CURRENT_PAYLOAD" | shasum -a 256 -c -
-        echo "2c54ca98eb689e7759092caf972fa4c980b762cdfef6a86eb1fa5c807ee4a635  $MENU_PATCH" | shasum -a 256 -c -
+        echo "1346bf04d7a5f6385e7157b2cc46c69c912589da8b4746b18e50593291a7795a  $MENU_PATCH" | shasum -a 256 -c -
         rm -f "$LEGACY_PAYLOAD"
         ln -s "$(basename "$CURRENT_PAYLOAD")" "$LEGACY_PAYLOAD"
         git cat-file -e "$BASELINE_COMMIT^{commit}"
@@ -41,14 +41,14 @@ jobs:
         LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
         touch "$LOG"
         exec > >(tee -a "$LOG") 2>&1
-        echo "=== STEP: Apply SYMBIAN-SYSTEMAPPS1 ENUM1 + BRIDGE1 + UI1 + MENUUI1-VIEW19TEST1 ==="
+        echo "=== STEP: Apply SYMBIAN-SYSTEMAPPS1 + VIEW19 + MENUUI2-XNTHEME-CRASH-TRACE1 ==="
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
-        PATCH_ZIP="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-source-patch.zip"
-        PATCH_DIR="$RUNNER_TEMP/eka2l1-symbian-systemapps1"
+        PATCH_ZIP="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-source-patch.zip"
+        PATCH_DIR="$RUNNER_TEMP/eka2l1-symbian-systemapps1-menuui2"
 
-        EXPECTED_PATCH_SHA="2c54ca98eb689e7759092caf972fa4c980b762cdfef6a86eb1fa5c807ee4a635"
+        EXPECTED_PATCH_SHA="1346bf04d7a5f6385e7157b2cc46c69c912589da8b4746b18e50593291a7795a"
         echo "$EXPECTED_PATCH_SHA  $PATCH_ZIP" | shasum -a 256 -c -
-        echo "MENUUI1 standalone patch: OK ($EXPECTED_PATCH_SHA)"
+        echo "MENUUI2 standalone diagnostic patch: OK ($EXPECTED_PATCH_SHA)"
         rm -rf "$PATCH_DIR"
         mkdir -p "$PATCH_DIR"
         /usr/bin/unzip -q "$PATCH_ZIP" -d "$PATCH_DIR"
@@ -61,10 +61,12 @@ jobs:
         import hashlib, json, sys
         from pathlib import Path
         up=Path(sys.argv[1])
+        # svc.cpp is intentionally excluded in MENUUI2 because this iteration adds
+        # diagnostic-only FileServer/leave tracing there. All behavior-bearing
+        # Java/N-Gage files remain byte-identical gates.
         fixed=[
           'src/emu/drivers/src/audio/backend/ios/audio_ios.mm',
           'src/emu/utils/include/utils/dll.h',
-          'src/emu/kernel/src/svc.cpp',
           'src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp',
           'src/emu/services/src/fs/files.cpp',
           'src/emu/services/src/ui/cap/oom_app.cpp',
@@ -76,8 +78,13 @@ jobs:
         for p in sorted(x for x in jroot.rglob('*') if x.is_file() and x.name != 'EKAUnifiedLibraryViewController.mm'):
             jh.update(str(p.relative_to(jroot)).encode()); jh.update(b'\0'); jh.update(p.read_bytes()); jh.update(b'\0')
         out['__j2me_except_unified__']=jh.hexdigest()
-        Path('/tmp/eka2l1-systemapps1-frozen-before.json').write_text(json.dumps(out,sort_keys=True))
-        print('SYMBIAN-SYSTEMAPPS1 frozen baseline hashes captured')
+        Path('/tmp/eka2l1-systemapps1-menuui2-frozen-before.json').write_text(json.dumps(out,sort_keys=True))
+        diag={
+          'src/emu/kernel/src/svc.cpp': hashlib.sha256((up/'src/emu/kernel/src/svc.cpp').read_bytes()).hexdigest(),
+          'src/emu/kernel/src/libmanager.cpp': hashlib.sha256((up/'src/emu/kernel/src/libmanager.cpp').read_bytes()).hexdigest(),
+        }
+        Path('/tmp/eka2l1-systemapps1-menuui2-diag-before.json').write_text(json.dumps(diag,sort_keys=True))
+        print('MENUUI2 frozen behavior baseline hashes captured; svc.cpp/libmanager.cpp diagnostic-owned')
         PY_SYS_FROZEN_BEFORE
 
         python3 "$PAYLOAD/apply_symbian_systemapps1.py" "$UPSTREAM"
@@ -86,7 +93,7 @@ jobs:
         import hashlib, json, sys
         from pathlib import Path
         up=Path(sys.argv[1])
-        before=json.loads(Path('/tmp/eka2l1-systemapps1-frozen-before.json').read_text())
+        before=json.loads(Path('/tmp/eka2l1-systemapps1-menuui2-frozen-before.json').read_text())
         after={}
         for r in before:
             if r == '__j2me_except_unified__':
@@ -99,8 +106,8 @@ jobs:
         after['__j2me_except_unified__']=jh.hexdigest()
         if before != after:
             bad=[r for r in before if before[r] != after.get(r)]
-            raise SystemExit('SYSTEMAPPS1 touched frozen baseline files: ' + ', '.join(bad))
-        print('JAVA-STABLE1 + N-GAGE-STABILITY1-CUBEB1 + COMPAT1-T9AKN1 frozen files: byte-identical PASS')
+            raise SystemExit('MENUUI2 touched frozen behavior baseline files: ' + ', '.join(bad))
+        print('JAVA-STABLE1 + N-GAGE-STABILITY1-CUBEB1 + COMPAT1-T9AKN1 frozen behavior files: byte-identical PASS')
         PY_SYS_FROZEN_AFTER
 
         LAUNCHER_H="$UPSTREAM/src/emu/ios/include/ios/launcher.h"
@@ -109,6 +116,10 @@ jobs:
         BRIDGE_MM="$UPSTREAM/src/emu/ios/src/emu_bridge.mm"
         ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
         UNIFIED="$UPSTREAM/src/emu/ios/app/j2me/EKAUnifiedLibraryViewController.mm"
+        VIEW="$UPSTREAM/src/emu/services/src/ui/view/view.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        LIBMGR="$UPSTREAM/src/emu/kernel/src/libmanager.cpp"
+
         grep -Fq 'std::vector<std::string> get_system_apps();' "$LAUNCHER_H"
         grep -Fq 'std::vector<std::string> launcher::get_system_apps()' "$LAUNCHER_CPP"
         grep -Fq 'reg.caps.is_hidden || reg.land_drive != drive_z' "$LAUNCHER_CPP"
@@ -122,16 +133,28 @@ jobs:
         grep -Fq '@{ @"title":@"Hệ thống", @"kind":@"system"' "$UNIFIED"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 LAUNCH1: system uid=0x%08X name=%@' "$UNIFIED"
         grep -Fq 'eka2l1::ios::bridge::launch_app(uid);' "$ROOT"
-        VIEW="$UPSTREAM/src/emu/services/src/ui/view/view.cpp"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI1 VIEWIPC: raw={} mapped={} epocver={}' "$VIEW"
         grep -Fq 'case view_opcode_set_cross_check_uid:' "$VIEW"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI1 VIEW19: raw={} final=19 complete=KErrNone' "$VIEW"
+        grep -Fq 'V11 LEAVE5:' "$SVC"
+        grep -Fq 'V5 SVCMISS:' "$LIBMGR"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 PRE:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 POST-DISPATCH:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 PRE-PROCESS: entering HLE service dispatch' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 POST-PROCESS: HLE service dispatch returned' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE ENTER:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE RETURN:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE_END ENTER:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE_END EXIT:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:' "$LIBMGR"
+        grep -Fq 'svcnum == 0xAB' "$LIBMGR"
+        grep -Fq 'svcnum == 0x00800018' "$LIBMGR"
         grep -Fq 'void launch_app(std::uint32_t uid);' "$BRIDGE_H"
         grep -Fq 'N-GAGE-COMPAT1 T9PATH1: legacy T9 resource fallback' "$UPSTREAM/src/emu/services/src/fs/files.cpp"
         grep -Fq 'N-GAGE-COMPAT1 AKNFAD1: set-system-faded handled' "$UPSTREAM/src/emu/services/src/ui/cap/oom_app.cpp"
         grep -Fq 'N-GAGE-STABILITY1 CUBEBSEL1: skipping Cubeb init on iOS; RemoteIO output backend active' "$UPSTREAM/src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp"
         git -C "$UPSTREAM" diff --check
-        echo 'SYMBIAN-SYSTEMAPPS1 + MENUUI1-VIEW19TEST1 source + frozen baseline gates: PASS'
+        echo 'MENUUI2-XNTHEME-CRASH-TRACE1 source + VIEW19 + frozen baseline gates: PASS'
         MENU_STEP_SCRIPT
         chmod +x "$MENU_STEP"
         bash -n "$MENU_STEP"
@@ -212,10 +235,10 @@ jobs:
             sync_env(); ran += 1
         print(f'Replay complete: ran={ran} skipped={len(skipped)}')
         for n in skipped: print('  skipped:',n)
-        print('MENUUI1 VIEW19TEST1 REPLAYFIX2 baseline replay: PASS')
+        print('MENUUI2 XNTHEME CRASH TRACE1 REPLAYFIX2 baseline replay: PASS')
         PY_REPLAY
 
-    - name: Package MENUUI1 VIEW19TEST1 unsigned IPA
+    - name: Package MENUUI2 XNTHEME CRASH TRACE1 unsigned IPA
       working-directory: upstream
       run: |
         set -euo pipefail
@@ -223,9 +246,13 @@ jobs:
         touch "$LOG"
         exec > >(tee -a "$LOG") 2>&1
         APP="build-ios-device/src/emu/ios/eka2l1.app"
-        IPA="EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-unsigned.ipa"
-        STAGE="ipa-stage-menuui1"
+        IPA="EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-unsigned.ipa"
+        STAGE="ipa-stage-menuui2-trace1"
         test -d "$APP"; test -x "$APP/eka2l1"
+        strings "$APP/eka2l1" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 PRE:'
+        strings "$APP/eka2l1" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE RETURN:'
+        strings "$APP/eka2l1" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:'
+        strings "$APP/eka2l1" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI1 VIEW19: raw={} final=19 complete=KErrNone'
         rm -rf "$STAGE" "$IPA"; mkdir -p "$STAGE/Payload"
         cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
         rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
@@ -235,11 +262,11 @@ jobs:
         /usr/bin/unzip -l "$IPA" | grep -Fq 'Payload/EKA2L1.app/eka2l1'
         test -s "$IPA"; shasum -a 256 "$IPA"
 
-    - name: Upload MENUUI1 VIEW19TEST1 IPA
+    - name: Upload MENUUI2 XNTHEME CRASH TRACE1 IPA
       uses: actions/upload-artifact@v4
       with:
-        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-IPA
-        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-unsigned.ipa
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-unsigned.ipa
         if-no-files-found: error
         retention-days: 14
 
@@ -247,7 +274,7 @@ jobs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI1-VIEW19TEST1-diagnostic-log
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-diagnostic-log
         path: eka2l1-java-build.log
         if-no-files-found: warn
         retention-days: 14
