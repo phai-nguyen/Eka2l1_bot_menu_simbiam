@@ -29,7 +29,7 @@ jobs:
         MENU_STEP="$RUNNER_TEMP/menuui2-xntheme-crash-trace1-step.sh"
 
         echo "e130ca8345e762842753aba351ed6a108165c81e79a8d847768c9334f31d7304  $CURRENT_PAYLOAD" | shasum -a 256 -c -
-        echo "1346bf04d7a5f6385e7157b2cc46c69c912589da8b4746b18e50593291a7795a  $MENU_PATCH" | shasum -a 256 -c -
+        echo "2591c115cfd1afeb453d9a2d8fb2a941c9f02c8996cbd7ebd4adf0463c20ccc6  $MENU_PATCH" | shasum -a 256 -c -
         rm -f "$LEGACY_PAYLOAD"
         ln -s "$(basename "$CURRENT_PAYLOAD")" "$LEGACY_PAYLOAD"
         git cat-file -e "$BASELINE_COMMIT^{commit}"
@@ -46,7 +46,7 @@ jobs:
         PATCH_ZIP="$GITHUB_WORKSPACE/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI2-XNTHEME-CRASH-TRACE1-source-patch.zip"
         PATCH_DIR="$RUNNER_TEMP/eka2l1-symbian-systemapps1-menuui2"
 
-        EXPECTED_PATCH_SHA="1346bf04d7a5f6385e7157b2cc46c69c912589da8b4746b18e50593291a7795a"
+        EXPECTED_PATCH_SHA="2591c115cfd1afeb453d9a2d8fb2a941c9f02c8996cbd7ebd4adf0463c20ccc6"
         echo "$EXPECTED_PATCH_SHA  $PATCH_ZIP" | shasum -a 256 -c -
         echo "MENUUI2 standalone diagnostic patch: OK ($EXPECTED_PATCH_SHA)"
         rm -rf "$PATCH_DIR"
