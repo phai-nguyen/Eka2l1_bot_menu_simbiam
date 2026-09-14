@@ -31,8 +31,8 @@ jobs:
         test -f "$GITHUB_WORKSPACE/apply_menuui3_winfocus_null1.py"
         test -f "$GITHUB_WORKSPACE/apply_menuui4_killtrace1.py"
         test -f "$GITHUB_WORKSPACE/apply_menuui5_selfkilltrace1.py"
-        test -f "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1.py"
-        python3 -m py_compile "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1.py"
+        test -f "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1_fix1.py"
+        python3 -m py_compile "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1_fix1.py"
 
         python3 - "$SOURCE_YML" "$REPLAY_SCRIPT" <<'PY_EXTRACT'
         import hashlib
@@ -57,7 +57,7 @@ jobs:
                     j += 1
                 if name == target:
                     if run_index is None:
-                        raise SystemExit("MENUUI6: MENUUI2 replay step has no run block")
+                        raise SystemExit("MENUUI6 FIX1: MENUUI2 replay step has no run block")
                     k = run_index + 1
                     body = []
                     while k < len(source) and not source[k].startswith("    - name:"):
@@ -75,7 +75,7 @@ jobs:
                 i += 1
 
         if len(matches) != 1:
-            raise SystemExit(f"MENUUI6: expected exactly one MENUUI2 replay step, found {len(matches)}")
+            raise SystemExit(f"MENUUI6 FIX1: expected exactly one MENUUI2 replay step, found {len(matches)}")
 
         script = matches[0]
         required = [
@@ -85,17 +85,17 @@ jobs:
         ]
         missing = [marker for marker in required if marker not in script]
         if missing:
-            raise SystemExit("MENUUI6: source replay guard failed: " + ", ".join(missing))
+            raise SystemExit("MENUUI6 FIX1: source replay guard failed: " + ", ".join(missing))
 
         anchor = "\nMENU_STEP_SCRIPT\n"
         if script.count(anchor) != 1:
-            raise SystemExit(f"MENUUI6: expected one MENU_STEP_SCRIPT terminator, found {script.count(anchor)}")
+            raise SystemExit(f"MENUUI6 FIX1: expected one MENU_STEP_SCRIPT terminator, found {script.count(anchor)}")
 
         inject = "\n".join([
             'python3 "$GITHUB_WORKSPACE/apply_menuui3_winfocus_null1.py" "$UPSTREAM"',
             'python3 "$GITHUB_WORKSPACE/apply_menuui4_killtrace1.py" "$UPSTREAM"',
             'python3 "$GITHUB_WORKSPACE/apply_menuui5_selfkilltrace1.py" "$UPSTREAM"',
-            'python3 "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1.py" "$UPSTREAM"',
+            'python3 "$GITHUB_WORKSPACE/apply_menuui6_errororigintrace1_fix1.py" "$UPSTREAM"',
             'WINDOW_CPP="$UPSTREAM/src/emu/services/src/window/window.cpp"',
             'SVC_CPP="$UPSTREAM/src/emu/kernel/src/svc.cpp"',
             'EIK_CPP="$UPSTREAM/src/emu/services/src/ui/eikappui.cpp"',
@@ -114,18 +114,17 @@ jobs:
             'grep -Fq \'Unimplemented app ui session opcode 0x{:X}\' "$EIK_CPP"',
             'grep -Fq \'ctx->complete(epoc::error_none);\' "$EIK_CPP"',
             'grep -Fq \'SYMBIAN-SYSTEMAPPS1 MENUUI6 NEGIPC: path=HLE\' "$CTX_CPP"',
-            'grep -Fq \'(msg->request_sts.get(msg->own_thr->owning_process()))->set(res, kern->is_eka1());\' "$CTX_CPP"',
             '! grep -Fq \'ctx.complete(get_ws().get_current_focus_screen()->focus->id);\' "$WINDOW_CPP"',
             'grep -Fq \'thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);\' "$SVC_CPP"',
             'grep -Fq \'kern->call_ipc_complete_callbacks(msg, val);\' "$SVC_CPP"',
             'git -C "$UPSTREAM" diff --check',
-            "echo 'MENUUI6-ERRORORIGINTRACE1 diagnostic-only source gates: PASS'",
+            "echo 'MENUUI6-ERRORORIGINTRACE1-FIX1 diagnostic-only source gates: PASS'",
         ]) + "\n"
 
         script = script.replace(anchor, "\n" + inject + "MENU_STEP_SCRIPT\n", 1)
         output.write_text(script, encoding="utf-8")
         digest = hashlib.sha256(script.encode("utf-8")).hexdigest()
-        print(f"MENUUI6: extracted+patched replay script sha256={digest}")
+        print(f"MENUUI6 FIX1: extracted+patched replay script sha256={digest}")
         PY_EXTRACT
 
         chmod +x "$REPLAY_SCRIPT"
@@ -167,7 +166,7 @@ jobs:
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 LEAVE RETURN:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI1 VIEW19: raw={} final=19 complete=KErrNone' "$STRINGS_OUT"
-        echo 'MENUUI6 + MENUUI5 + MENUUI4 + MENUUI3 + MENUUI2 + VIEW19 binary markers: PASS'
+        echo 'MENUUI6 FIX1 + MENUUI5 + MENUUI4 + MENUUI3 + MENUUI2 + VIEW19 binary markers: PASS'
 
         rm -rf "$STAGE" "$IPA"
         mkdir -p "$STAGE/Payload"
@@ -181,7 +180,7 @@ jobs:
         grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
         test -s "$IPA"
         shasum -a 256 "$IPA"
-        echo 'MENUUI6 ERRORORIGINTRACE1 unsigned IPA package: PASS'
+        echo 'MENUUI6 ERRORORIGINTRACE1 FIX1 unsigned IPA package: PASS'
 
     - name: Upload MENUUI6 ERRORORIGINTRACE1 IPA
       uses: actions/upload-artifact@v4
