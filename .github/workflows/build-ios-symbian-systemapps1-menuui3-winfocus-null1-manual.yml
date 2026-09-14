@@ -86,7 +86,7 @@ jobs:
         if script.count(anchor) != 1:
             raise SystemExit(f'MENUUI3: expected one MENU_STEP_SCRIPT terminator, found {script.count(anchor)}')
 
-        winfocus = r'''
+        winfocus = r"""
 WINDOW_CPP="$UPSTREAM/src/emu/services/src/window/window.cpp"
 python3 - "$WINDOW_CPP" <<'PY_WINFOCUS'
 from pathlib import Path
@@ -165,7 +165,7 @@ grep -Fq 'ctx.complete(0);' "$WINDOW_CPP"
 ! grep -Fq 'ctx.complete(get_ws().get_current_focus_screen()->focus->id);' "$WINDOW_CPP"
 git -C "$UPSTREAM" diff --check
 echo 'MENUUI3-WINFOCUS-NULL1 source gate: PASS'
-'''
+"""
 
         script = script.replace(anchor, '\n' + winfocus + '\nMENU_STEP_SCRIPT\n', 1)
         output.write_text(script, encoding='utf-8')
