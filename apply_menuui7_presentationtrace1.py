@@ -12,6 +12,8 @@ if not svc_path.is_file():
 
 svc = svc_path.read_text(encoding="utf-8")
 
+send_call = "        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());\n"
+
 required = [
     "SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:",
     "SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_FRAME:",
@@ -19,11 +21,11 @@ required = [
     "SYMBIAN-SYSTEMAPPS1 MENUUI6 NEGIPC: path=LLE",
     "SYMBIAN-SYSTEMAPPS1 MENUUI5 SELFKILL:",
     "static codeseg_ptr get_codeseg_from_addr(",
-    "kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());",
+    send_call.strip(),
 ]
 for marker in required:
     if marker not in svc:
-        raise SystemExit("MENUUI7: required MENUUI6 baseline marker missing: " + marker)
+        raise SystemExit("MENUUI7 FIX1: required MENUUI6 baseline marker missing: " + marker)
 
 markers = [
     "SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_SEND:",
@@ -31,17 +33,17 @@ markers = [
 ]
 if any(marker in svc for marker in markers):
     if all(marker in svc for marker in markers):
-        print("MENUUI7 PRESENTATIONTRACE1 already present")
+        print("MENUUI7 PRESENTATIONTRACE1 FIX1 already present")
         raise SystemExit(0)
-    raise SystemExit("MENUUI7: partial prior patch detected")
+    raise SystemExit("MENUUI7 FIX1: partial prior patch detected")
 
-anchor = '''        const std::string server_name = ss->get_server()->name();
-        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());
-'''
-if svc.count(anchor) != 1:
-    raise SystemExit(f"MENUUI7: IPC send anchor count={svc.count(anchor)}")
+# Anchor only on the actual IPC-send callback. Earlier diagnostic patches may
+# insert lines between server_name construction and this callback; coupling the
+# patch to that surrounding block is therefore intentionally avoided.
+if svc.count(send_call) != 1:
+    raise SystemExit(f"MENUUI7 FIX1: IPC send call count={svc.count(send_call)}")
 
-inject = r'''        // MENUUI7 PRESENTATIONTRACE1: diagnostic-only Menu IPC origin trace.
+inject = r'''        // MENUUI7 PRESENTATIONTRACE1 FIX1: diagnostic-only Menu IPC origin trace.
         // Record every IPC submitted by Menu UID 0x101F4CD2, then scan a small
         // slice of the guest stack for presentationmanager.dll frames. The IPC
         // request, status pointer, arguments and original dispatch semantics are
@@ -97,18 +99,15 @@ inject = r'''        // MENUUI7 PRESENTATIONTRACE1: diagnostic-only Menu IPC ori
 
 '''
 
-svc = svc.replace(anchor,
-    '        const std::string server_name = ss->get_server()->name();\n' + inject +
-    '        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());\n',
-    1)
+svc = svc.replace(send_call, inject + send_call, 1)
 
 for marker in markers:
     if marker not in svc:
-        raise SystemExit("MENUUI7: marker missing after patch: " + marker)
-if "kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());" not in svc:
-    raise SystemExit("MENUUI7: IPC dispatch semantics guard failed")
+        raise SystemExit("MENUUI7 FIX1: marker missing after patch: " + marker)
+if svc.count(send_call) != 1:
+    raise SystemExit("MENUUI7 FIX1: IPC dispatch semantics guard failed")
 if "SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:" not in svc or "SYMBIAN-SYSTEMAPPS1 MENUUI5 SELFKILL:" not in svc:
-    raise SystemExit("MENUUI7: prior diagnostic chain preservation failed")
+    raise SystemExit("MENUUI7 FIX1: prior diagnostic chain preservation failed")
 
 svc_path.write_text(svc, encoding="utf-8")
-print("MENUUI7 PRESENTATIONTRACE1 patch applied")
+print("MENUUI7 PRESENTATIONTRACE1 FIX1 patch applied")
