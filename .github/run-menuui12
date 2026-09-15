@@ -1,0 +1,4 @@
+MENUUI12 XNTHEME-IPCRESULT1
+Authority: MENUUI11 device PASS 2026-09-15
+Purpose: diagnostic-only xnthemeserver->Menu message_complete/message_ipc_copy trace for functions 7/9.
+Preserve EPOC94 0xAB=message_construct, 0xAA unmapped, 0xAC=message_kill and all existing diagnostics.
