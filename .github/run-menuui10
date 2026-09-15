@@ -1,3 +1,4 @@
 MENUUI10 FIX2 auto trigger 2026-09-15
 patcher commit: 670da987940fa06b71a494092f90d109bad4f8b8
-workflow commit: f2a0311b087ad7ce7d7fc66152b5bca72eb00f25
+workflow commit: 7b332c027922b804d75bc5bfb718e06adb3981e8
+reason: fix strings pipefail replay marker probe
