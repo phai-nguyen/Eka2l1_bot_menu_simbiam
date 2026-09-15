@@ -97,9 +97,11 @@ jobs:
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
         APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
         BIN="$APP/eka2l1"
+        BASELINE_STRINGS="$RUNNER_TEMP/menuui10-menuui9-baseline.strings"
         test -d "$APP"
         test -x "$BIN"
-        strings "$BIN" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:'
+        strings "$BIN" > "$BASELINE_STRINGS"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:' "$BASELINE_STRINGS"
         echo 'MENUUI10 FIX2: MENUUI9 baseline build PASS'
 
     - name: Apply MENUUI10 epoc95 one-slot delta and incremental rebuild
