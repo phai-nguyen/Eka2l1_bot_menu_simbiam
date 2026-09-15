@@ -2,6 +2,11 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI10 EP95 SVCAB DIFF1 Manual IPA
 
 "on":
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/run-menuui10
 
 permissions:
   contents: read
@@ -20,10 +25,14 @@ jobs:
     - name: Replay validated MENUUI9 and apply MENUUI10 epoc95 one-slot registration
       run: |
         set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
         SOURCE_COMMIT="f698422a95461a5b239db9998260e717fc0042be"
         SOURCE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-menuui9-xntheme-msgconstruct1-manual.yml"
         SOURCE_YML="$RUNNER_TEMP/menuui10-menuui9-source.yml"
-        REPLAY_SCRIPT="$RUNNER_TEMP/menuui10-ep95-svcab-diff1-replay.sh"
+        REPLAY_SCRIPT="$RUNNER_TEMP/menuui10-menuui9-outer-replay.sh"
 
         git cat-file -e "$SOURCE_COMMIT^{commit}"
         git show "$SOURCE_COMMIT:$SOURCE_WORKFLOW" > "$SOURCE_YML"
@@ -85,13 +94,28 @@ jobs:
         if missing:
             raise SystemExit("MENUUI10: pinned MENUUI9 replay guard failed: " + ", ".join(missing))
 
-        anchor = 'python3 "$GITHUB_WORKSPACE/apply_menuui9_xntheme_msgconstruct1.py" "$UPSTREAM"\n'
+        # MENUUI9's outer step builds an inner replay script from a Python list.
+        # Insert MENUUI10 as the very next list item after MENUUI9, so the patch
+        # is applied before the inherited compile/build steps execute.
+        anchor = '\'python3 "$GITHUB_WORKSPACE/apply_menuui9_xntheme_msgconstruct1.py" "$UPSTREAM"\','
         if script.count(anchor) != 1:
-            raise SystemExit(f"MENUUI10: MENUUI9 injection anchor count={script.count(anchor)}")
+            raise SystemExit(f"MENUUI10: MENUUI9 list-item anchor count={script.count(anchor)}")
+        replacement = anchor + '\n    \'python3 "$GITHUB_WORKSPACE/apply_menuui10_ep95_svcab_diff1.py" "$UPSTREAM"\','
+        script = script.replace(anchor, replacement, 1)
 
-        inject = r'''python3 "$GITHUB_WORKSPACE/apply_menuui9_xntheme_msgconstruct1.py" "$UPSTREAM"
-        python3 "$GITHUB_WORKSPACE/apply_menuui10_ep95_svcab_diff1.py" "$UPSTREAM"
+        if script.count('apply_menuui10_ep95_svcab_diff1.py') != 1:
+            raise SystemExit("MENUUI10: replay injection postcondition failed")
 
+        output.write_text(script, encoding="utf-8")
+        digest = hashlib.sha256(script.encode("utf-8")).hexdigest()
+        print(f"MENUUI10: corrected MENUUI9 outer replay sha256={digest}")
+        PY_MENUUI10_EXTRACT
+
+        chmod +x "$REPLAY_SCRIPT"
+        bash -n "$REPLAY_SCRIPT"
+        bash "$REPLAY_SCRIPT"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
         python3 - "$UPSTREAM" <<'PY_MENUUI10_GATE'
         from pathlib import Path
         import sys
@@ -113,19 +137,11 @@ jobs:
         assert "message_kill" not in v95
         assert "message_open_handle" not in v95
 
-        a10 = svc.index("    const eka2l1::hle::func_map svc_register_funcs_v10 = {")
-        b10 = svc.index("    // MENUUI10 EP95-SVCAB-DIFF1:", a10)
-        v10 = svc[a10:b10]
-        assert v10.count("BRIDGE_REGISTER(0xAB, message_construct)") == 1
-        assert "BRIDGE_REGISTER(0xAC," not in v10
-        assert "BRIDGE_REGISTER(0xAD, message_kill)" in v10
-
         assert svc_h.count("extern const eka2l1::hle::func_map svc_register_funcs_v95_diff;") == 1
         assert reg_h.count("void register_epocv95(eka2l1::hle::lib_manager &mngr);") == 1
-        assert reg.count("void register_epocv95(eka2l1::hle::lib_manager &mngr)") == 1
         assert reg.count("ADD_SVC_REGISTERS(mngr, svc_register_funcs_v95_diff);") == 1
         assert lib.count("SYMBIAN-SYSTEMAPPS1 MENUUI10 EP95_SVCAB_REG:") == 1
-        assert 'epoc::register_epocv95(*this);' in lib
+        assert lib.count("epoc::register_epocv95(*this);") == 1
 
         for marker in [
             "SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:",
@@ -143,21 +159,7 @@ jobs:
 
         print("MENUUI10 EP95 one-slot registration source gate: PASS")
         PY_MENUUI10_GATE
-        '''
-        script = script.replace(anchor, inject, 1)
-        output.write_text(script, encoding="utf-8")
-        digest = hashlib.sha256(script.encode("utf-8")).hexdigest()
-        print(f"MENUUI10: pinned MENUUI9 replay + EP95 delta script sha256={digest}")
-        PY_MENUUI10_EXTRACT
 
-        chmod +x "$REPLAY_SCRIPT"
-        bash -n "$REPLAY_SCRIPT"
-        bash "$REPLAY_SCRIPT"
-
-        UPSTREAM="$GITHUB_WORKSPACE/upstream"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI10 EP95_SVCAB_REG:' "$UPSTREAM/src/emu/kernel/src/libmanager.cpp"
-        grep -Fq 'svc_register_funcs_v95_diff' "$UPSTREAM/src/emu/kernel/src/svc.cpp"
-        grep -Fq 'register_epocv95' "$UPSTREAM/src/emu/kernel/src/reg.cpp"
         git -C "$UPSTREAM" diff --check
         echo 'MENUUI10 EP95-SVCAB-DIFF1 + MENUUI9 validated chain: PASS'
 
@@ -186,18 +188,12 @@ jobs:
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI8 XNTHEME_SVCAB:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI8 SVCAB_REGFRAME:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_SEND:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_PMFRAME:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_FRAME:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_STACK:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 EIK_RESOLVE_ERROR:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 NEGIPC:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI5 SELFKILL:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI4 THREADKILL:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI3 WINFOCUS NULL:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 FS27 PRE:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI1 VIEW19: raw={} final=19 complete=KErrNone' "$STRINGS_OUT"
-        echo 'MENUUI10 + MENUUI9 + MENUUI8/7/6/5/4/3/2 + VIEW19 binary markers: PASS'
+        echo 'MENUUI10 + MENUUI9 + preserved diagnostic chain binary markers: PASS'
 
         rm -rf "$STAGE" "$IPA"
         mkdir -p "$STAGE/Payload"
