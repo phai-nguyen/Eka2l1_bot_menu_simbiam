@@ -69,9 +69,9 @@ if any(state.values()):
     raise SystemExit(0)
 
 # 1) One-entry epoc95 map. Do not inherit the whole S^3/v10 map.
-svc_h_anchor = """    ///> @brief The SVC map for Symbian S^3.
-    extern const eka2l1::hle::func_map svc_register_funcs_v10;
-"""
+# Anchor only on the unique declaration itself. Some validated replay chains
+# preserve the declaration but not the adjacent documentation comment.
+svc_h_anchor = "    extern const eka2l1::hle::func_map svc_register_funcs_v10;\n"
 if svc_h.count(svc_h_anchor) != 1:
     raise SystemExit(f"MENUUI10: svc.h v10 declaration anchor count={svc_h.count(svc_h_anchor)}")
 svc_h = svc_h.replace(
