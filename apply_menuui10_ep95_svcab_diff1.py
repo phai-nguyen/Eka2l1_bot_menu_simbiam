@@ -118,28 +118,22 @@ reg = reg.replace(
     1,
 )
 
-# 3) Register the delta for epoc95. If this fork already has an epoc95 switch
-# case, augment that case; otherwise add a dedicated case. This preserves any
-# older epoc95 behavior while adding only 0xAB.
-case95 = "        case epocver::epoc95:\n"
-if lib.count(case95) > 1:
-    raise SystemExit(f"MENUUI10: multiple epoc95 switch cases found: {lib.count(case95)}")
+# 3) Register the delta in the SVC-registration switch only. libmanager.cpp
+# also has an unrelated epoc95 case in the version-to-platform-suffix switch,
+# so a global search for "case epocver::epoc95" is unsafe.
 call_block = (
     f'            LOG_ERROR(KERNEL, "{RUNTIME} epoc95 one-slot diff registering svc=0xAB -> message_construct");\n'
     f"            epoc::{REG}(*this);\n"
 )
-if lib.count(case95) == 1:
-    lib = lib.replace(case95, case95 + call_block, 1)
-else:
-    lib_anchor = """        case epocver::epoc94:
+lib_anchor = """        case epocver::epoc94:
             epoc::register_epocv94(*this);
             break;
 
         case epocver::epoc91:
 """
-    if lib.count(lib_anchor) != 1:
-        raise SystemExit(f"MENUUI10: libmanager epoc94/epoc91 anchor count={lib.count(lib_anchor)}")
-    lib_insert = """        case epocver::epoc94:
+if lib.count(lib_anchor) != 1:
+    raise SystemExit(f"MENUUI10: libmanager SVC registration epoc94/epoc91 anchor count={lib.count(lib_anchor)}")
+lib_insert = """        case epocver::epoc94:
             epoc::register_epocv94(*this);
             break;
 
@@ -148,7 +142,7 @@ else:
 
         case epocver::epoc91:
 """
-    lib = lib.replace(lib_anchor, lib_insert, 1)
+lib = lib.replace(lib_anchor, lib_insert, 1)
 
 # Hard postconditions: the MENUUI10 delta is exactly one slot and prior probes
 # remain present.
