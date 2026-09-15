@@ -180,8 +180,12 @@ inject = r'''if (svcnum == 0xAB) {
 
 '''
 
-# Reindent the injected block to match the existing diagnostic block.
-indented = "".join((indent + row if row else row) for row in inject.splitlines(True))
+# Reindent non-empty injected lines only. Keeping blank lines completely empty
+# makes git diff --check a hard gate without changing the diagnostic semantics.
+indented = "".join(
+    (indent + row if row.strip() else row)
+    for row in inject.splitlines(True)
+)
 lib = lib[:line_start] + indented + lib[line_start:]
 
 for marker in markers:
