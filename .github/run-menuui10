@@ -1,4 +1,3 @@
 MENUUI10 FIX2 auto trigger 2026-09-15
-patcher commit: 670da987940fa06b71a494092f90d109bad4f8b8
-workflow commit: 7b332c027922b804d75bc5bfb718e06adb3981e8
-reason: fix strings pipefail replay marker probe
+patcher commit: 27c5a143ba9b21ee1fd1e807b799a41d330a48b0
+reason: fix svc.h v10 declaration anchor after validated MENUUI9 replay
