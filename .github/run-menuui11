@@ -1,0 +1,4 @@
+MENUUI11 EP94 SVCAB MSGCONSTRUCT1 auto trigger 2026-09-15
+patcher commit: ddbdd48d11f5f6f679a25577d96eacef4cdbe59a
+workflow commit: 716f37fa3b4d9caa2c8376987a4395f99f528f51
+reason: RM-356 runtime is epoc94 in the iOS fork; map observed SVC 0xAB to message_construct while preserving 0xAA and 0xAC
