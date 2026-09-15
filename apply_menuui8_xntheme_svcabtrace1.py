@@ -43,9 +43,17 @@ if any(m in lib for m in markers):
         raise SystemExit(0)
     raise SystemExit("MENUUI8: partial prior patch detected")
 
+# libmanager.cpp does not include mem/ptr.h directly in the frozen upstream.
+# MENUUI8 uses eka2l1::ptr only for read-only diagnostic stack/pointer windows.
+if "#include <mem/ptr.h>" not in lib:
+    include_anchor = "#include <mem/page.h>\n"
+    if lib.count(include_anchor) != 1:
+        raise SystemExit(f"MENUUI8: mem/page include anchor count={lib.count(include_anchor)}")
+    lib = lib.replace(include_anchor, include_anchor + "#include <mem/ptr.h>\n", 1)
+
 # Insert immediately before MENUUI2's SVCMISS log. This keeps the original
-# missing-SVC behavior byte-for-byte at the control-flow level: MENUUI8 only
-# observes state and never dispatches, completes, kills, or rewrites svcnum.
+# missing-SVC behavior unchanged: MENUUI8 only observes state and never
+# dispatches, completes, kills, or rewrites svcnum.
 marker_pos = lib.find('"SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:')
 if marker_pos < 0:
     raise SystemExit("MENUUI8: MENUUI2 SVCMISS string not found")
@@ -185,6 +193,8 @@ for guard in required_lib:
 for guard in required_svc:
     if guard not in svc:
         raise SystemExit("MENUUI8: prior diagnostic chain preservation failed: " + guard)
+if "#include <mem/ptr.h>" not in lib:
+    raise SystemExit("MENUUI8: mem/ptr include guard failed")
 
 lib_path.write_text(lib, encoding="utf-8")
 print("MENUUI8 XNTHEME-SVCABTRACE1 patch applied")
