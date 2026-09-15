@@ -120,29 +120,43 @@ reg = reg.replace(
 
 # 3) Register the delta in the SVC-registration switch only. libmanager.cpp
 # also has an unrelated epoc95 case in the version-to-platform-suffix switch,
-# so a global search for "case epocver::epoc95" is unsafe.
+# so a global search for "case epocver::epoc95" is unsafe. Locate the switch
+# structurally by the unique v94/v10 registrar calls. Older compatibility work
+# may already have an epoc95 case here; preserve its behavior if present.
 call_block = (
     f'            LOG_ERROR(KERNEL, "{RUNTIME} epoc95 one-slot diff registering svc=0xAB -> message_construct");\n'
     f"            epoc::{REG}(*this);\n"
 )
-lib_anchor = """        case epocver::epoc94:
+lib_v94 = """        case epocver::epoc94:
             epoc::register_epocv94(*this);
             break;
-
-        case epocver::epoc91:
 """
-if lib.count(lib_anchor) != 1:
-    raise SystemExit(f"MENUUI10: libmanager SVC registration epoc94/epoc91 anchor count={lib.count(lib_anchor)}")
-lib_insert = """        case epocver::epoc94:
-            epoc::register_epocv94(*this);
+lib_v10 = """        case epocver::epoc10:
+            epoc::register_epocv10(*this);
             break;
-
-        case epocver::epoc95:
-""" + call_block + """            break;
-
-        case epocver::epoc91:
 """
-lib = lib.replace(lib_anchor, lib_insert, 1)
+if lib.count(lib_v94) != 1:
+    raise SystemExit(f"MENUUI10: libmanager SVC registration v94 block count={lib.count(lib_v94)}")
+if lib.count(lib_v10) != 1:
+    raise SystemExit(f"MENUUI10: libmanager SVC registration v10 block count={lib.count(lib_v10)}")
+lib_begin = lib.index(lib_v94)
+lib_end = lib.index(lib_v10, lib_begin) + len(lib_v10)
+lib_registration = lib[lib_begin:lib_end]
+lib_epoc95 = "        case epocver::epoc95:\n"
+if lib_registration.count(lib_epoc95) > 1:
+    raise SystemExit(f"MENUUI10: libmanager SVC registration epoc95 case count={lib_registration.count(lib_epoc95)}")
+if lib_epoc95 in lib_registration:
+    insert_at = lib_begin + lib_registration.index(lib_epoc95) + len(lib_epoc95)
+    lib = lib[:insert_at] + call_block + lib[insert_at:]
+else:
+    insert_at = lib_begin + len(lib_v94)
+    lib = (
+        lib[:insert_at]
+        + "\n        case epocver::epoc95:\n"
+        + call_block
+        + "            break;\n"
+        + lib[insert_at:]
+    )
 
 # Hard postconditions: the MENUUI10 delta is exactly one slot and prior probes
 # remain present.
