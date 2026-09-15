@@ -1,0 +1,215 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI10 EP95 SVCAB DIFF1 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/run-menuui10
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout current package and Git history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Replay validated MENUUI9 baseline
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        SOURCE_COMMIT="f698422a95461a5b239db9998260e717fc0042be"
+        SOURCE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-menuui9-xntheme-msgconstruct1-manual.yml"
+        SOURCE_YML="$RUNNER_TEMP/menuui10-menuui9-source.yml"
+        REPLAY_SCRIPT="$RUNNER_TEMP/menuui10-menuui9-outer-replay.sh"
+
+        git cat-file -e "$SOURCE_COMMIT^{commit}"
+        git show "$SOURCE_COMMIT:$SOURCE_WORKFLOW" > "$SOURCE_YML"
+        test -s "$SOURCE_YML"
+
+        python3 - "$SOURCE_YML" "$REPLAY_SCRIPT" <<'PY_EXTRACT'
+        import sys
+        from pathlib import Path
+
+        source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+        output = Path(sys.argv[2])
+        target = "Replay validated MENUUI2 chain with MENUUI3-8 diagnostics and MENUUI9 semantic fix"
+        matches = []
+        i = 0
+        while i < len(source):
+            if source[i].startswith("    - name:"):
+                name = source[i].split("    - name:", 1)[1].strip()
+                j = i + 1
+                run_index = None
+                while j < len(source) and not source[j].startswith("    - name:"):
+                    if source[j].startswith("      run: |"):
+                        run_index = j
+                        break
+                    j += 1
+                if name == target:
+                    if run_index is None:
+                        raise SystemExit("MENUUI10 FIX2: MENUUI9 replay step has no run block")
+                    k = run_index + 1
+                    body = []
+                    while k < len(source) and not source[k].startswith("    - name:"):
+                        row = source[k]
+                        if row.startswith("        "):
+                            body.append(row[8:])
+                        elif row.strip() == "":
+                            body.append("")
+                        else:
+                            break
+                        k += 1
+                    matches.append("\n".join(body) + "\n")
+                i = j
+            else:
+                i += 1
+        if len(matches) != 1:
+            raise SystemExit(f"MENUUI10 FIX2: expected one MENUUI9 replay step, got {len(matches)}")
+        script = matches[0]
+        required = [
+            'python3 "$GITHUB_WORKSPACE/apply_menuui9_xntheme_msgconstruct1.py" "$UPSTREAM"',
+            "MENUUI9 v10 SVC table semantic gate: PASS",
+            "JAVA-STABLE1 + N-GAGE-STABILITY1-CUBEB1 + COMPAT1-T9AKN1 frozen behavior files: byte-identical PASS",
+        ]
+        missing = [m for m in required if m not in script]
+        if missing:
+            raise SystemExit("MENUUI10 FIX2: pinned MENUUI9 guard failed: " + ", ".join(missing))
+        output.write_text(script, encoding="utf-8")
+        print("MENUUI10 FIX2: pinned MENUUI9 outer replay extracted")
+        PY_EXTRACT
+
+        chmod +x "$REPLAY_SCRIPT"
+        bash -n "$REPLAY_SCRIPT"
+        bash "$REPLAY_SCRIPT"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -d "$APP"
+        test -x "$BIN"
+        strings "$BIN" | grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:'
+        echo 'MENUUI10 FIX2: MENUUI9 baseline build PASS'
+
+    - name: Apply MENUUI10 epoc95 one-slot delta and incremental rebuild
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui10_ep95_svcab_diff1.py"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+
+        test -f "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        python3 - "$UPSTREAM" <<'PY_GATE'
+        from pathlib import Path
+        import sys
+        up = Path(sys.argv[1])
+        svc = (up / "src/emu/kernel/src/svc.cpp").read_text(encoding="utf-8")
+        svc_h = (up / "src/emu/kernel/include/kernel/svc.h").read_text(encoding="utf-8")
+        reg = (up / "src/emu/kernel/src/reg.cpp").read_text(encoding="utf-8")
+        reg_h = (up / "src/emu/kernel/include/kernel/reg.h").read_text(encoding="utf-8")
+        lib = (up / "src/emu/kernel/src/libmanager.cpp").read_text(encoding="utf-8")
+        MAP = "svc_register_funcs_menuui10_epoc95_diff"
+        REG = "register_epocv95_menuui10"
+        a = svc.index(f"    const eka2l1::hle::func_map {MAP} = {{")
+        b = svc.index("    const eka2l1::hle::func_map svc_register_funcs_v94 = {", a)
+        d = svc[a:b]
+        assert d.count("BRIDGE_REGISTER(") == 1
+        assert d.count("BRIDGE_REGISTER(0xAB, message_construct)") == 1
+        assert "0xAC" not in d and "0xAD" not in d
+        assert f"extern const eka2l1::hle::func_map {MAP};" in svc_h
+        assert f"void {REG}(eka2l1::hle::lib_manager &mngr);" in reg_h
+        assert f"ADD_SVC_REGISTERS(mngr, {MAP});" in reg
+        assert f"epoc::{REG}(*this);" in lib
+        assert lib.count("SYMBIAN-SYSTEMAPPS1 MENUUI10 EP95_SVCAB_REG:") == 1
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_SEND:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:",
+        ]:
+            assert marker in svc
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI8 XNTHEME_SVCAB:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI8 SVCAB_REGFRAME:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI8 SVCAB_STACK:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI8 SVCAB_PTR:",
+        ]:
+            assert marker in lib
+        print("MENUUI10 FIX2 unique one-slot source gate: PASS")
+        PY_GATE
+
+        git -C "$UPSTREAM" diff --check
+        cmake --build "$UPSTREAM/build-ios-device" --parallel 4
+
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/menuui10-fix2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI10 EP95_SVCAB_REG:' "$RUNNER_TEMP/menuui10-fix2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:' "$RUNNER_TEMP/menuui10-fix2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI8 XNTHEME_SVCAB:' "$RUNNER_TEMP/menuui10-fix2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_SEND:' "$RUNNER_TEMP/menuui10-fix2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:' "$RUNNER_TEMP/menuui10-fix2.strings"
+        echo 'MENUUI10 FIX2 incremental rebuild + binary markers: PASS'
+
+    - name: Package MENUUI10 EP95 SVCAB DIFF1 unsigned IPA
+      working-directory: upstream
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        APP="build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        IPA="EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI10-EP95-SVCAB-DIFF1-unsigned.ipa"
+        STAGE="ipa-stage-menuui10-ep95-svcab-diff1"
+        IPA_LIST="$RUNNER_TEMP/menuui10-fix2.ipa-list.txt"
+
+        test -d "$APP"
+        test -x "$BIN"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "../$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        test -s "$IPA"
+        shasum -a 256 "$IPA"
+        echo 'MENUUI10 EP95 SVCAB DIFF1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI10 EP95 SVCAB DIFF1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI10-EP95-SVCAB-DIFF1-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI10-EP95-SVCAB-DIFF1-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI10-EP95-SVCAB-DIFF1-diagnostic-log
+        path: eka2l1-java-build.log
+        if-no-files-found: warn
+        retention-days: 14
