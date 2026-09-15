@@ -1,3 +1,3 @@
 MENUUI10 FIX2 auto trigger 2026-09-15
-patcher commit: e5d8e7996901a3e165b8976409489aac54f61cdc
-reason: fix svc.h v10 declaration anchor and target libmanager SVC-registration switch only
+patcher commit: 3f7fb5b4bd3a8ae67818fd6be6100bd9a96d3801
+reason: structurally target SVC registration switch and preserve any pre-existing epoc95 behavior
