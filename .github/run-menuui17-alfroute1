@@ -1,0 +1,4 @@
+MENUUI17 ALFROUTE1
+Trigger: 2026-09-16
+Authority: MENUUI16 clean tap confirmed FAIL to activate icon
+Diagnostic target: ALF EAlfGetPointerEvent opcode 7 ARM -> COPY -> COMPLETE -> ALF/Hui stack
