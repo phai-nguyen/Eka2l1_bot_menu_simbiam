@@ -1,0 +1,139 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI14 INPUTDISPATCH1 FIX2 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/run-menuui14-fix2
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout current package and Git history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Replay MENUUI14 workflow with FIX2 patcher
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        SOURCE_COMMIT="dc8adb4ab5dfbe6d66424a430bb139ce69a38ed4"
+        SOURCE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-menuui14-inputdispatch1.yml"
+        SOURCE_YML="$RUNNER_TEMP/menuui14-fix2-source.yml"
+        EXTRACT_DIR="$RUNNER_TEMP/menuui14-fix2-steps"
+
+        git cat-file -e "$SOURCE_COMMIT^{commit}"
+        git show "$SOURCE_COMMIT:$SOURCE_WORKFLOW" > "$SOURCE_YML"
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+
+        python3 - "$SOURCE_YML" "$EXTRACT_DIR" <<'PY_EXTRACT'
+        import json
+        import sys
+        from pathlib import Path
+
+        source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+        out = Path(sys.argv[2])
+        wanted = [
+            "Replay validated MENUUI13 device authority build chain",
+            "Apply MENUUI14 INPUTDISPATCH1 diagnostic-only traces",
+            "Package MENUUI14 INPUTDISPATCH1 unsigned IPA",
+        ]
+        found = {}
+        i = 0
+        while i < len(source):
+            if not source[i].startswith("    - name:"):
+                i += 1
+                continue
+            name = source[i].split("    - name:", 1)[1].strip()
+            j = i + 1
+            run_index = None
+            while j < len(source) and not source[j].startswith("    - name:"):
+                if source[j].startswith("      run: |"):
+                    run_index = j
+                    break
+                j += 1
+            if name in wanted:
+                if run_index is None:
+                    raise SystemExit(f"MENUUI14 FIX2: missing run block: {name}")
+                k = run_index + 1
+                body = []
+                while k < len(source) and not source[k].startswith("    - name:"):
+                    row = source[k]
+                    if row.startswith("        "):
+                        body.append(row[8:])
+                    elif row.strip() == "":
+                        body.append("")
+                    else:
+                        break
+                    k += 1
+                found[name] = "\n".join(body) + "\n"
+            i = max(j, i + 1)
+
+        missing = [x for x in wanted if x not in found]
+        if missing:
+            raise SystemExit("MENUUI14 FIX2: missing template steps: " + ", ".join(missing))
+
+        # Only build-time difference from run #1: use the scoped-anchor wrapper.
+        found[wanted[1]] = found[wanted[1]].replace(
+            'PATCHER="$GITHUB_WORKSPACE/apply_menuui14_inputdispatch1.py"',
+            'PATCHER="$GITHUB_WORKSPACE/apply_menuui14_inputdispatch1_fix2.py"',
+            1,
+        )
+
+        for idx, name in enumerate(wanted, 1):
+            (out / f"step{idx}.sh").write_text("#!/usr/bin/env bash\n" + found[name], encoding="utf-8")
+            (out / f"step{idx}.json").write_text(json.dumps({"name": name}), encoding="utf-8")
+        print("MENUUI14 FIX2: extracted template steps and swapped diagnostic patcher")
+        PY_EXTRACT
+
+        for n in 1 2 3; do
+          SCRIPT="$EXTRACT_DIR/step${n}.sh"
+          META="$EXTRACT_DIR/step${n}.json"
+          NAME="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$META")"
+          chmod +x "$SCRIPT"
+          echo "=== MENUUI14 FIX2: $NAME ==="
+          (cd "$GITHUB_WORKSPACE" && bash "$SCRIPT")
+        done
+
+        echo "MENUUI14 INPUTDISPATCH1 FIX2: all replay/apply/package steps PASS"
+
+    - name: Upload MENUUI14 FIX2 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-FIX2-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI14 FIX2 source audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-FIX2-AUDIT
+        path: |
+          MENUUI14-INPUTDISPATCH1-source.diff
+          MENUUI14-INPUTDISPATCH1-BUILD-AUDIT.txt
+          MENUUI14-INPUTDISPATCH1-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-FIX2-diagnostic-log
+        path: eka2l1-java-build.log
+        if-no-files-found: warn
+        retention-days: 14
