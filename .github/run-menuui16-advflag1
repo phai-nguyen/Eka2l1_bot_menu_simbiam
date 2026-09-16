@@ -1,0 +1,2 @@
+MENUUI16 ADVFLAG1 A/B build 2026-09-16
+Force make_mouse_event modifier=0 while preserving MENUUI13-15 diagnostics.
