@@ -101,6 +101,7 @@ jobs:
         BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
         WINDOW="$UPSTREAM/src/emu/services/src/window/window.cpp"
         IO="$UPSTREAM/src/emu/services/src/window/io.cpp"
+        FIFO="$UPSTREAM/src/emu/services/src/window/fifo.cpp"
         WINUSER="$UPSTREAM/src/emu/services/src/window/classes/winuser.cpp"
         OP="$UPSTREAM/src/emu/services/include/services/window/op.h"
 
@@ -108,21 +109,22 @@ jobs:
         python3 -m py_compile "$PATCHER"
         python3 "$PATCHER" "$UPSTREAM"
 
-        python3 - "$WINDOW" "$IO" "$WINUSER" "$OP" <<'PY_GATE'
+        python3 - "$WINDOW" "$IO" "$FIFO" "$WINUSER" "$OP" <<'PY_GATE'
         from pathlib import Path
         import sys
 
-        window, io, winuser, op = [Path(p).read_text(encoding="utf-8") for p in sys.argv[1:]]
+        window, io, fifo, winuser, op = [Path(p).read_text(encoding="utf-8") for p in sys.argv[1:]]
 
         # Device-proven MENUUI14 path must remain present.
-        for marker in [
-            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_POINTER:",
-            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_HIT:",
-            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_FIFO_ENQUEUE:",
-            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_WAKE:",
-            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:",
+        # INPUT_WAKE is emitted by fifo.cpp; validate each marker in its owner.
+        for source, marker in [
+            (window, "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_POINTER:"),
+            (io, "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_HIT:"),
+            (io, "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_FIFO_ENQUEUE:"),
+            (fifo, "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_WAKE:"),
+            (window, "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:"),
         ]:
-            assert marker in (window + io), marker
+            assert marker in source, marker
 
         # Static semantic gap under investigation.
         assert "EWsWinOpEnableAdvancedPointers" in op
