@@ -1,3 +1,4 @@
-MENUUI13 FS-DIRUID1 trigger
-Semantic fix: KEntryAttAllowUid must preserve directory entries, matching Symbian FileServer ROM/ROFS behavior.
+MENUUI13 FS-DIRUID1 FIX2 trigger
+Semantic fix: KEntryAttAllowUid must preserve directory entries at both FileServer open_dir and physical_directory UID probing layers.
+Symbian authority: UID reads apply only to non-directory entries.
 Baseline: MENUUI11 authority + MENUUI12 diagnostics preserved.
