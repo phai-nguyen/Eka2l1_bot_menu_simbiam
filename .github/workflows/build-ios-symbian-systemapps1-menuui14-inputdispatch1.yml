@@ -1,0 +1,322 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI14 INPUTDISPATCH1 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/run-menuui14
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout current package and Git history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Replay validated MENUUI13 device authority build chain
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        SOURCE_COMMIT="ae659f7df9cfa4d60edf47f2a2ff9383f8e4aaae"
+        SOURCE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-menuui13-fs-diruid1.yml"
+        SOURCE_YML="$RUNNER_TEMP/menuui14-menuui13-source.yml"
+        EXTRACT_DIR="$RUNNER_TEMP/menuui14-menuui13-steps"
+
+        git cat-file -e "$SOURCE_COMMIT^{commit}"
+        git show "$SOURCE_COMMIT:$SOURCE_WORKFLOW" > "$SOURCE_YML"
+        test -s "$SOURCE_YML"
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+
+        python3 - "$SOURCE_YML" "$EXTRACT_DIR" <<'PY_EXTRACT'
+        import json
+        import sys
+        from pathlib import Path
+
+        source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+        out = Path(sys.argv[2])
+        wanted = [
+            "Replay validated MENUUI12 build chain",
+            "Apply MENUUI13 FileServer KEntryAttAllowUid directory semantics",
+        ]
+        found = {}
+        i = 0
+        while i < len(source):
+            if not source[i].startswith("    - name:"):
+                i += 1
+                continue
+            name = source[i].split("    - name:", 1)[1].strip()
+            j = i + 1
+            wd = None
+            run_index = None
+            while j < len(source) and not source[j].startswith("    - name:"):
+                stripped = source[j].strip()
+                if stripped.startswith("working-directory:"):
+                    wd = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+                if source[j].startswith("      run: |"):
+                    run_index = j
+                    break
+                j += 1
+            if name in wanted:
+                if run_index is None:
+                    raise SystemExit(f"MENUUI14: source step has no run block: {name}")
+                k = run_index + 1
+                body = []
+                while k < len(source) and not source[k].startswith("    - name:"):
+                    row = source[k]
+                    if row.startswith("        "):
+                        body.append(row[8:])
+                    elif row.strip() == "":
+                        body.append("")
+                    else:
+                        break
+                    k += 1
+                found[name] = {"working_directory": wd, "body": "\n".join(body) + "\n"}
+            i = max(j, i + 1)
+
+        missing = [name for name in wanted if name not in found]
+        if missing:
+            raise SystemExit("MENUUI14: missing MENUUI13 replay steps: " + ", ".join(missing))
+
+        for idx, name in enumerate(wanted, 1):
+            info = found[name]
+            (out / f"step{idx}.sh").write_text("#!/usr/bin/env bash\n" + info["body"], encoding="utf-8")
+            (out / f"step{idx}.json").write_text(
+                json.dumps({"name": name, "working_directory": info["working_directory"]}),
+                encoding="utf-8",
+            )
+        print("MENUUI14: extracted frozen MENUUI13 replay/apply steps")
+        PY_EXTRACT
+
+        for n in 1 2; do
+          META="$EXTRACT_DIR/step${n}.json"
+          SCRIPT="$EXTRACT_DIR/step${n}.sh"
+          chmod +x "$SCRIPT"
+          WD="$(python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); print(x.get("working_directory") or "")' "$META")"
+          NAME="$(python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); print(x["name"])' "$META")"
+          echo "=== MENUUI14 replay: $NAME ==="
+          if [ -n "$WD" ]; then
+            (cd "$GITHUB_WORKSPACE/$WD" && bash "$SCRIPT")
+          else
+            (cd "$GITHUB_WORKSPACE" && bash "$SCRIPT")
+          fi
+        done
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/menuui14-menuui13-baseline.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:' "$RUNNER_TEMP/menuui14-menuui13-baseline.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COMPLETE:' "$RUNNER_TEMP/menuui14-menuui13-baseline.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COPY:' "$RUNNER_TEMP/menuui14-menuui13-baseline.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI11 EP94_MSGCONSTRUCT:' "$RUNNER_TEMP/menuui14-menuui13-baseline.strings"
+        echo 'MENUUI14: validated MENUUI13 authority replay PASS'
+
+    - name: Apply MENUUI14 INPUTDISPATCH1 diagnostic-only traces
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui14_inputdispatch1.py"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        LIB="$UPSTREAM/src/emu/kernel/src/libmanager.cpp"
+        DIRS="$UPSTREAM/src/emu/services/src/fs/dirs.cpp"
+        VFS="$UPSTREAM/src/emu/vfs/src/vfs.cpp"
+        EVIEW="$UPSTREAM/src/emu/ios/app/EmulatorView.mm"
+        WINDOW="$UPSTREAM/src/emu/services/src/window/window.cpp"
+        IO="$UPSTREAM/src/emu/services/src/window/io.cpp"
+        FIFO="$UPSTREAM/src/emu/services/src/window/fifo.cpp"
+
+        test -f "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        python3 - "$SVC" "$LIB" "$DIRS" "$VFS" "$EVIEW" "$WINDOW" "$IO" "$FIFO" <<'PY_GATE'
+        from pathlib import Path
+        import sys
+
+        svc, lib, dirs, vfs, eview, window, io, fifo = [
+            Path(p).read_text(encoding="utf-8") for p in sys.argv[1:]
+        ]
+
+        # Frozen real-device authority must survive unchanged.
+        a = svc.index("    const eka2l1::hle::func_map svc_register_funcs_v94 = {")
+        b = svc.index("    const eka2l1::hle::func_map svc_register_funcs_v93 = {", a)
+        v94 = svc[a:b]
+        assert v94.count("BRIDGE_REGISTER(0xAB, message_construct)") == 1
+        assert "BRIDGE_REGISTER(0xAA," not in v94
+        assert v94.count("BRIDGE_REGISTER(0xAC, message_kill)") == 1
+
+        assert "MENUUI13 FS-DIRUID1: KEntryAttAllowUid preserves directory entries" in dirs
+        assert "SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:" in dirs
+        assert "MENUUI13 FS-DIRUID1: UID probing applies only to regular files" in vfs
+
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COMPLETE:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COPY:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI11 EP94_MSGCONSTRUCT:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI9 MSGCONSTRUCT:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI7 IPC_SEND:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI6 NEGIPC: path=LLE",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI6 LEAVE_NEG1:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI5 SELFKILL:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI4 THREADKILL:",
+        ]:
+            assert marker in svc, marker
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI10 EP95_SVCAB_REG:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI8 XNTHEME_SVCAB:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:",
+        ]:
+            assert marker in lib, marker
+
+        # Exact frozen-source audit requested after MENUUI13: do not infer from current master.
+        print("MENUUI14 frozen EmulatorView _touchSlots:", "PRESENT" if "_touchSlots" in eview else "ABSENT")
+
+        for marker in [
+            "MENUUI14 INPUT_SRC:",
+            "MENUUI14 INPUT_QUEUE:",
+            "MENUUI14 INPUT_SCREEN:",
+            "MENUUI14 INPUT_POINTER:",
+            "MENUUI14 INPUT_EVENTREADY_ARM:",
+            "MENUUI14 INPUT_GET:",
+            "MENUUI14 INPUT_HITTEST:",
+            "MENUUI14 INPUT_HIT:",
+            "MENUUI14 INPUT_FIFO_ENQUEUE:",
+            "MENUUI14 INPUT_FIFO:",
+            "MENUUI14 INPUT_WAKE:",
+        ]:
+            joined = "\n".join([eview, window, io, fifo])
+            assert marker in joined, marker
+
+        print("MENUUI14 INPUTDISPATCH1 source + authority gates: PASS")
+        PY_GATE
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI14-INPUTDISPATCH1-source.diff"
+
+        {
+          echo "MENUUI14 INPUTDISPATCH1 BUILD AUDIT"
+          echo "authority_workflow_commit=ae659f7df9cfa4d60edf47f2a2ff9383f8e4aaae"
+          echo "authority_workflow=.github/workflows/build-ios-symbian-systemapps1-menuui13-fs-diruid1.yml"
+          echo "upstream_head=$(git -C "$UPSTREAM" rev-parse HEAD)"
+          if grep -Fq '_touchSlots' "$EVIEW"; then
+            echo "frozen_emulatorview_touchslots=PRESENT"
+          else
+            echo "frozen_emulatorview_touchslots=ABSENT"
+          fi
+          echo "epoc94_0xAA=UNMAPPED"
+          echo "epoc94_0xAB=message_construct"
+          echo "epoc94_0xAC=message_kill"
+          echo "menuui13_fs_diruid1=PRESERVED"
+          echo "behavior_change=NONE_DIAGNOSTIC_ONLY"
+        } > "$GITHUB_WORKSPACE/MENUUI14-INPUTDISPATCH1-BUILD-AUDIT.txt"
+
+        cmake --build "$UPSTREAM/build-ios-device" --parallel 4
+
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/menuui14.binary.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+
+        # Previous authority markers.
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COMPLETE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COPY:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI11 EP94_MSGCONSTRUCT:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI2 SVCMISS:' "$STRINGS_OUT"
+
+        # MENUUI14 input chain markers.
+        for marker in \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_SRC:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_BRIDGE:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_DRIVER:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_RENDER:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_QUEUE:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_SCREEN:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_SCREEN_DROP:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_POINTER:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_HITTEST:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_POINTERAREA_DROP:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_HIT:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_FIFO_ENQUEUE:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_FIFO:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_WAKE:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_EVENTREADY_ARM:' \
+          'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:'
+        do
+          grep -Fq "$marker" "$STRINGS_OUT"
+        done
+
+        echo 'MENUUI14 binary + preserved authority gates: PASS'
+
+    - name: Package MENUUI14 INPUTDISPATCH1 unsigned IPA
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui14"
+        IPA_LIST="$RUNNER_TEMP/menuui14.ipa-list.txt"
+
+        test -d "$APP"
+        test -x "$BIN"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        test -s "$IPA"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI14-INPUTDISPATCH1-IPA-SHA256.txt"
+        echo 'MENUUI14 INPUTDISPATCH1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI14 INPUTDISPATCH1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI14 source audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-AUDIT
+        path: |
+          MENUUI14-INPUTDISPATCH1-source.diff
+          MENUUI14-INPUTDISPATCH1-BUILD-AUDIT.txt
+          MENUUI14-INPUTDISPATCH1-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI14-INPUTDISPATCH1-diagnostic-log
+        path: eka2l1-java-build.log
+        if-no-files-found: warn
+        retention-days: 14
