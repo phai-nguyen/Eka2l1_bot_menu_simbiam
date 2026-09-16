@@ -7,13 +7,15 @@ if len(sys.argv) != 2:
 
 up = Path(sys.argv[1])
 dirs_path = up / "src/emu/services/src/fs/dirs.cpp"
+vfs_path = up / "src/emu/vfs/src/vfs.cpp"
 svc_path = up / "src/emu/kernel/src/svc.cpp"
 lib_path = up / "src/emu/kernel/src/libmanager.cpp"
-for p in (dirs_path, svc_path, lib_path):
+for p in (dirs_path, vfs_path, svc_path, lib_path):
     if not p.is_file():
         raise SystemExit("MENUUI13: required source file missing: " + str(p))
 
 dirs = dirs_path.read_text(encoding="utf-8")
+vfs = vfs_path.read_text(encoding="utf-8")
 svc = svc_path.read_text(encoding="utf-8")
 lib = lib_path.read_text(encoding="utf-8")
 
@@ -55,20 +57,22 @@ if "BRIDGE_REGISTER(0xAA," in v94:
 if v94.count("BRIDGE_REGISTER(0xAC, message_kill)") != 1:
     raise SystemExit("MENUUI13: epoc94 0xAC authority missing")
 
-semantic_marker = "MENUUI13 FS-DIRUID1: KEntryAttAllowUid preserves directory entries"
+dirs_marker = "MENUUI13 FS-DIRUID1: KEntryAttAllowUid preserves directory entries"
+vfs_marker = "MENUUI13 FS-DIRUID1: UID probing applies only to regular files"
 runtime_marker = "SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:"
-if semantic_marker in dirs or runtime_marker in dirs:
-    if semantic_marker in dirs and runtime_marker in dirs:
-        print("MENUUI13 FS-DIRUID1 already present")
+if dirs_marker in dirs or runtime_marker in dirs or vfs_marker in vfs:
+    if dirs_marker in dirs and runtime_marker in dirs and vfs_marker in vfs:
+        print("MENUUI13 FS-DIRUID1 FIX2 already present")
         raise SystemExit(0)
     raise SystemExit("MENUUI13: partial prior patch detected")
 
-old = '''        if (attrib_raw & epoc::fs::entry_att_allow_uid) {
+# Part 1: KEntryAttAllowUid must not remove directory entries at FileServer open.
+old_dirs = '''        if (attrib_raw & epoc::fs::entry_att_allow_uid) {
             attrib |= io_attrib_allow_uid;
             attrib &= ~io_attrib_include_dir;
         }
 '''
-new = '''        if (attrib_raw & epoc::fs::entry_att_allow_uid) {
+new_dirs = '''        if (attrib_raw & epoc::fs::entry_att_allow_uid) {
             // MENUUI13 FS-DIRUID1: KEntryAttAllowUid preserves directory entries.
             // Symbian FileServer uses this flag to request/read UID information for
             // non-directory entries; it does not remove directories from RDir.
@@ -83,19 +87,38 @@ new = '''        if (attrib_raw & epoc::fs::entry_att_allow_uid) {
                 (attrib & io_attrib_include_dir) ? 1 : 0);
         }
 '''
-if dirs.count(old) != 1:
-    raise SystemExit(f"MENUUI13: allow_uid semantic anchor count={dirs.count(old)}")
-dirs = dirs.replace(old, new, 1)
+if dirs.count(old_dirs) != 1:
+    raise SystemExit(f"MENUUI13: allow_uid open_dir anchor count={dirs.count(old_dirs)}")
+dirs = dirs.replace(old_dirs, new_dirs, 1)
 
-# Hard postconditions: the obsolete directory suppression must be gone, the
-# semantic change must exist exactly once, and all SVC/diagnostic authority is
-# untouched.
-if "attrib &= ~io_attrib_include_dir;" in dirs[dirs.index("void fs_server_client::open_dir"):dirs.index("void fs_server_client::close_dir")]:
-    raise SystemExit("MENUUI13: obsolete allow_uid directory suppression survived")
-if dirs.count(semantic_marker) != 1 or dirs.count(runtime_marker) != 1:
-    raise SystemExit("MENUUI13: source/runtime marker postcondition failed")
+# Part 2: even when include_dir is preserved, the physical-directory iterator
+# must not try to open a directory as a file to read TUidType. Symbian ROM,
+# ROFS and FAT all gate UID reads to non-directory entries.
+old_vfs = '''                    if ((attribute & io_attrib_include_file) && (attribute & io_attrib_allow_uid)) {
+                        epoc::uid_type temp_uid;
+'''
+new_vfs = '''                    // MENUUI13 FS-DIRUID1: UID probing applies only to regular files.
+                    if ((entry.type == common::FILE_REGULAR) && (attribute & io_attrib_include_file) && (attribute & io_attrib_allow_uid)) {
+                        epoc::uid_type temp_uid;
+'''
+if vfs.count(old_vfs) != 1:
+    raise SystemExit(f"MENUUI13: physical_directory UID anchor count={vfs.count(old_vfs)}")
+vfs = vfs.replace(old_vfs, new_vfs, 1)
 
-# Re-check frozen SVC authority after the service-only edit.
+# Hard postconditions: both independent directory-suppression mechanisms are
+# gone, the semantic change exists exactly once at each layer, and all prior
+# SVC/diagnostic authority is untouched.
+open_dir_block = dirs[dirs.index("void fs_server_client::open_dir"):dirs.index("void fs_server_client::close_dir")]
+if "attrib &= ~io_attrib_include_dir;" in open_dir_block[open_dir_block.index("entry_att_allow_uid"):]:
+    raise SystemExit("MENUUI13: obsolete open_dir directory suppression survived")
+if dirs.count(dirs_marker) != 1 or dirs.count(runtime_marker) != 1:
+    raise SystemExit("MENUUI13: FileServer source/runtime marker postcondition failed")
+if vfs.count(vfs_marker) != 1:
+    raise SystemExit("MENUUI13: VFS marker postcondition failed")
+if "if ((attribute & io_attrib_include_file) && (attribute & io_attrib_allow_uid))" in vfs:
+    raise SystemExit("MENUUI13: unguarded physical_directory UID probe survived")
+
+# Re-check frozen SVC authority after the service/VFS-only edit.
 a = svc.index(v94_begin_marker)
 b = svc.index(v93_begin_marker, a)
 v94 = svc[a:b]
@@ -104,4 +127,5 @@ assert "BRIDGE_REGISTER(0xAA," not in v94
 assert v94.count("BRIDGE_REGISTER(0xAC, message_kill)") == 1
 
 dirs_path.write_text(dirs, encoding="utf-8")
-print("MENUUI13 FS-DIRUID1 semantic patch applied")
+vfs_path.write_text(vfs, encoding="utf-8")
+print("MENUUI13 FS-DIRUID1 FIX2 semantic patch applied")
