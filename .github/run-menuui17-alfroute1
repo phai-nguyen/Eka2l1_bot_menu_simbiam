@@ -1,5 +1,7 @@
 MENUUI17 ALFROUTE1
-Trigger: 2026-09-16 FIX3
-Authority: MENUUI17 RUN2 result anchor count=0 after frozen MENUUI16 replay
-Diagnostic target: ALF EAlfGetPointerEvent opcode 7 ARM -> COPY -> COMPLETE -> ALF/Hui stack
-Patcher fix: EKA2 entry scope + EKA2-specific do_ipc_manipulation result-line anchor + ALF_PTR_COPY marker count
+Trigger: 2026-09-16 FIX4
+Authority failure: run 35113497254 reached frozen MENUUI16 PASS then failed with message_ipc_copy result anchor count=0
+Follow-up FIX3 issue: escaped triple-quote meta-match could not find the frozen result-anchor definition
+FIX4: scope EKA2 result line directly, shorten only the frozen anchor payload, remove duplicated unref/return only inside frozen copy_result replacement block
+Diagnostic target: ALF EAlfGetPointerEvent opcode 7 ARM -> COPY -> WORD -> COMPLETE -> ALF/Hui stack
+Behavior change: NONE; preserve MENUUI13-16
