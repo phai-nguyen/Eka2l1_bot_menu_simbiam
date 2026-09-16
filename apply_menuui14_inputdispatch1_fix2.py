@@ -19,7 +19,7 @@ if len(pattern.findall(text)) != 1:
 q = "'" * 3
 lines = [
     '# 5d) If touch is rejected after clamp/hit test, state it explicitly.',
-    '# FIX2: scope the generic shipped/break anchor to the touch switch block.',
+    '# FIX2: scope the generic shipped/break anchor to the outer touch switch block.',
     'old = ' + q + '                shipped = true;',
     '            }',
     '',
@@ -39,7 +39,13 @@ lines = [
     q,
     'window_text = src["window"]',
     'touch_begin = window_text.index("        case drivers::input_event_type::touch: {")',
-    'touch_end = window_text.index("        default:", touch_begin)',
+    'outer_default = re.search(',
+    '    r\'\\n        default:\\s*\\n\\s*LOG_ERROR\\(SERVICE_WINDOW, "Unknown driver event type \\{\\}"\',',
+    '    window_text[touch_begin:],',
+    ')',
+    'if not outer_default:',
+    '    raise SystemExit("MENUUI14 FIX2: outer driver-event default anchor not found")',
+    'touch_end = touch_begin + outer_default.start()',
     'touch_block = window_text[touch_begin:touch_end]',
     'count = touch_block.count(old)',
     'if count != 1:',
