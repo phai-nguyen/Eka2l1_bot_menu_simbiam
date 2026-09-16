@@ -55,9 +55,36 @@ lines = [
     '',
 ]
 replacement = "\n".join(lines)
-
 patched = pattern.sub(lambda _: replacement, text, count=1)
-print("MENUUI14 INPUTDISPATCH1 FIX2: scoped touch-case anchor applied")
+
+# The base postcondition assumed every diagnostic marker is unique. Three markers
+# intentionally occur in two mutually exclusive branches: INPUT_DRIVER (no winserv
+# vs normal), INPUT_QUEUE (server unloaded vs normal), and INPUT_GET (touch vs
+# non-touch). Correct only the validation counts; this does not change emulator behavior.
+post_old = '''for name, markers in expected.items():
+    for marker in markers:
+        if src[name].count(marker) != 1:
+            raise SystemExit(f"MENUUI14: marker postcondition failed {name}: {marker}")
+'''
+post_new = '''expected_counts = {
+    ("thread", "MENUUI14 INPUT_DRIVER:"): 2,
+    ("window", "MENUUI14 INPUT_QUEUE:"): 2,
+    ("window", "MENUUI14 INPUT_GET:"): 2,
+}
+for name, markers in expected.items():
+    for marker in markers:
+        got = src[name].count(marker)
+        want = expected_counts.get((name, marker), 1)
+        if got != want:
+            raise SystemExit(
+                f"MENUUI14: marker postcondition failed {name}: {marker} count={got} expected={want}"
+            )
+'''
+if patched.count(post_old) != 1:
+    raise SystemExit(f"MENUUI14 FIX2: base postcondition block count={patched.count(post_old)}")
+patched = patched.replace(post_old, post_new, 1)
+
+print("MENUUI14 INPUTDISPATCH1 FIX2: scoped touch-case anchor + marker-count gates applied")
 code = compile(patched, str(base) + "<FIX2>", "exec")
 g = {"__name__": "__main__", "__file__": str(base), "__package__": None}
 exec(code, g, g)
