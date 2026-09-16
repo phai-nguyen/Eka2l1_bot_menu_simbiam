@@ -1,0 +1,6 @@
+MENUUI18 CLIENTWAKE1
+Trigger: 2026-09-17 initial diagnostic build
+Authority: MENUUI17 FIX5 successful run 35126227092, head f4e0c4420885ed81432acb2f9a31038f66e84ac0
+Target: Menu UID 0x101F4CD2, ALF EAlfGetPointerEvent opcode 7
+Trace: request-status before/after set, request-count before/after signal_request, Menu WaitForAnyRequest before/after call, existing MENUUI17 re-arm marker
+Behavior change: NONE; preserve MENUUI13-17
