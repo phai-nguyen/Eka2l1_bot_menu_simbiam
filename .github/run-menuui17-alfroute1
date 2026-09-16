@@ -1,5 +1,5 @@
 MENUUI17 ALFROUTE1
-Trigger: 2026-09-16 FIX2
-Authority: MENUUI16 clean tap confirmed FAIL to activate icon
+Trigger: 2026-09-16 FIX3
+Authority: MENUUI17 RUN2 result anchor count=0 after frozen MENUUI16 replay
 Diagnostic target: ALF EAlfGetPointerEvent opcode 7 ARM -> COPY -> COMPLETE -> ALF/Hui stack
-Patcher fix: EKA2-first duplicate anchors + ALF_PTR_COPY enter/result marker count
+Patcher fix: EKA2 entry scope + EKA2-specific do_ipc_manipulation result-line anchor + ALF_PTR_COPY marker count
