@@ -1,0 +1,5 @@
+MENUUI19 ACTIVEOBJ1
+Trigger: 2026-09-17
+Authority: MENUUI18 CLIENTWAKE1 device result proves opcode-7 completion status pending->0, signal_request -1->0, and Menu calls WaitForAnyRequest without re-arming opcode 7.
+Diagnostic target: exact CActive object behind request status -> ActiveScheduler queue membership/readiness -> WaitForAnyRequest.
+Behavior change: NONE; preserve MENUUI13-18.
