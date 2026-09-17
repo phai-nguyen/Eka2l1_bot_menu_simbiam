@@ -311,7 +311,7 @@ def strip_cmake(cmake: Path) -> None:
             opens = line.count("(")
             closes = line.count(")")
             if closes > opens:
-                indent = re.match(r"^\\s*", line).group(0)
+                indent = re.match(r"^\s*", line).group(0)
                 stage1.append(indent + (")" * (closes - opens)) + "\n")
             continue
         stage1.append(line)
