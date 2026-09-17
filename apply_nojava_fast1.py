@@ -338,6 +338,33 @@ def strip_cmake(cmake: Path) -> None:
 
     text = re.sub(r"(?m)^\s*#.*(?:J2ME|phoneME|PHONEME).*$\n?", "", text)
 
+    # Final residual scrub. Historical Java patches also leave a few one-line
+    # helper commands (for example diagnostics/messages around PHONEME_R1_LIB)
+    # that are outside the command classes handled above. Remove only lines
+    # containing hard Java-runtime tokens, preserving any structural closing
+    # parenthesis carried by that line so the surrounding CMake command stays
+    # balanced.
+    residual_tokens = (
+        "PHONEME_R1_LIB",
+        "libphoneMECore",
+        "PhoneMEMediaBridge",
+        "J2MEBridge.mm",
+        "J2MEPlayerViewController",
+        "J2MEProfileViewController",
+        "GeneralUser GS SoftSynth",
+    )
+    residual_cleaned: list[str] = []
+    for line in text.splitlines(True):
+        if any(token in line for token in residual_tokens):
+            opens = line.count("(")
+            closes = line.count(")")
+            if closes > opens:
+                indent = re.match(r"^\s*", line).group(0)
+                residual_cleaned.append(indent + (")" * (closes - opens)) + "\n")
+            continue
+        residual_cleaned.append(line)
+    text = "".join(residual_cleaned)
+
     forbidden = [
         "PHONEME_R1_LIB",
         "libphoneMECore",
