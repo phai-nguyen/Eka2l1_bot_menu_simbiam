@@ -1,0 +1,286 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI19 ACTIVEOBJ1 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/run-menuui19-activeobj1
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout project history
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Replay frozen MENUUI18 authority build chain
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        SOURCE_COMMIT="b874f223187da5618dddbf4f726275f645c1a4c4"
+        SOURCE_WORKFLOW=".github/workflows/build-ios-symbian-systemapps1-menuui18-clientwake1.yml"
+        SOURCE_YML="$RUNNER_TEMP/menuui19-menuui18-authority.yml"
+        EXTRACT_DIR="$RUNNER_TEMP/menuui19-menuui18-steps"
+        FROZEN_MENUUI18_PATCHER="$RUNNER_TEMP/apply_menuui18_clientwake1.py"
+
+        git cat-file -e "$SOURCE_COMMIT^{commit}"
+        git show "$SOURCE_COMMIT:$SOURCE_WORKFLOW" > "$SOURCE_YML"
+        git show "$SOURCE_COMMIT:apply_menuui18_clientwake1.py" > "$FROZEN_MENUUI18_PATCHER"
+        test -s "$SOURCE_YML"
+        test -s "$FROZEN_MENUUI18_PATCHER"
+
+        rm -rf "$EXTRACT_DIR"
+        mkdir -p "$EXTRACT_DIR"
+
+        python3 - "$SOURCE_YML" "$EXTRACT_DIR" "$FROZEN_MENUUI18_PATCHER" <<'PY_EXTRACT'
+        import sys
+        from pathlib import Path
+
+        source = Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+        out = Path(sys.argv[2])
+        frozen_menuui18 = sys.argv[3]
+        wanted = [
+            "Replay frozen MENUUI17 authority build chain",
+            "Apply MENUUI18 CLIENTWAKE1 diagnostic traces and rebuild",
+        ]
+
+        found = {}
+        i = 0
+        while i < len(source):
+            if not source[i].startswith("    - name:"):
+                i += 1
+                continue
+            name = source[i].split("    - name:", 1)[1].strip()
+            j = i + 1
+            run_index = None
+            while j < len(source) and not source[j].startswith("    - name:"):
+                if source[j].startswith("      run: |"):
+                    run_index = j
+                    break
+                j += 1
+            if name in wanted:
+                if run_index is None:
+                    raise SystemExit(f"MENUUI19: missing run block: {name}")
+                k = run_index + 1
+                body = []
+                while k < len(source) and not source[k].startswith("    - name:"):
+                    row = source[k]
+                    if row.startswith("        "):
+                        body.append(row[8:])
+                    elif row.strip() == "":
+                        body.append("")
+                    else:
+                        break
+                    k += 1
+                found[name] = "\n".join(body) + "\n"
+            i = max(j, i + 1)
+
+        missing = [name for name in wanted if name not in found]
+        if missing:
+            raise SystemExit("MENUUI19: missing frozen MENUUI18 steps: " + ", ".join(missing))
+
+        found[wanted[1]] = found[wanted[1]].replace(
+            'PATCHER="$GITHUB_WORKSPACE/apply_menuui18_clientwake1.py"',
+            f'PATCHER="{frozen_menuui18}"',
+            1,
+        )
+
+        for idx, name in enumerate(wanted, 1):
+            script = out / f"step{idx}.sh"
+            script.write_text("#!/usr/bin/env bash\n" + found[name], encoding="utf-8")
+            print(f"MENUUI19: extracted authority step {idx}: {name}")
+        PY_EXTRACT
+
+        for n in 1 2; do
+          SCRIPT="$EXTRACT_DIR/step${n}.sh"
+          chmod +x "$SCRIPT"
+          (cd "$GITHUB_WORKSPACE" && bash "$SCRIPT")
+        done
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        WINDOW="$UPSTREAM/src/emu/services/src/window/window.cpp"
+
+        test -x "$BIN"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI16 ADVFLAG1:' "$WINDOW"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_ARM:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_COMPLETE:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_STATUS:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_SIGNAL:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_WAIT:' "$SVC"
+
+        echo 'MENUUI19: frozen MENUUI18 authority replay PASS'
+
+    - name: Apply MENUUI19 ACTIVEOBJ1 diagnostic traces and rebuild
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui19_activeobj1.py"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        WINDOW="$UPSTREAM/src/emu/services/src/window/window.cpp"
+
+        test -f "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+
+        cp "$SVC" "$RUNNER_TEMP/menuui19-svc-before.cpp"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        python3 - "$SVC" "$WINDOW" <<'PY_GATE'
+        from pathlib import Path
+        import sys
+
+        svc = Path(sys.argv[1]).read_text(encoding="utf-8")
+        window = Path(sys.argv[2]).read_text(encoding="utf-8")
+
+        expected = {
+            "SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_TRACK:": 1,
+            "SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_STATE:": 1,
+            "SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_QUEUE:": 1,
+        }
+        for marker, count in expected.items():
+            actual = svc.count(marker)
+            assert actual == count, (marker, actual, count)
+
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_ARM:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_COMPLETE:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_STATUS:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_SIGNAL:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_WAIT:",
+        ]:
+            assert marker in svc, marker
+
+        for marker in [
+            "SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI15 EVENT_GET_FULL:",
+            "SYMBIAN-SYSTEMAPPS1 MENUUI16 ADVFLAG1:",
+        ]:
+            assert marker in window, marker
+
+        assert '#include <utils/guest/actsched.h>' in svc
+        assert 'status->set(val, kern->is_eka1());' in svc
+        assert 'msg->own_thr->signal_request();' in svc
+        assert 'kern->crr_thread()->wait_for_any_request();' in svc
+        assert 'guest_evt_.adv_pointer_evt_.modifier = 0;' in window
+
+        print("MENUUI19 ACTIVEOBJ1 source gates: PASS")
+        PY_GATE
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI19-ACTIVEOBJ1-source.diff"
+        diff -u "$RUNNER_TEMP/menuui19-svc-before.cpp" "$SVC" > "$GITHUB_WORKSPACE/MENUUI19-ACTIVEOBJ1-only.diff" || test $? -eq 1
+
+        {
+          echo "MENUUI19 ACTIVEOBJ1 BUILD AUDIT"
+          echo "menuui18_authority_commit=b874f223187da5618dddbf4f726275f645c1a4c4"
+          echo "menuui17_authority_commit=f4e0c4420885ed81432acb2f9a31038f66e84ac0"
+          echo "upstream_head=$(git -C "$UPSTREAM" rev-parse HEAD)"
+          echo "menuui13_fs_diruid1=PRESERVED"
+          echo "menuui14_inputdispatch1=PRESERVED"
+          echo "menuui15_eventsem1=PRESERVED"
+          echo "menuui16_advflag1=PRESERVED"
+          echo "menuui17_alfroute1=PRESERVED"
+          echo "menuui18_clientwake1=PRESERVED"
+          echo "scope=diagnostic_only_active_object_queue_trace"
+          echo "client_uid=0x101F4CD2"
+          echo "alf_pointer_opcode=7"
+          echo "trace=TRACK_AO_STATE_QUEUE_WAIT"
+          echo "behavior_change=NONE"
+        } > "$GITHUB_WORKSPACE/MENUUI19-ACTIVEOBJ1-BUILD-AUDIT.txt"
+
+        cmake --build "$UPSTREAM/build-ios-device" --parallel 4
+
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/menuui19.binary.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI15 EVENT_GET_FULL:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI16 ADVFLAG1:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_ARM:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI17 ALF_PTR_COMPLETE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_STATUS:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_SIGNAL:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI18 CLIENT_WAIT:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_TRACK:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_STATE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI19 AO_QUEUE:' "$STRINGS_OUT"
+
+        echo 'MENUUI19 ACTIVEOBJ1 binary + preserved authority gates: PASS'
+
+    - name: Package MENUUI19 ACTIVEOBJ1 unsigned IPA
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-java-build.log"
+        touch "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI19-ACTIVEOBJ1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui19-activeobj1"
+        IPA_LIST="$RUNNER_TEMP/menuui19-activeobj1.ipa-list.txt"
+
+        test -d "$APP"
+        test -x "$BIN"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        test -s "$IPA"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI19-ACTIVEOBJ1-IPA-SHA256.txt"
+
+        echo 'MENUUI19 ACTIVEOBJ1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI19 ACTIVEOBJ1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI19-ACTIVEOBJ1-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI19-ACTIVEOBJ1-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI19 ACTIVEOBJ1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI19-ACTIVEOBJ1-AUDIT
+        path: |
+          MENUUI19-ACTIVEOBJ1-source.diff
+          MENUUI19-ACTIVEOBJ1-only.diff
+          MENUUI19-ACTIVEOBJ1-BUILD-AUDIT.txt
+          MENUUI19-ACTIVEOBJ1-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI19-ACTIVEOBJ1-diagnostic-log
+        path: eka2l1-java-build.log
+        if-no-files-found: warn
+        retention-days: 14
