@@ -1,1 +1,1 @@
-Trigger MENUUI22 WAITOWNER1 diagnostic build from MENUUI21 device evidence.
+Trigger MENUUI22 WAITOWNER1 rebuild: preserve frozen before/after behavior call counts; fix run 35224214762 source gate.

@@ -135,11 +135,12 @@ jobs:
         cp "$SVC" "$RUNNER_TEMP/menuui22-svc-before.cpp"
         python3 "$PATCHER" "$UPSTREAM"
 
-        python3 - "$SVC" <<'PY_GATE'
+        python3 - "$RUNNER_TEMP/menuui22-svc-before.cpp" "$SVC" <<'PY_GATE'
         from pathlib import Path
         import sys
 
-        svc = Path(sys.argv[1]).read_text(encoding="utf-8")
+        before = Path(sys.argv[1]).read_text(encoding="utf-8")
+        svc = Path(sys.argv[2]).read_text(encoding="utf-8")
         expected = {
             "SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_SEND:": 1,
             "SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_COMPLETE:": 1,
@@ -167,10 +168,32 @@ jobs:
         ]:
             assert marker in svc, marker
 
-        assert svc.count("kern->crr_thread()->wait_for_any_request();") == 1
-        assert svc.count("msg->own_thr->signal_request();") == 1
-        assert svc.count("status->set(val, kern->is_eka1());") == 1
-        assert svc.count("kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());") == 1
+        # The frozen source also waits in virtual_reality. Preserve whole-file
+        # call counts; only the WaitForAnyRequest bridge must contain one wait.
+        behavior_tokens = [
+            "kern->crr_thread()->wait_for_any_request();",
+            "msg->own_thr->signal_request();",
+            "status->set(val, kern->is_eka1());",
+            "kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());",
+            "kern->call_ipc_complete_callbacks(msg, val);",
+        ]
+        for token in behavior_tokens:
+            before_count = before.count(token)
+            after_count = svc.count(token)
+            assert before_count > 0, ("missing authority call", token)
+            assert after_count == before_count, (
+                "behavior call count changed", token, before_count, after_count
+            )
+            print(f"MENUUI22 preserved call: {token} before={before_count} after={after_count}")
+
+        wait_sig = "    BRIDGE_FUNC(void, wait_for_any_request) {\n"
+        assert svc.count(wait_sig) == 1, "WaitForAnyRequest bridge signature count changed"
+        wait_pos = svc.index(wait_sig)
+        wait_end = svc.find("\n    BRIDGE_FUNC(", wait_pos + len(wait_sig))
+        assert wait_end >= 0, "cannot find end of WaitForAnyRequest bridge"
+        wait_body = svc[wait_pos:wait_end]
+        wait_count = wait_body.count("kern->crr_thread()->wait_for_any_request();")
+        assert wait_count == 1, ("WaitForAnyRequest bridge wait count", wait_count)
         assert "menuui22_post_alf_wait_budget = 6;" in svc
         assert "menuui22_sync_active = true;" in svc
         assert "menuui22_sync_active = false;" in svc
