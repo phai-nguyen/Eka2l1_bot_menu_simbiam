@@ -261,14 +261,11 @@ def strip_unified(unified: Path) -> None:
 def strip_cmake(cmake: Path) -> None:
     text = cmake.read_text(encoding="utf-8")
 
-    stage1: list[str] = []
-    for line in text.splitlines(True):
-        low = line.lower()
-        if "app/j2me/" in low and "ekaunifiedlibraryviewcontroller" not in low:
-            continue
-        stage1.append(line)
-
-    lines = stage1
+    # Parse complete CMake commands before filtering individual app/j2me source
+    # lines. Some historical Java resource blocks close the set(...) command on
+    # the same line as the final resource path, so deleting path lines first can
+    # remove the closing ')' and make an otherwise valid command look unbalanced.
+    lines = text.splitlines(True)
     stage2: list[str] = []
     i = 0
     command_start = re.compile(
@@ -302,6 +299,23 @@ def strip_cmake(cmake: Path) -> None:
         i = j
 
     text = "".join(stage2)
+
+    # Now remove residual Java/J2ME source entries from retained mixed source
+    # lists (notably IOS_APP_SOURCES), while preserving EKAUnifiedLibraryViewController.
+    # If a historical list puts its closing ')' on the same line as a removed
+    # Java entry, keep that structural close so CMake remains balanced.
+    stage1: list[str] = []
+    for line in text.splitlines(True):
+        low = line.lower()
+        if "app/j2me/" in low and "ekaunifiedlibraryviewcontroller" not in low:
+            opens = line.count("(")
+            closes = line.count(")")
+            if closes > opens:
+                indent = re.match(r"^\\s*", line).group(0)
+                stage1.append(indent + (")" * (closes - opens)) + "\n")
+            continue
+        stage1.append(line)
+    text = "".join(stage1)
 
     src_lines = text.splitlines(True)
     cleaned: list[str] = []
