@@ -64,6 +64,9 @@ helper = r'''
 
     static std::uint32_t menuui21_last_logged_msg_id = 0U;
 
+    static codeseg_ptr get_codeseg_from_addr(kernel_system *kern,
+        kernel::process *pr, const std::uint32_t addr, const bool ep);
+
     static bool menuui21_read_u32(kernel::process *pr, const std::uint32_t addr,
         std::uint32_t &value) {
         if (!pr || addr == 0U) {
