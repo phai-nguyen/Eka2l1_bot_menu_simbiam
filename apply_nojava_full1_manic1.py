@@ -439,6 +439,12 @@ def clean_core_j2me(up: Path) -> None:
             f"include={n_inc} member={n_member} init={n_init}"
         )
 
+    # Removing braced methods can leave their leading indentation on an
+    # otherwise empty line. Normalize only trailing horizontal whitespace so
+    # git diff --check remains a hard gate without altering source semantics.
+    h = "\n".join(line.rstrip(" \t") for line in h.split("\n"))
+    cpp = "\n".join(line.rstrip(" \t") for line in cpp.split("\n"))
+
     h_path.write_text(h, encoding="utf-8")
     cpp_path.write_text(cpp, encoding="utf-8")
 
