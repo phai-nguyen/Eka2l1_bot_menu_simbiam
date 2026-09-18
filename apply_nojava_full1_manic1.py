@@ -264,6 +264,18 @@ def clean_controls(app: Path) -> None:
         m = m.replace(old, new)
         s = s.replace(old, new)
 
+    # Strip any remaining historical naming from comments/markers. These three
+    # native files no longer own or expose a Java runtime API.
+    for old, new in (
+        ("J2ME", "Native"),
+        ("j2me", "native"),
+        ("phoneME", "native"),
+        ("PHONEME", "NATIVE"),
+    ):
+        h = h.replace(old, new)
+        m = m.replace(old, new)
+        s = s.replace(old, new)
+
     # Layout 7 was introduced for the old Java frontend; it is now the native
     # Manic layout shared by normal Symbian and N-Gage titles.
     if 'if (layout == 7) return @"Manic";' not in s:
