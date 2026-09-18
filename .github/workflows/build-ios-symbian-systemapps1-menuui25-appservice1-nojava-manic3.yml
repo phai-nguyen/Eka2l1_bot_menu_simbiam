@@ -70,8 +70,10 @@ jobs:
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVER_APPLIST:' "$APPLIST"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_IMPL:' "$APPLIST"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_REG:' "$APPLIST"
-        grep -Fq 'applist_request_init_server_applist = 46' "$OP"
-        grep -Fq 'applist_request_get_service_implementations = 48' "$OP"
+        grep -Fq 'applist_request_init_server_applist' "$OP"
+        grep -Fq 'applist_request_get_service_implementations' "$OP"
+        grep -Fq 'static_assert(applist_request_init_server_applist == 46' "$APPLIST"
+        grep -Fq 'static_assert(applist_request_get_service_implementations == 48' "$APPLIST"
 
         # Preserve proven lineage.
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$OOM"
