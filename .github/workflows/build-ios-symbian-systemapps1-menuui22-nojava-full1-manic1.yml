@@ -2,6 +2,11 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI22 NOJAVA FULL1 MANIC1 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/NOJAVA_FULL1_MANIC1_TRIGGER
 
 permissions:
   contents: read
