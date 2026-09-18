@@ -34,5 +34,12 @@ jobs:
         grep -nEi -C 8 'j2me|get_j2me' upstream/src/emu/system/include/system/epoc.h || true
         echo '===== system epoc.cpp refs ====='
         grep -nEi -C 8 'j2me|get_j2me' upstream/src/emu/system/src/epoc.cpp || true
+        echo '===== targeted compiled-source refs ====='
+        grep -RniE 'j2me::|get_j2me|<j2me/|j2me_[A-Za-z0-9_]*|[[:space:]]j2me[[:space:]]' \
+          upstream/src/emu \
+          --include='*.cpp' --include='*.cc' --include='*.c' --include='*.h' --include='*.hpp' --include='*.mm' --include='*.m' \
+          --exclude-dir=j2me --exclude-dir=android --exclude-dir=ios/app/j2me || true
+        echo '===== CMake target/link refs ====='
+        grep -RniE 'j2me|phoneme' upstream/src/emu --include='CMakeLists.txt' || true
         echo '===== whole source named paths ====='
         find upstream/src/emu -type f | grep -Ei 'j2me|phoneme|java' || true
