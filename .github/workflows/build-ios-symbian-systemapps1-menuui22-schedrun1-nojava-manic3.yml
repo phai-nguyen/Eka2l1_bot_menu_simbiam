@@ -2,6 +2,11 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI22 SCHEDRUN1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/MENUUI22_SCHEDRUN1_TRIGGER
 
 permissions:
   contents: read
