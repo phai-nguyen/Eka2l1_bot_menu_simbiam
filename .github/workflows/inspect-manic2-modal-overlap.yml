@@ -26,6 +26,8 @@ jobs:
         set -euo pipefail
         test "${{ steps.cache.outputs.cache-hit }}" = "true"
         ROOT=upstream/src/emu/ios/app/RootViewController.mm
+        echo '===== ROOT HEAD / GAMEMENU CLASS ====='
+        sed -n '1,150p' "$ROOT"
         echo '===== CONTROL PROPERTIES / SETUP ====='
         grep -nE -C 8 'controlsView|manicArtworkView|applyControls|gameRunning' "$ROOT" | head -n 360 || true
         echo '===== GAME MENU / LAYOUT PICKER ====='
