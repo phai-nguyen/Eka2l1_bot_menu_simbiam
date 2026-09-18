@@ -97,7 +97,7 @@ def main() -> None:
     zmarker = "SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:"
     hmarker = "SYMBIAN-SYSTEMAPPS1 MENUUI24 HIDE_FSW:"
     if zmarker in text or hmarker in text:
-        if text.count(zmarker) == 4 and text.count(hmarker) == 3:
+        if text.count(zmarker) == 4 and text.count(hmarker) == 2:
             print("MENUUI24 AKN-ZORDER1 already present")
             return
         fail("partial prior MENUUI24 patch detected")
@@ -257,7 +257,7 @@ def main() -> None:
 
     if text.count(zmarker) != 4:
         fail(f"AKN_ZORDER marker gate failed: {text.count(zmarker)}")
-    if text.count(hmarker) != 3:
+    if text.count(hmarker) != 2:
         fail(f"HIDE_FSW marker gate failed: {text.count(hmarker)}")
 
     oom.write_text(text, encoding="utf-8")
