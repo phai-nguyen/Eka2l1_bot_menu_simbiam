@@ -462,6 +462,15 @@ def clean_cmake(up: Path) -> None:
     emu_cmake.write_text(emu, encoding="utf-8")
 
     ios = ios_cmake.read_text(encoding="utf-8")
+
+    # This workflow produces an arm64 iPhoneOS device binary. Upstream's Ninja
+    # post-build rule currently invokes actool as iphonesimulator, which makes
+    # Xcode 26 reject the Icon Composer .icon package at final link time.
+    icon_platform_count = ios.count("--platform iphonesimulator")
+    if icon_platform_count != 1:
+        fail(f"AppIcon actool platform anchor changed: count={icon_platform_count}")
+    ios = ios.replace("--platform iphonesimulator", "--platform iphoneos", 1)
+
     ios = ios.replace("app/j2me/EKAUnifiedLibraryViewController.h",
                       "app/library/EKAUnifiedLibraryViewController.h")
     ios = ios.replace("app/j2me/EKAUnifiedLibraryViewController.mm",
@@ -570,6 +579,8 @@ def main() -> None:
     assert "app/controls/manic/EKAManicControlsView.m" in cmake_text
     assert "app/library/EKAUnifiedLibraryViewController.mm" in cmake_text
     assert "app/j2me/" not in cmake_text
+    assert "--platform iphoneos" in cmake_text
+    assert "--platform iphonesimulator" not in cmake_text
     epoc_h = (up / "src/emu/system/include/system/epoc.h").read_text(encoding="utf-8")
     epoc_cpp = (up / "src/emu/system/src/epoc.cpp").read_text(encoding="utf-8")
     assert not re.search(r"j2me::|get_j2me|<j2me/|j2me_applist", epoc_h, re.I)
