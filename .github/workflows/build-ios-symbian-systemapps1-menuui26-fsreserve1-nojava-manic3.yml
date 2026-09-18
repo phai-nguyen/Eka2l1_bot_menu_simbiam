@@ -2,9 +2,6 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI26 FSRESERVE1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/menuui26-fsreserve1-trigger.txt"
 
 permissions:
   contents: read
