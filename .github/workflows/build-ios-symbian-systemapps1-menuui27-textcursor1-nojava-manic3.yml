@@ -1,0 +1,187 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI27 TEXTCURSOR1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MENUUI27 TEXTCURSOR1 cache
+      id: menuui27_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui27-textcursor1-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI26 FSRESERVE1 baseline
+      id: menuui26_cache
+      if: steps.menuui27_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui26-fsreserve1-nojava-manic3-macos15-v1
+
+    - name: Apply MENUUI27 text cursor fix and rebuild
+      if: steps.menuui27_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui27-textcursor1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.menuui26_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui27_textcursor1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        WG_H="$UPSTREAM/src/emu/services/include/services/window/classes/wingroup.h"
+        WG_CPP="$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+        FS_CPP="$UPSTREAM/src/emu/services/src/fs/fs.cpp"
+        APPLIST="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        OOM="$UPSTREAM/src/emu/services/src/ui/cap/oom_app.cpp"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+
+        test -x "$CMAKE_BIN"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'text_cursor_window_handle' "$WG_H"
+        grep -Fq 'case EWsWinOpSetTextCursorClipped:' "$WG_CPP"
+        grep -Fq 'case EWsWinOpCancelTextCursor:' "$WG_CPP"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI27 TEXT_CURSOR:' "$WG_CPP"
+        grep -Fq 'cursor_pos = eka2l1::vec2(-1, -1);' "$WG_CPP"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI26 FS_RESERVE:' "$FS_CPP"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_IMPL:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_COMPLETE:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        test -f "$APP/EKAManicControls/dpad.png"
+
+        STRINGS_OUT="$RUNNER_TEMP/menuui27-textcursor1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI27 TEXT_CURSOR:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI26 FS_RESERVE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_IMPL:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$STRINGS_OUT"
+        grep -Fq 'Manic Skin' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI27 TEXTCURSOR1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI26_FSRESERVE1_NOJAVA_MANIC3'
+          echo 'device_evidence=UniEditor_opens_but_text_FEP_path_stalls'
+          echo 'wg_0x2E=SetTextCursor_PRESERVED'
+          echo 'wg_0x2F=SetTextCursorClipped_IMPLEMENTED'
+          echo 'wg_0x30=CancelTextCursor_IMPLEMENTED'
+          echo 'cursor_target_lifecycle=IMPLEMENTED'
+          echo 'clip_style_rendering=UNCHANGED'
+          echo 'CNTSRV=UNCHANGED'
+          echo 'peninputanim=UNCHANGED'
+          echo 'scheduler=UNCHANGED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-source.diff"
+
+    - name: Verify restored MENUUI27 TEXTCURSOR1 cache
+      if: steps.menuui27_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        WG_CPP="$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        test -x "$APP/eka2l1"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI27 TEXT_CURSOR:' "$WG_CPP"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        {
+          echo 'MENUUI27 TEXTCURSOR1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'cache_hit=true'
+          echo 'wg_0x2F_0x30=IMPLEMENTED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-source.diff"
+
+    - name: Save MENUUI27 TEXTCURSOR1 cache
+      if: steps.menuui27_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui27-textcursor1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI27 TEXTCURSOR1 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI27-TEXTCURSOR1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui27-textcursor1"
+        IPA_LIST="$RUNNER_TEMP/menuui27-textcursor1-ipa-list.txt"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        grep -Fq 'EKAManicControls/dpad.png' "$IPA_LIST"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$IPA_LIST"
+
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-IPA-SHA256.txt"
+        du -h "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI27-TEXTCURSOR1-IPA-SIZE.txt"
+
+    - name: Upload MENUUI27 TEXTCURSOR1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI27-TEXTCURSOR1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI27-TEXTCURSOR1-NOJAVA-MANIC3-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI27 TEXTCURSOR1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI27-TEXTCURSOR1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI27-TEXTCURSOR1-BUILD-AUDIT.txt
+          MENUUI27-TEXTCURSOR1-source.diff
+          MENUUI27-TEXTCURSOR1-IPA-SHA256.txt
+          MENUUI27-TEXTCURSOR1-IPA-SIZE.txt
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI27-TEXTCURSOR1-diagnostic-log
+        path: eka2l1-menuui27-textcursor1.log
+        if-no-files-found: warn
+        retention-days: 14
