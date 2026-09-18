@@ -2,6 +2,11 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI23 APPTYPE1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/MENUUI23_APPTYPE1_TRIGGER
 
 permissions:
   contents: read
