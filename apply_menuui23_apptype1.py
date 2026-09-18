@@ -86,7 +86,7 @@ def main() -> None:
     text = applist.read_text(encoding="utf-8")
     marker = "SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:"
     if marker in text:
-        if text.count(marker) == 3 and "case applist_request_get_app_type:" in text:
+        if text.count(marker) == 4 and "case applist_request_get_app_type:" in text:
             print("MENUUI23 APPTYPE1 already present")
             return
         fail("partial prior APPTYPE1 patch detected")
@@ -153,7 +153,7 @@ def main() -> None:
 
     if text.count("case applist_request_get_app_type:") != 1:
         fail("GetAppType case gate failed")
-    if text.count(marker) != 3:
+    if text.count(marker) != 4:
         fail(f"APPTYPE marker gate failed: count={text.count(marker)}")
     for required in (
         "const epoc::uid native_type_uid = 0; // KNullUid",
