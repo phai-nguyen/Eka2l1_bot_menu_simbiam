@@ -1,0 +1,195 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI22 SCHEDRUN1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore SCHEDRUN1 cache
+      id: schedrun_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-schedrun1-nojava-manic3-macos15-v1
+
+    - name: Restore proven MENUUI22 MANIC3 baseline
+      id: manic3_cache
+      if: steps.schedrun_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-full1-manic3-modalfix1-macos15-v1
+
+    - name: Apply MENUUI22 SCHEDRUN1 diagnostics and rebuild
+      if: steps.schedrun_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui22-schedrun1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.manic3_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui22_schedrun1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+
+        test -x "$CMAKE_BIN"
+        test -s "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_ARM:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_FRAME:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_DONE:' "$KERNEL"
+        grep -Fq 'ordinal == 0x00800000U' "$KERNEL"
+        grep -Fq 'menuui22_schedrun_find_first_ready' "$KERNEL"
+
+        # Preserve MENUUI22 authority and current UI baseline.
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_OWNER:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_FRAME:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI21 SCHED_SCAN:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI21 VTABLE:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+        grep -Fq 'if (i == 7) return @"Manic Skin";' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
+
+        git -C "$UPSTREAM" diff --check
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        test -f "$APP/EKAManicControls/dpad.png"
+
+        STRINGS_OUT="$RUNNER_TEMP/menuui22-schedrun1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        for marker in           'SYMBIAN-SYSTEMAPPS1 MENUUI21 SCHED_SCAN:'           'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_OWNER:'           'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_ARM:'           'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:'           'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_FRAME:'           'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_DONE:'; do
+          grep -Fq "$marker" "$STRINGS_OUT"
+        done
+        grep -Fq 'Manic Skin' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI22 SCHEDRUN1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=NOJAVA_FULL1_MANIC3_MODALFIX1'
+          echo 'scope=diagnostic_only_active_scheduler_svc_window'
+          echo 'menu_process_uid=0x101F4CD2'
+          echo 'wait_svc_epoc10=0x00800000'
+          echo 'target=first_ready_active_object_backward_scheduler_scan'
+          echo 'window=24_svc_calls'
+          echo 'guest_memory_write=NONE'
+          echo 'guest_register_write=NONE'
+          echo 'scheduler_mutation=NONE'
+          echo 'ipc_mutation=NONE'
+          echo 'menuui22_waitowner=PRESERVED'
+          echo 'manic3_modalfix=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-source.diff"
+        echo 'MENUUI22 SCHEDRUN1 NOJAVA MANIC3 build: PASS'
+
+    - name: Verify restored SCHEDRUN1 cache
+      if: steps.schedrun_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+
+        test -x "$APP/eka2l1"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_OWNER:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'MENUUI22 SCHEDRUN1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'cache_hit=true'
+          echo 'scope=diagnostic_only_active_scheduler_svc_window'
+          echo 'menuui22_waitowner=PRESERVED'
+          echo 'manic3_modalfix=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-source.diff"
+        echo 'MENUUI22 SCHEDRUN1 cache restore: PASS'
+
+    - name: Save SCHEDRUN1 cache
+      if: steps.schedrun_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-schedrun1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI22 SCHEDRUN1 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-SCHEDRUN1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui22-schedrun1"
+        IPA_LIST="$RUNNER_TEMP/menuui22-schedrun1-ipa-list.txt"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        grep -Fq 'EKAManicControls/dpad.png' "$IPA_LIST"
+        ! grep -Ei '\.jar([[:space:]]|$)' "$IPA_LIST"
+
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-IPA-SHA256.txt"
+        du -h "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI22-SCHEDRUN1-IPA-SIZE.txt"
+        echo 'MENUUI22 SCHEDRUN1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI22 SCHEDRUN1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-SCHEDRUN1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-SCHEDRUN1-NOJAVA-MANIC3-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI22 SCHEDRUN1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-SCHEDRUN1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI22-SCHEDRUN1-BUILD-AUDIT.txt
+          MENUUI22-SCHEDRUN1-source.diff
+          MENUUI22-SCHEDRUN1-IPA-SHA256.txt
+          MENUUI22-SCHEDRUN1-IPA-SIZE.txt
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-SCHEDRUN1-diagnostic-log
+        path: eka2l1-menuui22-schedrun1.log
+        if-no-files-found: warn
+        retention-days: 14
