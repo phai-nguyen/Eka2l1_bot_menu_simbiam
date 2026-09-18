@@ -278,8 +278,14 @@ def clean_controls(app: Path) -> None:
 
     # Layout 7 was introduced for the old Java frontend; it is now the native
     # Manic layout shared by normal Symbian and N-Gage titles.
-    if 'if (layout == 7) return @"Manic";' not in s:
-        fail('layout 7 was not renamed to "Manic"')
+    s = s.replace('if (layout == 7) return @"Manic";',
+                  'if (layout == 7) return @"Manic Skin";')
+    picker_order = 'return @[@0, @1, @5, @6, @2, @3, @4];'
+    if picker_order not in s:
+        fail("GameSettings layoutOrder anchor missing")
+    s = s.replace(picker_order, 'return @[@0, @1, @5, @6, @7, @2, @3, @4];', 1)
+    if 'if (layout == 7) return @"Manic Skin";' not in s:
+        fail('layout 7 was not exposed as "Manic Skin"')
     if "case 7:" not in m:
         fail("layout 7 missing from GameControlsView")
 
@@ -294,6 +300,19 @@ def clean_controls(app: Path) -> None:
 
 def wire_manic_into_root(root: Path) -> None:
     text = root.read_text(encoding="utf-8")
+
+    runtime_order = 'return @[@0, @1, @5, @6, @2, @3, @4];'
+    if runtime_order not in text:
+        fail("RootViewController layoutOrder anchor missing")
+    text = text.replace(runtime_order, 'return @[@0, @1, @5, @6, @7, @2, @3, @4];', 1)
+    runtime_label = '    if (i == 6) return @"Joystick";\n'
+    if runtime_label not in text:
+        fail("RootViewController layout label anchor missing")
+    text = text.replace(
+        runtime_label,
+        runtime_label + '    if (i == 7) return @"Manic Skin";\n',
+        1,
+    )
 
     import_anchor = '#import "GameControlsView.h"\n'
     manic_import = '#import "controls/manic/EKAManicControlsView.h"\n'
@@ -379,6 +398,116 @@ def wire_manic_into_root(root: Path) -> None:
     if "EKAManicControlsArtworkView" not in text or "EKAManicDefaultControlLayout" not in text:
         fail("native Manic wiring did not land in RootViewController")
     root.write_text(text, encoding="utf-8")
+
+
+def wire_manic_into_layout_editor(app: Path) -> None:
+    p = app / "LayoutEditorViewController.mm"
+    if not p.is_file():
+        fail(f"layout editor missing: {p}")
+    text = p.read_text(encoding="utf-8")
+
+    import_anchor = '#import "GameSettingsStore.h"\n'
+    manic_import = '#import "controls/manic/EKAManicControlsView.h"\n'
+    if manic_import not in text:
+        if import_anchor not in text:
+            fail("layout editor import anchor missing")
+        text = text.replace(import_anchor, import_anchor + manic_import, 1)
+
+    ivar_anchor = '    NSArray<NSDictionary *> *_defaultSeed;   // built-in layout the editor seeds/resets to\n'
+    if "_manicArtwork;" not in text:
+        if ivar_anchor not in text:
+            fail("layout editor ivar anchor missing")
+        text = text.replace(
+            ivar_anchor,
+            ivar_anchor
+            + '    EKAManicControlsArtworkView *_manicArtwork;\n'
+            + '    BOOL _manicMode;\n',
+            1,
+        )
+
+    old_block = '''    _controls = [[GameControlsView alloc] initWithFrame:CGRectZero];
+    _controls.editDelegate = self;
+    EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
+    // The "default" for this layout is the selected on-screen layout (e.g. Joystick) rendered as
+    // editable elements, so the editor — and the Reset button — reflect the user's choice. None
+    // (layout 0) falls back to a sensible D-pad default.
+    NSArray *seed = [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
+    _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
+    NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
+    _controls.customLayout = existing.count ? existing : _defaultSeed;
+    _controls.editing = YES;
+    [_preview addSubview:_controls];
+'''
+    new_block = '''    EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
+    _manicMode = (s.keyLayout == 7);
+
+    _controls = [[GameControlsView alloc] initWithFrame:CGRectZero];
+    _controls.editDelegate = self;
+
+    // MANIC_LAYOUT2: Manic is a first-class native layout for both Symbian and
+    // N-Gage. Seed the editor from the same representation JSON used at runtime.
+    CGSize screen = UIScreen.mainScreen.bounds.size;
+    CGFloat mn = MIN(screen.width, screen.height);
+    CGFloat mx = MAX(screen.width, screen.height);
+    CGSize targetSize = _portrait ? CGSizeMake(mn, mx) : CGSizeMake(mx, mn);
+    NSArray *seed = _manicMode
+        ? EKAManicDefaultControlLayout(targetSize, self.traitCollection)
+        : [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
+    _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
+
+    NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
+    NSArray *active = existing.count ? existing : _defaultSeed;
+    _controls.customLayout = active;
+    _controls.editing = YES;
+
+    if (_manicMode) {
+        _manicArtwork = [[EKAManicControlsArtworkView alloc] initWithFrame:CGRectZero];
+        _manicArtwork.layout = active;
+        _manicArtwork.controlsOpacity = 1.0;
+        [_preview addSubview:_manicArtwork];
+        _controls.overlayOpacity = 0.0;
+    }
+    [_preview addSubview:_controls];
+'''
+    if old_block not in text:
+        fail("layout editor setup anchor missing")
+    text = text.replace(old_block, new_block, 1)
+
+    frame_anchor = '    _controls.frame = _preview.bounds;\n'
+    if "_manicArtwork.frame = _preview.bounds" not in text:
+        if frame_anchor not in text:
+            fail("layout editor frame anchor missing")
+        text = text.replace(
+            frame_anchor,
+            frame_anchor + '    if (_manicArtwork) _manicArtwork.frame = _preview.bounds;\n',
+            1,
+        )
+
+    reset_anchor = '        handler:^(UIAlertAction *a) { self->_controls.customLayout = self->_defaultSeed; }]];\n'
+    reset_body = '''        handler:^(UIAlertAction *a) {
+            self->_controls.customLayout = self->_defaultSeed;
+            if (self->_manicMode) self->_manicArtwork.layout = self->_defaultSeed;
+        }]];
+'''
+    if reset_anchor not in text:
+        fail("layout editor reset anchor missing")
+    text = text.replace(reset_anchor, reset_body, 1)
+
+    delegate_anchor = '''- (void)gameControlsDidChange:(GameControlsView *)view {
+    // Selection/geometry changed — nothing else needed; the view redraws itself.
+}
+'''
+    delegate_body = '''- (void)gameControlsDidChange:(GameControlsView *)view {
+    if (_manicMode) {
+        _manicArtwork.layout = [view currentLayout];
+    }
+}
+'''
+    if delegate_anchor not in text:
+        fail("layout editor delegate anchor missing")
+    text = text.replace(delegate_anchor, delegate_body, 1)
+
+    p.write_text(text, encoding="utf-8")
 
 
 def clean_core_j2me(up: Path) -> None:
@@ -561,6 +690,7 @@ def main() -> None:
     clean_root(root)
     clean_controls(app)
     wire_manic_into_root(root)
+    wire_manic_into_layout_editor(app)
     clean_core_j2me(up)
 
     # Remove the actual Java source trees after extracting the two native pieces.
@@ -591,7 +721,12 @@ def main() -> None:
     settings_text = (app / "GameSettingsViewController.mm").read_text(encoding="utf-8")
     assert "EKAManicControlsArtworkView" in root_text
     assert "EKAManicDefaultControlLayout" in root_text
-    assert 'if (layout == 7) return @"Manic";' in settings_text
+    assert 'if (layout == 7) return @"Manic Skin";' in settings_text
+    assert 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' in settings_text
+    assert 'if (i == 7) return @"Manic Skin";' in root_text
+    editor_text = (app / "LayoutEditorViewController.mm").read_text(encoding="utf-8")
+    assert "EKAManicDefaultControlLayout(targetSize" in editor_text
+    assert "_manicArtwork.layout = [view currentLayout]" in editor_text
     assert "app/controls/manic/EKAManicControlsView.m" in cmake_text
     assert "app/library/EKAUnifiedLibraryViewController.mm" in cmake_text
     assert "app/j2me/" not in cmake_text
