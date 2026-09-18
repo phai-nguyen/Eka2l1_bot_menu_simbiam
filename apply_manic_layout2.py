@@ -66,10 +66,35 @@ def patch_root(root: Path) -> None:
     text = root.read_text(encoding="utf-8")
     text = ensure_layout7_order(text, "runtime layoutOrder")
 
-    if 'if (i == 7) return @"Manic Skin";' not in text:
-        anchor = '    if (i == 6) return @"Joystick";\n'
-        insert = '    if (i == 6) return @"Joystick";\n    if (i == 7) return @"Manic Skin";\n'
-        text = replace_once(text, anchor, insert, "runtime Manic label")
+    # The cached FULL1 baseline has changed this small helper across revisions
+    # (if-chain vs switch / different labels). Patch the method structurally
+    # instead of relying on the exact "Joystick" line.
+    method_pat = re.compile(
+        r'(-\s*\(NSString\s*\*\)\s*layoutDisplayName:\s*\(NSInteger\)i\s*\{)'
+        r'(.*?)'
+        r'(\n\})',
+        re.S,
+    )
+    mm = method_pat.search(text)
+    if not mm:
+        fail("runtime layoutDisplayName method missing")
+
+    body = mm.group(2)
+    existing7 = re.compile(
+        r'if\s*\(\s*i\s*==\s*7\s*\)\s*return\s*@\"[^\"]*\"\s*;'
+    )
+    if existing7.search(body):
+        body = existing7.sub('if (i == 7) return @"Manic Skin";', body, count=1)
+    else:
+        fallback = re.search(r'(?m)^(\s*)return\s+\[NSString\s+stringWithFormat:', body)
+        if not fallback:
+            fallback = re.search(r'(?m)^(\s*)return\s+@\"[^\"]*\"\s*;', body)
+        if not fallback:
+            fail("runtime layoutDisplayName fallback return missing")
+        indent = fallback.group(1)
+        body = body[:fallback.start()] + indent + 'if (i == 7) return @"Manic Skin";\n' + body[fallback.start():]
+
+    text = text[:mm.start()] + mm.group(1) + body + mm.group(3) + text[mm.end():]
     root.write_text(text, encoding="utf-8")
 
 
