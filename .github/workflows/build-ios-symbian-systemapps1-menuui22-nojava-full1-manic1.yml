@@ -78,7 +78,7 @@ jobs:
             -DFETCH_LIBUV=ON \
             -DFETCHCONTENT_SOURCE_DIR_LIBUV="$UPSTREAM/src/external/libuv"
         )
-        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --parallel 4
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
 
         APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
         BIN="$APP/eka2l1"
@@ -95,6 +95,9 @@ jobs:
         test ! -e "$UPSTREAM/src/emu/ios/app/j2me"
         ! grep -Eq 'add_subdirectory[[:space:]]*\([[:space:]]*j2me' "$EMU_CMAKE"
         ! grep -RniE 'j2me|phoneme' "$UPSTREAM/src/emu" --include='CMakeLists.txt'
+        ! grep -RniE 'j2me::|get_j2me|<j2me/|j2me_applist' "$UPSTREAM/src/emu" \
+          --include='*.cpp' --include='*.cc' --include='*.c' --include='*.h' --include='*.hpp' --include='*.mm' --include='*.m' \
+          --exclude-dir=android
         ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
         ! grep -Ei 'src/emu/j2me|libj2me\.a' "$UPSTREAM/build-ios-device/build.ninja"
 
@@ -138,6 +141,7 @@ jobs:
           echo 'menuui22_authority=PRESERVED'
           echo 'src_emu_j2me=REMOVED'
           echo 'libj2me_target=REMOVED'
+          echo 'system_j2me_applist=REMOVED'
           echo 'ios_java_tree=REMOVED'
           echo 'phoneme=REMOVED'
           echo 'jar_runtime=REMOVED'
