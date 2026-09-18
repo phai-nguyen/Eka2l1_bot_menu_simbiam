@@ -103,6 +103,8 @@ jobs:
 
         grep -Fq 'app/library/EKAUnifiedLibraryViewController.mm' "$IOS_CMAKE"
         grep -Fq 'app/controls/manic/EKAManicControlsView.m' "$IOS_CMAKE"
+        grep -Fq -- '--platform iphoneos' "$IOS_CMAKE"
+        ! grep -Fq -- '--platform iphonesimulator' "$IOS_CMAKE"
         grep -Fq 'NOJAVA_FULL1' "$UNIFIED"
         grep -Fq 'MANIC_NATIVE1' "$MANIC"
         grep -Fq 'EKAManicControlsArtworkView' "$ROOT"
