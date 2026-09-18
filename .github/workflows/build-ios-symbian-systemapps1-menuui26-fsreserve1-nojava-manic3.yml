@@ -1,0 +1,202 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI26 FSRESERVE1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MENUUI26 FSRESERVE1 cache
+      id: menuui26_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui26-fsreserve1-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI25 APPSERVICE1 baseline
+      id: menuui25_cache
+      if: steps.menuui26_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui25-appservice1-nojava-manic3-macos15-v1
+
+    - name: Apply MENUUI26 RFs reserve-space fix and rebuild
+      if: steps.menuui26_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui26-fsreserve1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.menuui25_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui26_fsreserve1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        FS_H="$UPSTREAM/src/emu/services/include/services/fs/fs.h"
+        FS_CPP="$UPSTREAM/src/emu/services/src/fs/fs.cpp"
+        FS_OP="$UPSTREAM/src/emu/services/include/services/fs/op.h"
+        APPLIST="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        OOM="$UPSTREAM/src/emu/services/src/ui/cap/oom_app.cpp"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+
+        test -x "$CMAKE_BIN"
+        test -s "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'reserved_space_' "$FS_H"
+        grep -Fq 'reserve_access_' "$FS_H"
+        grep -Fq 'static_assert(epoc::fs_msg_reserve_drive_space == 100' "$FS_CPP"
+        grep -Fq 'static_assert(epoc::fs_msg_get_reserve_access == 101' "$FS_CPP"
+        grep -Fq 'static_assert(epoc::fs_msg_release_reserve_access == 102' "$FS_CPP"
+        grep -Fq 'HANDLE_CLIENT_IPC(reserve_drive_space, epoc::fs_msg_reserve_drive_space' "$FS_CPP"
+        grep -Fq 'HANDLE_CLIENT_IPC(get_reserve_access, epoc::fs_msg_get_reserve_access' "$FS_CPP"
+        grep -Fq 'HANDLE_CLIENT_IPC(release_reserve_access, epoc::fs_msg_release_reserve_access' "$FS_CPP"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI26 FS_RESERVE:' "$FS_CPP"
+        grep -Fq 'fs_msg_reserve_drive_space = 100' "$FS_OP"
+
+        # Proven lineage.
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_IMPL:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVER_APPLIST:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_COMPLETE:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+
+        # NOJAVA invariants.
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        test -f "$APP/EKAManicControls/dpad.png"
+
+        STRINGS_OUT="$RUNNER_TEMP/menuui26-fsreserve1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI26 FS_RESERVE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI25 SERVICE_IMPL:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$STRINGS_OUT"
+        grep -Fq 'Manic Skin' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI26 FSRESERVE1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI25_APPSERVICE1_NOJAVA_MANIC3'
+          echo 'device_evidence=UniEditor_stalls_on_FileServer_opcode_100'
+          echo 'opcode_100=ReserveDriveSpace_IMPLEMENTED'
+          echo 'opcode_101=GetReserveAccess_IMPLEMENTED'
+          echo 'opcode_102=ReleaseReserveAccess_IMPLEMENTED'
+          echo 'reserve_scope=RFs_SESSION'
+          echo 'max_session_reserved=0x10000'
+          echo 'vfs_capacity_model=UNCHANGED'
+          echo 'menuui25_appservice1=PRESERVED'
+          echo 'menuui24_akn_zorder=PRESERVED'
+          echo 'menuui23_apptype1=PRESERVED'
+          echo 'menuui22_schedrun=PRESERVED'
+          echo 'manic3_modalfix=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-source.diff"
+        echo 'MENUUI26 FSRESERVE1 NOJAVA MANIC3 build: PASS'
+
+    - name: Verify restored MENUUI26 FSRESERVE1 cache
+      if: steps.menuui26_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        FS_CPP="$UPSTREAM/src/emu/services/src/fs/fs.cpp"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+
+        test -x "$APP/eka2l1"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI26 FS_RESERVE:' "$FS_CPP"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'MENUUI26 FSRESERVE1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'cache_hit=true'
+          echo 'opcode_100_101_102=IMPLEMENTED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-source.diff"
+
+    - name: Save MENUUI26 FSRESERVE1 cache
+      if: steps.menuui26_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui26-fsreserve1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI26 FSRESERVE1 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI26-FSRESERVE1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui26-fsreserve1"
+        IPA_LIST="$RUNNER_TEMP/menuui26-fsreserve1-ipa-list.txt"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        grep -Fq 'EKAManicControls/dpad.png' "$IPA_LIST"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$IPA_LIST"
+
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-IPA-SHA256.txt"
+        du -h "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI26-FSRESERVE1-IPA-SIZE.txt"
+        echo 'MENUUI26 FSRESERVE1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI26 FSRESERVE1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI26-FSRESERVE1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI26-FSRESERVE1-NOJAVA-MANIC3-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI26 FSRESERVE1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI26-FSRESERVE1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI26-FSRESERVE1-BUILD-AUDIT.txt
+          MENUUI26-FSRESERVE1-source.diff
+          MENUUI26-FSRESERVE1-IPA-SHA256.txt
+          MENUUI26-FSRESERVE1-IPA-SIZE.txt
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI26-FSRESERVE1-diagnostic-log
+        path: eka2l1-menuui26-fsreserve1.log
+        if-no-files-found: warn
+        retention-days: 14
