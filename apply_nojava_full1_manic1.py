@@ -381,6 +381,73 @@ def wire_manic_into_root(root: Path) -> None:
     root.write_text(text, encoding="utf-8")
 
 
+def clean_core_j2me(up: Path) -> None:
+    """Remove EKA2L1's host-side J2ME app-list plumbing from system core.
+
+    This does not touch Symbian ROM ABI/export metadata (for example epoc9.def);
+    those names describe guest-side compatibility and are not the iOS host J2ME
+    runtime target we are removing.
+    """
+    h_path = up / "src/emu/system/include/system/epoc.h"
+    cpp_path = up / "src/emu/system/src/epoc.cpp"
+    for p in (h_path, cpp_path):
+        if not p.is_file():
+            fail(f"system core file missing: {p}")
+
+    h = h_path.read_text(encoding="utf-8")
+    cpp = cpp_path.read_text(encoding="utf-8")
+
+    h, n_ns = re.subn(
+        r"\n\s*namespace j2me \{\s*\n\s*class app_list;\s*\n\s*\}\s*\n",
+        "\n",
+        h,
+        count=1,
+    )
+    h, n_get = re.subn(
+        r"(?m)^\s*j2me::app_list \*get_j2me_applist\(\);\s*\n",
+        "",
+        h,
+        count=1,
+    )
+    if n_ns != 1 or n_get != 1:
+        fail(f"epoc.h J2ME anchors changed: namespace={n_ns} getter={n_get}")
+
+    cpp, n_inc = re.subn(
+        r"(?m)^\s*#include <j2me/applist\.h>\s*\n",
+        "",
+        cpp,
+        count=1,
+    )
+    cpp, n_member = re.subn(
+        r"(?m)^\s*std::unique_ptr<j2me::app_list> j2me_applist_;\s*\n",
+        "",
+        cpp,
+        count=1,
+    )
+    cpp, n_init = re.subn(
+        r"(?m)^\s*j2me_applist_ = std::make_unique<j2me::app_list>\(\*conf_\);\s*\n",
+        "",
+        cpp,
+        count=1,
+    )
+    cpp = remove_braced(cpp, "j2me::app_list *get_j2me_applist", required=True)
+    cpp = remove_braced(cpp, "j2me::app_list *system::get_j2me_applist", required=True)
+
+    if (n_inc, n_member, n_init) != (1, 1, 1):
+        fail(
+            "epoc.cpp J2ME anchors changed: "
+            f"include={n_inc} member={n_member} init={n_init}"
+        )
+
+    h_path.write_text(h, encoding="utf-8")
+    cpp_path.write_text(cpp, encoding="utf-8")
+
+    for p in (h_path, cpp_path):
+        txt = p.read_text(encoding="utf-8")
+        if re.search(r"j2me::|get_j2me|<j2me/|j2me_applist", txt, re.I):
+            fail(f"host J2ME core reference survived in {p}")
+
+
 def clean_cmake(up: Path) -> None:
     emu_cmake = up / "src/emu/CMakeLists.txt"
     ios_cmake = up / "src/emu/ios/CMakeLists.txt"
@@ -469,6 +536,7 @@ def main() -> None:
     clean_root(root)
     clean_controls(app)
     wire_manic_into_root(root)
+    clean_core_j2me(up)
 
     # Remove the actual Java source trees after extracting the two native pieces.
     shutil.rmtree(up / "src/emu/j2me", ignore_errors=True)
@@ -502,6 +570,10 @@ def main() -> None:
     assert "app/controls/manic/EKAManicControlsView.m" in cmake_text
     assert "app/library/EKAUnifiedLibraryViewController.mm" in cmake_text
     assert "app/j2me/" not in cmake_text
+    epoc_h = (up / "src/emu/system/include/system/epoc.h").read_text(encoding="utf-8")
+    epoc_cpp = (up / "src/emu/system/src/epoc.cpp").read_text(encoding="utf-8")
+    assert not re.search(r"j2me::|get_j2me|<j2me/|j2me_applist", epoc_h, re.I)
+    assert not re.search(r"j2me::|get_j2me|<j2me/|j2me_applist", epoc_cpp, re.I)
     print("NOJAVA_FULL1 + MANIC_NATIVE1 source migration gates: PASS")
 
 
