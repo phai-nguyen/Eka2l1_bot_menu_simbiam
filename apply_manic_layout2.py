@@ -23,37 +23,53 @@ def replace_once(text: str, old: str, new: str, name: str) -> str:
     return text.replace(old, new, 1)
 
 
+def ensure_layout7_order(text: str, name: str) -> str:
+    """Expose layout 7 in the one layoutOrder method without assuming old formatting."""
+    pat = re.compile(
+        r'(\+\s*\(NSArray<NSNumber \*> \*\)layoutOrder\s*\{\s*return\s*@\[)'
+        r'([^\]]*)'
+        r'(\];\s*\})',
+        re.S,
+    )
+    matches = list(pat.finditer(text))
+    if len(matches) != 1:
+        fail(f"{name}: expected one layoutOrder method, found {len(matches)}")
+    m = matches[0]
+    body = m.group(2)
+    if re.search(r'(?<!\d)@7(?!\d)', body):
+        return text
+    if "@6" in body:
+        body = body.replace("@6", "@6, @7", 1)
+    elif "@2" in body:
+        body = body.replace("@2", "@7, @2", 1)
+    else:
+        body = body.rstrip() + ", @7"
+    return text[:m.start()] + m.group(1) + body + m.group(3) + text[m.end():]
+
+
 def patch_settings(app: Path) -> None:
     p = app / "GameSettingsViewController.mm"
     text = p.read_text(encoding="utf-8")
 
-    text = replace_once(
-        text,
-        '    if (layout == 7) return @"Manic";\n',
-        '    if (layout == 7) return @"Manic Skin";\n',
-        "settings Manic label",
-    )
-    text = replace_once(
-        text,
-        '    return @[@0, @1, @5, @6, @2, @3, @4];\n',
-        '    return @[@0, @1, @5, @6, @7, @2, @3, @4];\n',
-        "settings layoutOrder",
-    )
+    if 'if (layout == 7) return @"Manic Skin";' not in text:
+        text = replace_once(
+            text,
+            '    if (layout == 7) return @"Manic";\n',
+            '    if (layout == 7) return @"Manic Skin";\n',
+            "settings Manic label",
+        )
+    text = ensure_layout7_order(text, "settings layoutOrder")
     p.write_text(text, encoding="utf-8")
 
 
 def patch_root(root: Path) -> None:
     text = root.read_text(encoding="utf-8")
-    text = replace_once(
-        text,
-        '    return @[@0, @1, @5, @6, @2, @3, @4];\n',
-        '    return @[@0, @1, @5, @6, @7, @2, @3, @4];\n',
-        "runtime layoutOrder",
-    )
+    text = ensure_layout7_order(text, "runtime layoutOrder")
 
-    anchor = '    if (i == 6) return @"Joystick";\n'
-    insert = '    if (i == 6) return @"Joystick";\n    if (i == 7) return @"Manic Skin";\n'
-    text = replace_once(text, anchor, insert, "runtime Manic label")
+    if 'if (i == 7) return @"Manic Skin";' not in text:
+        anchor = '    if (i == 6) return @"Joystick";\n'
+        insert = '    if (i == 6) return @"Joystick";\n    if (i == 7) return @"Manic Skin";\n'
+        text = replace_once(text, anchor, insert, "runtime Manic label")
     root.write_text(text, encoding="utf-8")
 
 
@@ -191,9 +207,9 @@ def main() -> None:
     editor = (app / "LayoutEditorViewController.mm").read_text(encoding="utf-8")
 
     assert 'if (layout == 7) return @"Manic Skin";' in settings
-    assert 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' in settings
+    assert "@7" in re.search(r'\+\s*\(NSArray<NSNumber \*> \*\)layoutOrder.*?\}', settings, re.S).group(0)
     assert 'if (i == 7) return @"Manic Skin";' in root_text
-    assert 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' in root_text
+    assert "@7" in re.search(r'\+\s*\(NSArray<NSNumber \*> \*\)layoutOrder.*?\}', root_text, re.S).group(0)
     assert "EKAManicDefaultControlLayout(targetSize" in editor
     assert "_manicArtwork.layout = [view currentLayout]" in editor
     assert "_controls.overlayOpacity = 0.0" in editor
