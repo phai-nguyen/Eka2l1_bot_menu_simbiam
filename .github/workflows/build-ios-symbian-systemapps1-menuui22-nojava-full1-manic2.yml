@@ -1,0 +1,179 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI22 NOJAVA FULL1 MANIC2 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MANIC2 cache
+      id: manic2_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-full1-manic2-macos15-v1
+
+    - name: Restore proven FULL1 MANIC1 base
+      id: manic1_cache
+      if: steps.manic2_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-full1-manic1-macos15-v1
+
+    - name: Integrate Manic Skin into Symbian and N-Gage layout UI
+      if: steps.manic2_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-manic2-build.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.manic1_cache.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_manic_layout2.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        test -x "$CMAKE_BIN"
+        test -s "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        SETTINGS="$UPSTREAM/src/emu/ios/app/GameSettingsViewController.mm"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        EDITOR="$UPSTREAM/src/emu/ios/app/LayoutEditorViewController.mm"
+
+        test -x "$BIN"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
+
+        grep -Fq 'if (layout == 7) return @"Manic Skin";' "$SETTINGS"
+        grep -Fq 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' "$SETTINGS"
+        grep -Fq 'if (i == 7) return @"Manic Skin";' "$ROOT"
+        grep -Fq 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' "$ROOT"
+        grep -Fq 'EKAManicDefaultControlLayout(targetSize' "$EDITOR"
+        grep -Fq '_manicArtwork.layout = [view currentLayout]' "$EDITOR"
+        grep -Fq '_controls.overlayOpacity = 0.0' "$EDITOR"
+
+        test -f "$APP/EKAManicControls/info.json"
+        test -f "$APP/EKAManicControls/dpad.png"
+        test -f "$APP/EKAManicControls/thumbstick.png"
+        test -f "$APP/EKAManicControls/fire_button.png"
+
+        STRINGS_OUT="$RUNNER_TEMP/manic2.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'Manic Skin' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_OWNER:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_FRAME:' "$STRINGS_OUT"
+        ! grep -Eiq 'J2ME|phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        git -C "$UPSTREAM" diff --check
+
+        {
+          echo 'MENUUI22 NOJAVA FULL1 MANIC2 AUDIT'
+          echo 'menuui22_authority=PRESERVED'
+          echo 'java_j2me=REMOVED'
+          echo 'manic_skin_picker=SYMBIAN_AND_NGAGE'
+          echo 'manic_skin_runtime_menu=ENABLED'
+          echo 'manic_skin_game_settings=ENABLED'
+          echo 'manic_skin_layout_editor=LIVE_PREVIEW'
+          echo 'portrait_editor=ENABLED'
+          echo 'landscape_editor=ENABLED'
+          echo 'native_scancode_engine=GameControlsView'
+          echo 'base_cache=NOJAVA_FULL1_MANIC1'
+        } > "$GITHUB_WORKSPACE/MENUUI22-NOJAVA-FULL1-MANIC2-AUDIT.txt"
+
+        echo 'MENUUI22 NOJAVA FULL1 MANIC2 build: PASS'
+
+    - name: Verify restored MANIC2 cache
+      if: steps.manic2_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        grep -Fq 'if (layout == 7) return @"Manic Skin";' "$UPSTREAM/src/emu/ios/app/GameSettingsViewController.mm"
+        grep -Fq 'if (i == 7) return @"Manic Skin";' "$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        grep -Fq 'EKAManicDefaultControlLayout(targetSize' "$UPSTREAM/src/emu/ios/app/LayoutEditorViewController.mm"
+        test -f "$APP/EKAManicControls/dpad.png"
+        echo 'MENUUI22 NOJAVA FULL1 MANIC2 cache restore: PASS'
+        {
+          echo 'MENUUI22 NOJAVA FULL1 MANIC2 AUDIT'
+          echo 'cache_hit=true'
+          echo 'manic_skin_picker=SYMBIAN_AND_NGAGE'
+          echo 'manic_skin_layout_editor=LIVE_PREVIEW'
+        } > "$GITHUB_WORKSPACE/MENUUI22-NOJAVA-FULL1-MANIC2-AUDIT.txt"
+
+    - name: Save MANIC2 cache
+      if: steps.manic2_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-full1-manic2-macos15-v1
+
+    - name: Package MANIC2 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-NOJAVA-FULL1-MANIC2-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-manic2"
+        IPA_LIST="$RUNNER_TEMP/manic2-ipa-list.txt"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        grep -Fq 'EKAManicControls/dpad.png' "$IPA_LIST"
+        ! grep -Ei '\.jar([[:space:]]|$)' "$IPA_LIST"
+
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI22-NOJAVA-FULL1-MANIC2-IPA-SHA256.txt"
+        du -h "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI22-NOJAVA-FULL1-MANIC2-IPA-SIZE.txt"
+        echo 'MENUUI22 NOJAVA FULL1 MANIC2 unsigned IPA package: PASS'
+
+    - name: Upload MANIC2 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-NOJAVA-FULL1-MANIC2-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-NOJAVA-FULL1-MANIC2-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MANIC2 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-NOJAVA-FULL1-MANIC2-AUDIT
+        path: |
+          MENUUI22-NOJAVA-FULL1-MANIC2-AUDIT.txt
+          MENUUI22-NOJAVA-FULL1-MANIC2-IPA-SHA256.txt
+          MENUUI22-NOJAVA-FULL1-MANIC2-IPA-SIZE.txt
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI22-NOJAVA-FULL1-MANIC2-diagnostic-log
+        path: eka2l1-manic2-build.log
+        if-no-files-found: warn
+        retention-days: 14
