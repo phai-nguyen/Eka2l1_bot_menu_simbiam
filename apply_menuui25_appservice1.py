@@ -341,6 +341,12 @@ def main() -> None:
         "#include <utils/apacmd.h>\n#include <utils/cardinality.h>\n",
         "cardinality include",
     )
+    text = replace_once(
+        text,
+        "namespace eka2l1 {\n    static const std::array<std::u16string, 6> RECOG_MIME_TYPES = {\n",
+        "namespace eka2l1 {\n    static_assert(applist_request_init_server_applist == 46, \"MENUUI25 InitServerAppList opcode mismatch\");\n    static_assert(applist_request_get_service_implementations == 48, \"MENUUI25 GetServiceImplementations opcode mismatch\");\n\n    static const std::array<std::u16string, 6> RECOG_MIME_TYPES = {\n",
+        "opcode static assertions",
+    )
 
     helper_anchor = """    static void populate_icon_sizes(common::chunkyseri &seri, apa_app_registry *reg) {
 """
