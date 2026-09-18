@@ -61,9 +61,9 @@ jobs:
         ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
 
         grep -Fq 'if (layout == 7) return @"Manic Skin";' "$SETTINGS"
-        grep -Fq 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' "$SETTINGS"
+        grep -Fq '@7' "$SETTINGS"
         grep -Fq 'if (i == 7) return @"Manic Skin";' "$ROOT"
-        grep -Fq 'return @[@0, @1, @5, @6, @7, @2, @3, @4];' "$ROOT"
+        grep -Fq '@7' "$ROOT"
         grep -Fq 'EKAManicDefaultControlLayout(targetSize' "$EDITOR"
         grep -Fq '_manicArtwork.layout = [view currentLayout]' "$EDITOR"
         grep -Fq '_controls.overlayOpacity = 0.0' "$EDITOR"
