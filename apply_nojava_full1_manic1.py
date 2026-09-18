@@ -463,13 +463,23 @@ def clean_cmake(up: Path) -> None:
 
     ios = ios_cmake.read_text(encoding="utf-8")
 
-    # This workflow produces an arm64 iPhoneOS device binary. Upstream's Ninja
-    # post-build rule currently invokes actool as iphonesimulator, which makes
-    # Xcode 26 reject the Icon Composer .icon package at final link time.
-    icon_platform_count = ios.count("--platform iphonesimulator")
-    if icon_platform_count != 1:
-        fail(f"AppIcon actool platform anchor changed: count={icon_platform_count}")
-    ios = ios.replace("--platform iphonesimulator", "--platform iphoneos", 1)
+    # The proven FAST1 build compiles the Xcode 26 Icon Composer package with
+    # the simulator actool backend even though the binary itself is arm64/iPhoneOS.
+    # On a fresh macos-15 runner, plain xcrun can resolve to Xcode 16.4, which
+    # does not understand this .icon package and reports that "AppIcon" is
+    # missing. Keep the proven actool platform, but pin actool itself to Xcode
+    # 26.3 without changing the C/C++ SDK used by the cached build graph.
+    if ios.count("--platform iphonesimulator") != 1:
+        fail("AppIcon actool simulator-platform anchor changed")
+    actool_cmd = "    COMMAND xcrun actool --compile"
+    pinned_actool_cmd = (
+        "    COMMAND ${CMAKE_COMMAND} -E env "
+        "\"DEVELOPER_DIR=/Applications/Xcode_26.3.app/Contents/Developer\" "
+        "xcrun actool --compile"
+    )
+    if ios.count(actool_cmd) != 1:
+        fail("AppIcon actool command anchor changed")
+    ios = ios.replace(actool_cmd, pinned_actool_cmd, 1)
 
     ios = ios.replace("app/j2me/EKAUnifiedLibraryViewController.h",
                       "app/library/EKAUnifiedLibraryViewController.h")
@@ -579,8 +589,8 @@ def main() -> None:
     assert "app/controls/manic/EKAManicControlsView.m" in cmake_text
     assert "app/library/EKAUnifiedLibraryViewController.mm" in cmake_text
     assert "app/j2me/" not in cmake_text
-    assert "--platform iphoneos" in cmake_text
-    assert "--platform iphonesimulator" not in cmake_text
+    assert "--platform iphonesimulator" in cmake_text
+    assert "DEVELOPER_DIR=/Applications/Xcode_26.3.app/Contents/Developer" in cmake_text
     epoc_h = (up / "src/emu/system/include/system/epoc.h").read_text(encoding="utf-8")
     epoc_cpp = (up / "src/emu/system/src/epoc.cpp").read_text(encoding="utf-8")
     assert not re.search(r"j2me::|get_j2me|<j2me/|j2me_applist", epoc_h, re.I)
