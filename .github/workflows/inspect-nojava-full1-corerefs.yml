@@ -1,0 +1,38 @@
+name: Inspect NOJAVA FULL1 core Java refs
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - .github/INSPECT_NOJAVA_FULL1_COREFS_TRIGGER
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+    - id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-fast1-macos15-bbe898f1921ce192-v1
+    - name: Scan remaining core Java references
+      run: |
+        set -euo pipefail
+        test "${{ steps.cache.outputs.cache-hit }}" = "true"
+        echo '===== source refs outside iOS app/j2me ====='
+        grep -RniE 'j2me|phoneme|java' upstream/src/emu \
+          --exclude-dir=build-ios-device \
+          --exclude-dir=j2me \
+          --exclude='*.log' || true
+        echo '===== system epoc.h refs ====='
+        grep -nEi -C 8 'j2me|get_j2me' upstream/src/emu/system/include/system/epoc.h || true
+        echo '===== system epoc.cpp refs ====='
+        grep -nEi -C 8 'j2me|get_j2me' upstream/src/emu/system/src/epoc.cpp || true
+        echo '===== whole source named paths ====='
+        find upstream/src/emu -type f | grep -Ei 'j2me|phoneme|java' || true
