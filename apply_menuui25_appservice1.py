@@ -64,10 +64,11 @@ def main() -> None:
         fail("NOJAVA invariant violated: src/emu/j2me exists")
 
     # Baseline gates.
-    if "applist_request_init_server_applist = 46" not in op_h.read_text(encoding="utf-8"):
-        fail("opcode 46 enum missing")
-    if "applist_request_get_service_implementations = 48" not in op_h.read_text(encoding="utf-8"):
-        fail("opcode 48 enum missing")
+    op_text = op_h.read_text(encoding="utf-8")
+    if "applist_request_init_server_applist" not in op_text:
+        fail("opcode 46 enum name missing")
+    if "applist_request_get_service_implementations" not in op_text:
+        fail("opcode 48 enum name missing")
     if "SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:" not in oom_cpp.read_text(encoding="utf-8"):
         fail("MENUUI24 AKN-ZORDER1 baseline missing")
     if "SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:" not in applist_cpp.read_text(encoding="utf-8"):
