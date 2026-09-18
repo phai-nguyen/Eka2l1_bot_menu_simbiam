@@ -1,0 +1,214 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI24 AKN-ZORDER1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MENUUI24 AKN-ZORDER1 cache
+      id: menuui24_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui24-akn-zorder1-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI23 APPTYPE1 baseline
+      id: apptype_cache
+      if: steps.menuui24_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui23-apptype1-nojava-manic3-macos15-v1
+
+    - name: Apply MENUUI24 Akn z-order fix and rebuild
+      if: steps.menuui24_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui24-akn-zorder1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.apptype_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui24_akn_zorder1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        OOM="$UPSTREAM/src/emu/services/src/ui/cap/oom_app.cpp"
+        OOM_H="$UPSTREAM/src/emu/services/include/services/ui/cap/oom_app.h"
+        WINBASE="$UPSTREAM/src/emu/services/src/window/classes/winbase.cpp"
+        APPLIST="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+
+        test -x "$CMAKE_BIN"
+        test -s "$PATCHER"
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        # MENUUI24 root-cause gates.
+        grep -Fq 'case akns_hide_app_from_fws:' "$OOM"
+        grep -Fq 'case akn_eik_app_ui_move_app_in_z_order:' "$OOM"
+        grep -Fq 'group->set_position(where.value() == 0 ? 0 : -1);' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 HIDE_FSW:' "$OOM"
+        grep -Fq 'akn_running_app_info::FLAG_IS_HIDDEN' "$OOM"
+        grep -Fq 'akns_hide_app_from_fws = 58,' "$OOM_H"
+        grep -Fq 'akn_eik_app_ui_move_app_in_z_order = 68,' "$OOM_H"
+        grep -Fq 'void window::set_position(const int new_pos)' "$WINBASE"
+        grep -Fq 'scr->update_focus(&serv, nullptr);' "$WINBASE"
+
+        # Preserve MENUUI23 + MENUUI22 authority.
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$APPLIST"
+        grep -Fq 'case applist_request_get_app_type:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_SEND:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_COMPLETE:' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 WAIT_OWNER:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+
+        # NOJAVA remains absolute.
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
+        ! grep -Fq '0xB031C52A' "$APPLIST"
+        ! grep -Fq '0x10210E26' "$APPLIST"
+
+        git -C "$UPSTREAM" diff --check
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        test -f "$APP/EKAManicControls/dpad.png"
+
+        STRINGS_OUT="$RUNNER_TEMP/menuui24-akn-zorder1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 HIDE_FSW:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$STRINGS_OUT"
+        grep -Fq 'Manic Skin' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI24 AKN-ZORDER1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI23_APPTYPE1_NOJAVA_MANIC3'
+          echo 'device_evidence=Messaging_and_Contacts_Exit_fail'
+          echo 'opcode_58=HideApplicationFromFSW_TRACKED'
+          echo 'opcode_68=MoveAppInZOrder_IMPLEMENTED'
+          echo 'foreground=window_group_ordinal_0'
+          echo 'background=window_group_ordinal_minus_1'
+          echo 'existing_window_focus_recalc=REUSED'
+          echo 'forced_process_kill=NOT_ADDED'
+          echo 'scheduler_change=NONE'
+          echo 'menuui23_apptype1=PRESERVED'
+          echo 'menuui22_schedrun=PRESERVED'
+          echo 'manic3_modalfix=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-source.diff"
+        echo 'MENUUI24 AKN-ZORDER1 NOJAVA MANIC3 build: PASS'
+
+    - name: Verify restored MENUUI24 AKN-ZORDER1 cache
+      if: steps.menuui24_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        OOM="$UPSTREAM/src/emu/services/src/ui/cap/oom_app.cpp"
+        APPLIST="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        KERNEL="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+
+        test -x "$APP/eka2l1"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 AKN_ZORDER:' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI24 HIDE_FSW:' "$OOM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI23 APPTYPE:' "$APPLIST"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SCHEDRUN_SVC:' "$KERNEL"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI22 SYNC_COMPLETE:' "$SVC"
+        grep -Fq 'MANIC_MODALFIX1' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'MENUUI24 AKN-ZORDER1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'cache_hit=true'
+          echo 'opcode_58=HideApplicationFromFSW_TRACKED'
+          echo 'opcode_68=MoveAppInZOrder_IMPLEMENTED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-source.diff"
+        echo 'MENUUI24 AKN-ZORDER1 cache restore: PASS'
+
+    - name: Save MENUUI24 AKN-ZORDER1 cache
+      if: steps.menuui24_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui24-akn-zorder1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI24 AKN-ZORDER1 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI24-AKN-ZORDER1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui24-akn-zorder1"
+        IPA_LIST="$RUNNER_TEMP/menuui24-akn-zorder1-ipa-list.txt"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$IPA_LIST"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$IPA_LIST"
+        grep -Fq 'EKAManicControls/dpad.png' "$IPA_LIST"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$IPA_LIST"
+
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-IPA-SHA256.txt"
+        du -h "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI24-AKN-ZORDER1-IPA-SIZE.txt"
+        echo 'MENUUI24 AKN-ZORDER1 unsigned IPA package: PASS'
+
+    - name: Upload MENUUI24 AKN-ZORDER1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI24-AKN-ZORDER1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI24-AKN-ZORDER1-NOJAVA-MANIC3-unsigned.ipa
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload MENUUI24 AKN-ZORDER1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI24-AKN-ZORDER1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI24-AKN-ZORDER1-BUILD-AUDIT.txt
+          MENUUI24-AKN-ZORDER1-source.diff
+          MENUUI24-AKN-ZORDER1-IPA-SHA256.txt
+          MENUUI24-AKN-ZORDER1-IPA-SIZE.txt
+        if-no-files-found: error
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI24-AKN-ZORDER1-diagnostic-log
+        path: eka2l1-menuui24-akn-zorder1.log
+        if-no-files-found: warn
+        retention-days: 14
