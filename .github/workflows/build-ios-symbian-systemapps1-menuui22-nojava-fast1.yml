@@ -119,7 +119,7 @@ jobs:
         # Remove stale resources left in the existing bundle by the prior Java build.
         find "$APP" -type f \( \
           -name '*.jar' -o \
-          -name 'GeneralUser GS SoftSynth v1.44.sf2' -o \
+          -name '*.sf2' -o \
           -name 'GeneralUser-GS-SoftSynth-1.44-PROVENANCE.txt' -o \
           -name 'GeneralUser-GS-LICENSE.txt' -o \
           -name 'TinySoundFont-LICENSE.txt' \
@@ -144,7 +144,8 @@ jobs:
         ! grep -Fq 'GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
 
         if find "$APP" -type f \( -name '*.jar' -o -name '*.sf2' \) -print -quit | grep -q .; then
-          echo 'ERROR: Java/J2ME runtime resource survived in app bundle' >&2
+          echo 'ERROR: Java/J2ME runtime resource survived in app bundle:' >&2
+          find "$APP" -type f \( -name '*.jar' -o -name '*.sf2' \) -print >&2
           exit 1
         fi
 
