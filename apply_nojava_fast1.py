@@ -400,6 +400,7 @@ def main() -> None:
     strip_cmake(cmake)
 
     shutil.rmtree(up / "third_party/phoneme-r1", ignore_errors=True)
+    j2me_resources = up / "src/emu/ios/app/j2me"
     for name in (
         "GeneralUser GS SoftSynth v1.44.sf2",
         "GeneralUser-GS-SoftSynth-1.44-PROVENANCE.txt",
@@ -407,9 +408,20 @@ def main() -> None:
         "TinySoundFont-LICENSE.txt",
     ):
         try:
-            (up / "src/emu/ios/app/j2me" / name).unlink()
+            (j2me_resources / name).unlink()
         except FileNotFoundError:
             pass
+
+    # Do not depend on one historical resource filename. Any JAR or SoundFont
+    # left under the old Java resource tree is Java baggage and must not survive
+    # into the native-only baseline.
+    if j2me_resources.is_dir():
+        for pattern in ("*.jar", "*.sf2"):
+            for resource in j2me_resources.rglob(pattern):
+                try:
+                    resource.unlink()
+                except FileNotFoundError:
+                    pass
 
     cm = cmake.read_text(encoding="utf-8")
     rt = root.read_text(encoding="utf-8")
