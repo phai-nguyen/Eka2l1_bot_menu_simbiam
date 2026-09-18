@@ -120,50 +120,59 @@ def patch_editor(app: Path) -> None:
 
     old_block = '''    _controls = [[GameControlsView alloc] initWithFrame:CGRectZero];
     _controls.editDelegate = self;
-    EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
-    // The "default" for this layout is the selected on-screen layout (e.g. Joystick) rendered as
-    // editable elements, so the editor — and the Reset button — reflect the user's choice. None
-    // (layout 0) falls back to a sensible D-pad default.
-    NSArray *seed = [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
-    _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
-    NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
-    _controls.customLayout = existing.count ? existing : _defaultSeed;
+    if (_externalMode) {
+        _defaultSeed = _externalDefaultLayout.count ? _externalDefaultLayout : [GameControlsView defaultCustomLayout];
+        _controls.customLayout = _externalInitialLayout.count ? _externalInitialLayout : _defaultSeed;
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
+            initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(onExternalCancel)];
+    } else {
+        EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
+        NSArray *seed = [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
+        _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
+        NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
+        _controls.customLayout = existing.count ? existing : _defaultSeed;
+    }
     _controls.editing = YES;
     [_preview addSubview:_controls];
 '''
-    new_block = '''    EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
-    _manicMode = (s.keyLayout == 7);
-
-    _controls = [[GameControlsView alloc] initWithFrame:CGRectZero];
+    new_block = '''    _controls = [[GameControlsView alloc] initWithFrame:CGRectZero];
     _controls.editDelegate = self;
+    if (_externalMode) {
+        _defaultSeed = _externalDefaultLayout.count ? _externalDefaultLayout : [GameControlsView defaultCustomLayout];
+        _controls.customLayout = _externalInitialLayout.count ? _externalInitialLayout : _defaultSeed;
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
+            initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(onExternalCancel)];
+    } else {
+        EKAGameSettings *s = [GameSettingsStore settingsForUid:_uid];
+        _manicMode = (s.keyLayout == 7);
 
-    // MANIC_LAYOUT2: Manic is a first-class native layout for both Symbian and
-    // N-Gage. Seed the editor from the same representation JSON used at runtime,
-    // so portrait/landscape edits match the actual skin geometry.
-    CGSize screen = UIScreen.mainScreen.bounds.size;
-    CGFloat mn = MIN(screen.width, screen.height);
-    CGFloat mx = MAX(screen.width, screen.height);
-    CGSize targetSize = _portrait ? CGSizeMake(mn, mx) : CGSizeMake(mx, mn);
-    NSArray *seed = _manicMode
-        ? EKAManicDefaultControlLayout(targetSize, self.traitCollection)
-        : [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
-    _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
+        // MANIC_LAYOUT2: use the same representation geometry as runtime so
+        // Symbian/N-Gage portrait and landscape edits match the Manic skin.
+        CGSize screen = UIScreen.mainScreen.bounds.size;
+        CGFloat mn = MIN(screen.width, screen.height);
+        CGFloat mx = MAX(screen.width, screen.height);
+        CGSize targetSize = _portrait ? CGSizeMake(mn, mx) : CGSizeMake(mx, mn);
+        NSArray *seed = _manicMode
+            ? EKAManicDefaultControlLayout(targetSize, self.traitCollection)
+            : [GameControlsView customLayoutForBuiltinLayout:s.keyLayout];
+        _defaultSeed = seed.count ? seed : [GameControlsView defaultCustomLayout];
 
-    NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
-    NSArray *active = existing.count ? existing : _defaultSeed;
-    _controls.customLayout = active;
-    _controls.editing = YES;
+        NSArray *existing = _portrait ? s.customLayoutPortrait : s.customLayoutLandscape;
+        NSArray *active = existing.count ? existing : _defaultSeed;
+        _controls.customLayout = active;
 
-    if (_manicMode) {
-        _manicArtwork = [[EKAManicControlsArtworkView alloc] initWithFrame:CGRectZero];
-        _manicArtwork.layout = active;
-        _manicArtwork.controlsOpacity = 1.0;
-        [_preview addSubview:_manicArtwork];
+        if (_manicMode) {
+            _manicArtwork = [[EKAManicControlsArtworkView alloc] initWithFrame:CGRectZero];
+            _manicArtwork.layout = active;
+            _manicArtwork.controlsOpacity = 1.0;
+            [_preview addSubview:_manicArtwork];
 
-        // Hide generic button artwork but keep GameControlsView's editor boxes,
-        // drag/pinch gestures and native Symbian scancode model.
-        _controls.overlayOpacity = 0.0;
+            // Keep GameControlsView as the editor/input authority; only its
+            // generic artwork is hidden while Manic artwork is visible.
+            _controls.overlayOpacity = 0.0;
+        }
     }
+    _controls.editing = YES;
     [_preview addSubview:_controls];
 '''
     text = replace_once(text, old_block, new_block, "editor setup")
