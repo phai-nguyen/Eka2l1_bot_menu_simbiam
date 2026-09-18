@@ -41,3 +41,9 @@ jobs:
         cat upstream/src/emu/ios/app/j2me/J2MEManicControlsView.m
         echo '===== Remaining app/j2me files ====='
         find upstream/src/emu/ios/app/j2me -maxdepth 2 -type f -print | sort
+        echo '===== Root Java/J2ME refs ====='
+        grep -nEi 'java|j2me|jar|phoneme' upstream/src/emu/ios/app/RootViewController.mm || true
+        echo '===== GameControls Manic hooks ====='
+        grep -nE -C 5 'controlVisualOutput|emitControlVisualForIndex|pressCodes|releaseCodes|updateJoystickToPoint|drawRect|rebuildControls' upstream/src/emu/ios/app/GameControlsView.h upstream/src/emu/ios/app/GameControlsView.mm || true
+        echo '===== iOS CMake tail ====='
+        sed -n '130,260p' upstream/src/emu/ios/CMakeLists.txt
