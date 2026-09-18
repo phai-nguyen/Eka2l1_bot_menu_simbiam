@@ -1,0 +1,31 @@
+name: Inspect MANIC2 editor baseline
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - .github/INSPECT_MANIC2_EDITOR_TRIGGER
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+    - id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui22-nojava-full1-manic1-macos15-v1
+    - name: Inspect editor source
+      run: |
+        set -euo pipefail
+        test "${{ steps.cache.outputs.cache-hit }}" = "true"
+        echo '===== EDITOR HEAD ====='
+        sed -n '1,260p' upstream/src/emu/ios/app/LayoutEditorViewController.mm
+        echo '===== EDITOR TAIL ====='
+        sed -n '261,620p' upstream/src/emu/ios/app/LayoutEditorViewController.mm
