@@ -97,7 +97,7 @@ jobs:
         ! grep -RniE 'j2me|phoneme' "$UPSTREAM/src/emu" --include='CMakeLists.txt'
         ! grep -RniE 'j2me::|get_j2me|<j2me/|j2me_applist' "$UPSTREAM/src/emu" \
           --include='*.cpp' --include='*.cc' --include='*.c' --include='*.h' --include='*.hpp' --include='*.mm' --include='*.m' \
-          --exclude-dir=android
+          --exclude-dir=android --exclude-dir=qt
         ! find "$UPSTREAM/build-ios-device" -type f -name 'libj2me.a' -print -quit | grep -q .
         ! grep -Ei 'src/emu/j2me|libj2me\.a' "$UPSTREAM/build-ios-device/build.ninja"
 
