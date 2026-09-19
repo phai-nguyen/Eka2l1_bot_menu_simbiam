@@ -126,6 +126,16 @@ def main():
     anim.write_text(ac,encoding="utf-8")
 
     wh=winh.read_text(encoding="utf-8")
+    if "    struct raw_event;\n" not in wh:
+        wh=replace_once(wh,
+"""    struct window;
+    struct window_key_shipper;
+""",
+"""    struct window;
+    struct window_key_shipper;
+    struct raw_event;
+""","raw_event forward declaration")
+
     wh=replace_once(wh,
 """        std::atomic<bool> peninput_anim_pointer_captured_{ false };
         std::atomic<bool> peninput_anim_pen_down_{ false };
