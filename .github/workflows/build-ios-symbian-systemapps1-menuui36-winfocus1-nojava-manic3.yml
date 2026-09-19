@@ -2,9 +2,6 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI36 WINFOCUS1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/menuui36-winfocus1-trigger3.txt"
 
 permissions:
   contents: read
