@@ -49,9 +49,9 @@ jobs:
         python3 -m py_compile "$PATCHER"
         python3 "$PATCHER" "$UPSTREAM"
 
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$IOS"
-        ! grep -Fq '"avkonfep_general.dll", epocver::epoc93fp1' "$IOS"
-        grep -Fq 'goommonitor_general.dll' "$IOS"
+        rg -q 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
+        ! rg -q '"avkonfep_general.dll", epocver::epoc93fp1' "$UPSTREAM/src/emu/ios"
+        rg -q 'goommonitor_general.dll' "$UPSTREAM/src/emu/ios"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI29 PENINPUT_IPC:' "$SVC"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI28 PENINPUT_ANIM:' "$ANIM"
         test ! -e "$UPSTREAM/src/emu/j2me"
@@ -88,9 +88,8 @@ jobs:
       run: |
         set -euo pipefail
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
-        IOS="$UPSTREAM/src/emu/ios/Bridge/IosEmulator.mm"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$IOS"
-        ! grep -Fq '"avkonfep_general.dll", epocver::epoc93fp1' "$IOS"
+        rg -q 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
+        ! rg -q '"avkonfep_general.dll", epocver::epoc93fp1' "$UPSTREAM/src/emu/ios"
         test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
         test ! -e "$UPSTREAM/src/emu/j2me"
         echo 'MENUUI30 STOCKFEP1 cache_hit=true' > "$GITHUB_WORKSPACE/MENUUI30-STOCKFEP1-BUILD-AUDIT.txt"
