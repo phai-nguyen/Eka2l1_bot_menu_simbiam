@@ -2,9 +2,6 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI28 PENINPUTANIM1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/menuui28-peninputanim1-trigger.txt"
 
 permissions:
   contents: read
