@@ -1,0 +1,178 @@
+name: Build EKA2L1 NATIVEBOOT1 B1 ESTARTONLY NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    paths:
+      - '.nativeboot1-b1-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore NATIVEBOOT1 B1 cache
+      id: nativeboot1_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot1-b1-estartonly-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI36 baseline
+      id: menuui36_cache
+      if: steps.nativeboot1_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui36-winfocus1-nojava-manic3-macos15-v1
+
+    - name: Apply NATIVEBOOT1 B1 EStart-only handoff and rebuild
+      if: steps.nativeboot1_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-nativeboot1-b1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.menuui36_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_nativeboot1_b1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        CFG="$UPSTREAM/src/emu/config/include/config/config.h"
+        INIT="$UPSTREAM/src/emu/services/src/init.cpp"
+        EPOC="$UPSTREAM/src/emu/system/src/epoc.cpp"
+        KERN="$UPSTREAM/src/emu/kernel/src/kernel.cpp"
+        PROC="$UPSTREAM/src/emu/kernel/src/process.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        WGC="$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'bool native_phone_boot{ true }' "$CFG"
+        grep -Fq '[NBOOT1][HLE_POLICY]' "$INIT"
+        grep -Fq '[NBOOT1][C32_READY]' "$INIT"
+        grep -Fq '[NBOOT1][BOOT_MODE]' "$EPOC"
+        grep -Fq '[NBOOT1][ESTART_CREATE]' "$EPOC"
+        grep -Fq 'host_sysstart=0 host_menu=0' "$EPOC"
+        grep -Fq '[NBOOT1][PROC_CREATE]' "$KERN"
+        grep -Fq '[NBOOT1][SYSSTART_CREATE]' "$KERN"
+        grep -Fq '[NBOOT1][PROC_RUN]' "$PROC"
+        grep -Fq '[NBOOT1][PROC_EXIT]' "$PROC"
+        grep -Fq '[NBOOT1][RENDEZVOUS]' "$PROC"
+        grep -Fq '[NBOOT1][SERVER_REGISTER]' "$SVC"
+        grep -Fq '[NBOOT1][COLLISION]' "$SVC"
+        grep -Fq '[NBOOT1][MISSING_SERVER]' "$SVC"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$WGC"
+
+        ! grep -Fq 'PHONE_BOOT_PLAN' "$EPOC"
+        ! grep -Fq 'sysstart_path' "$EPOC"
+        ! grep -Fq 'menu3.exe' "$EPOC"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/nativeboot1-b1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+
+        grep -Fq '[NBOOT1][BOOT_MODE]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT1][ESTART_CREATE]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT1][SYSSTART_CREATE]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT1][SERVER_REGISTER]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT1][COLLISION]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT1][MISSING_SERVER]' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'NATIVEBOOT1 B1 ESTARTONLY NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI36_WINFOCUS1_NOJAVA_MANIC3'
+          echo 'native_phone_boot=ENABLED_BUILD_LOCAL'
+          echo 'handoff=Z:\\sys\\bin\\EStart.exe_ONLY'
+          echo 'host_sysstart=DISABLED'
+          echo 'host_menu=DISABLED'
+          echo 'hardcoded_component_plan=DISABLED'
+          echo 'hle_keep=fs,loader,fbs,wserv,centralrepo,featmgr,hwrm,etel,comm,socket,bt,accessory,skin,domain'
+          echo 'native_ownership=applist,akncap,view,notifier,keysound,eikappui,system_agent'
+          echo 'c32_core_property=0x101F75B6:0x102045DD=10'
+          echo 'trace=process,server,collision,missing-server,rendezvous'
+          echo 'MENUUI36=PRESERVED'
+          echo 'NOJAVA=PRESERVED'
+          echo 'MANIC3=PRESERVED_FROM_BASELINE'
+        } > "$GITHUB_WORKSPACE/NATIVEBOOT1-B1-BUILD-AUDIT.txt"
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/NATIVEBOOT1-B1-source.diff"
+
+    - name: Verify restored NATIVEBOOT1 B1 cache
+      if: steps.nativeboot1_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        grep -Fq '[NBOOT1][ESTART_CREATE]' "$UPSTREAM/src/emu/system/src/epoc.cpp"
+        grep -Fq '[NBOOT1][COLLISION]' "$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'NATIVEBOOT1 B1 cache_hit=true' > "$GITHUB_WORKSPACE/NATIVEBOOT1-B1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/NATIVEBOOT1-B1-source.diff"
+
+    - name: Save NATIVEBOOT1 B1 cache
+      if: steps.nativeboot1_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot1-b1-estartonly-nojava-manic3-macos15-v1
+
+    - name: Package NATIVEBOOT1 B1 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT1-B1-ESTARTONLY-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-nativeboot1-b1"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/nativeboot1-b1-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/nativeboot1-b1-ipa-list.txt"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/nativeboot1-b1-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/NATIVEBOOT1-B1-IPA-SHA256.txt"
+
+    - name: Upload NATIVEBOOT1 B1 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT1-B1-ESTARTONLY-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT1-B1-ESTARTONLY-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload NATIVEBOOT1 B1 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT1-B1-ESTARTONLY-NOJAVA-MANIC3-AUDIT
+        path: |
+          NATIVEBOOT1-B1-BUILD-AUDIT.txt
+          NATIVEBOOT1-B1-source.diff
+          NATIVEBOOT1-B1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT1-B1-diagnostic-log
+        path: eka2l1-nativeboot1-b1.log
+        if-no-files-found: warn
+        retention-days: 14
