@@ -1,0 +1,154 @@
+name: Build EKA2L1 NATIVEBOOT2 B7 LOCALEABI1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    paths:
+      - '.nativeboot2-b7-localeabi1-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B7 cache
+      id: b7_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b7-localeabi1-nojava-manic3-macos15-v1
+
+    - name: Restore B6 baseline
+      id: b6_cache
+      if: steps.b7_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b6-rm356-bsp1-nojava-manic3-macos15-v1
+
+    - name: Apply B7 locale executive ABI and rebuild
+      if: steps.b7_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-nativeboot2-b7-localeabi1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.b6_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_nativeboot2_b7_localeabi1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        HAL="$UPSTREAM/src/emu/system/src/hal.cpp"
+        FS="$UPSTREAM/src/emu/services/src/fs/fs.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        STATE="$UPSTREAM/src/emu/ios/src/state.cpp"
+
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq '[NBOOT2][RM356_SET_GLOBAL_USERDATA]' "$SVC"
+        grep -Fq '[NBOOT2][RM356_GET_GLOBAL_USERDATA]' "$SVC"
+        grep -Fq 'BRIDGE_REGISTER(0xE4, set_global_userdata)' "$SVC"
+        grep -Fq '[NBOOT2][RM356_STARTUP_REASON]' "$HAL"
+        grep -Fq '[NBOOT2][RM356_FS_MAPPING]' "$FS"
+        grep -Fq '[NBOOT2][ESTART_RUN]' "$STATE"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/nativeboot2-b7-localeabi1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][RM356_SET_GLOBAL_USERDATA]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][RM356_GET_GLOBAL_USERDATA]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][RM356_STARTUP_REASON]' "$STRINGS_OUT"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'NATIVEBOOT2 B7 LOCALEABI1 BUILD AUDIT'
+          echo 'base_cache=NATIVEBOOT2_B6_RM356_BSP1'
+          echo 'epoc94_svc_0xE4=SetGlobalUserData'
+          echo 'global_userdata_0=DefaultCharSet'
+          echo 'global_userdata_1=PreferredCharSet'
+          echo 'fast_get_global_userdata=REAL_STORAGE'
+          echo 'rm356_bsp1=PRESERVED'
+          echo 'frontend=EMUHUB1_PRESERVED'
+          echo 'NOJAVA=PRESERVED'
+          echo 'MANIC3=PRESERVED'
+        } > "$GITHUB_WORKSPACE/NATIVEBOOT2-B7-LOCALEABI1-BUILD-AUDIT.txt"
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/NATIVEBOOT2-B7-LOCALEABI1-source.diff"
+
+    - name: Verify restored B7 cache
+      if: steps.b7_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        grep -Fq '[NBOOT2][RM356_SET_GLOBAL_USERDATA]' "$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'NATIVEBOOT2 B7 LOCALEABI1 cache_hit=true' > "$GITHUB_WORKSPACE/NATIVEBOOT2-B7-LOCALEABI1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/NATIVEBOOT2-B7-LOCALEABI1-source.diff"
+
+    - name: Save B7 cache
+      if: steps.b7_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b7-localeabi1-nojava-manic3-macos15-v1
+
+    - name: Package unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT2-B7-LOCALEABI1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-nativeboot2-b7"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/nativeboot2-b7-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/nativeboot2-b7-ipa-list.txt"
+        ! grep -Ei '\.jar([[:space:]]|$)' "$RUNNER_TEMP/nativeboot2-b7-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/NATIVEBOOT2-B7-LOCALEABI1-IPA-SHA256.txt"
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B7-LOCALEABI1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-B7-LOCALEABI1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B7-LOCALEABI1-NOJAVA-MANIC3-AUDIT
+        path: |
+          NATIVEBOOT2-B7-LOCALEABI1-BUILD-AUDIT.txt
+          NATIVEBOOT2-B7-LOCALEABI1-source.diff
+          NATIVEBOOT2-B7-LOCALEABI1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B7-LOCALEABI1-diagnostic-log
+        path: eka2l1-nativeboot2-b7-localeabi1.log
+        if-no-files-found: warn
+        retention-days: 14
