@@ -118,8 +118,10 @@ def patch_svc(path: Path) -> None:
     # Registration order is irrelevant to func_map lookup. Append the RM-356
     # slot at the end of the v94 initializer so this patch is independent of
     # historical shifts in the neighbouring E2/E3/E5 executive numbers.
-    if not block.endswith("\n"):
-        block += "\n"
+    trimmed = block.rstrip()
+    if not trimmed.endswith(","):
+        trimmed += ","
+    block = trimmed + "\n"
     block += """        // NATIVEBOOT2-B7: RM-356 EUSER SetGlobalUserData.
         BRIDGE_REGISTER(0xE4, set_global_userdata),
 """
