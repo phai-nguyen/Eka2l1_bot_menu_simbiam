@@ -115,20 +115,14 @@ def patch_svc(path: Path) -> None:
     if "BRIDGE_REGISTER(0xE4," in block:
         fail("EPOC94 0xE4 already occupied")
 
-    anchor = "        BRIDGE_REGISTER(0xE2, get_module_name_from_address),\n"
-    if anchor not in block:
-        # Some baseline variants use E3 for GetModuleNameFromAddress.
-        anchor = "        BRIDGE_REGISTER(0xE3, get_module_name_from_address),\n"
-    if anchor not in block:
-        fail("EPOC94 locale-adjacent anchor missing")
-
-    block = replace_once(
-        block,
-        anchor,
-        anchor + """        // NATIVEBOOT2-B7: RM-356 EUSER SetGlobalUserData.
+    # Registration order is irrelevant to func_map lookup. Append the RM-356
+    # slot at the end of the v94 initializer so this patch is independent of
+    # historical shifts in the neighbouring E2/E3/E5 executive numbers.
+    if not block.endswith("\n"):
+        block += "\n"
+    block += """        // NATIVEBOOT2-B7: RM-356 EUSER SetGlobalUserData.
         BRIDGE_REGISTER(0xE4, set_global_userdata),
-""",
-        "EPOC94 0xE4 SetGlobalUserData")
+"""
 
     # Preserve all existing RM-356 ABI invariants.
     if "BRIDGE_REGISTER(0x0A, logical_channel_request_v95)" not in block:
