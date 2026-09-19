@@ -2,9 +2,6 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI35 SIMULATEEVENT ASYNC1 NOJAVA MANI
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/menuui35-simulateevent-async1-trigger3.txt"
 
 permissions:
   contents: read
