@@ -2,6 +2,9 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI30 STOCKFEP1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/menuui30-stockfep1-trigger3.txt"
 
 permissions:
   contents: read
