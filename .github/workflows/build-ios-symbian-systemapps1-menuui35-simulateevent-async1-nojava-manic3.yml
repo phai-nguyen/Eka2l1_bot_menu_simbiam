@@ -70,7 +70,6 @@ jobs:
         strings "$BIN" > "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI35 SIMULATE_EVENT:' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI35 POST_RAW_DEFER:' "$STRINGS_OUT"
-        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34' "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI33 KEYSOUND13:' "$STRINGS_OUT"
         ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
 
@@ -80,7 +79,7 @@ jobs:
           echo 'opcode510_sync_reentry=REMOVED'
           echo 'PostRawEvent=DEFERRED_ON_LIBUV_LOOPER'
           echo 'simulated_guard=SCOPED_TO_DEFERRED_DISPATCH'
-          echo 'MENUUI34=PRESERVED'
+          echo 'MENUUI34_SYNC_POSTRAW=SUPERSEDED_BY_MENUUI35_DEFERRED'
           echo 'MENUUI33=PRESERVED'
           echo 'MENUUI32=PRESERVED'
           echo 'java_j2me=REMOVED'
