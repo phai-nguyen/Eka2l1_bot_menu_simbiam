@@ -70,7 +70,7 @@ def main():
         # Use a stable services/window include area instead of an upstream-only
         # absolute position.
         anchor="#include <services/window/window.h>\n"
-        wc=replace_once(wc,anchor,anchor+"#include <uvlooper/uvlooper.h>\n",
+        wc=replace_once(wc,anchor,anchor+"#include <uvlooper/uvlooper.h>\n#ifdef VMIN\n#undef VMIN\n#endif\n",
                         "uvlooper include")
 
     # Replace V34's synchronous PostRawEvent body with a pure scheduling API.
