@@ -1,0 +1,144 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI32 PENINPUTQUEUE1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MENUUI32 cache
+      id: menuui32_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui32-peninputqueue1-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI31 baseline
+      id: menuui31_cache
+      if: steps.menuui32_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui31-peninputraw1-nojava-manic3-macos15-v1
+
+    - name: Apply MENUUI32 PenInput queue trace and rebuild
+      if: steps.menuui32_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui32-peninputqueue1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.menuui31_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui32_peninputqueue1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        MQ="$UPSTREAM/src/emu/kernel/src/msgqueue.cpp"
+        WIN="$UPSTREAM/src/emu/services/src/window/window.cpp"
+        ANIM="$UPSTREAM/src/emu/services/src/window/classes/plugins/animdll.cpp"
+
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE: op=send stage=enter' "$MQ"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE: op=notify stage=enter' "$MQ"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE: op=receive stage=enter' "$MQ"
+        grep -Fq 'V17 MSGQ ORDER: data queued before availability notification' "$MQ"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI31 PENINPUT_RAW:' "$WIN"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI28 PENINPUT_ANIM:' "$ANIM"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/menuui32.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI31 PENINPUT_RAW:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI29 PENINPUT_IPC:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI28 PENINPUT_ANIM:' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI32 PENINPUTQUEUE1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI31_PENINPUTRAW1_NOJAVA_MANIC3'
+          echo 'behavior_change=NONE'
+          echo 'raweventbufqueue_send_notify_receive=TRACED'
+          echo 'V17_publish_before_notify=PRESERVED'
+          echo 'MENUUI31_RAW=PRESERVED'
+          echo 'MENUUI30_STOCKFEP=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI32-PENINPUTQUEUE1-BUILD-AUDIT.txt"
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI32-PENINPUTQUEUE1-source.diff"
+
+    - name: Verify restored MENUUI32 cache
+      if: steps.menuui32_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE:' "$UPSTREAM/src/emu/kernel/src/msgqueue.cpp"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'MENUUI32 PENINPUTQUEUE1 cache_hit=true' > "$GITHUB_WORKSPACE/MENUUI32-PENINPUTQUEUE1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI32-PENINPUTQUEUE1-source.diff"
+
+    - name: Save MENUUI32 cache
+      if: steps.menuui32_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui32-peninputqueue1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI32 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI32-PENINPUTQUEUE1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui32"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI32-PENINPUTQUEUE1-IPA-SHA256.txt"
+
+    - name: Upload MENUUI32 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI32-PENINPUTQUEUE1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI32-PENINPUTQUEUE1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload MENUUI32 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI32-PENINPUTQUEUE1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI32-PENINPUTQUEUE1-BUILD-AUDIT.txt
+          MENUUI32-PENINPUTQUEUE1-source.diff
+          MENUUI32-PENINPUTQUEUE1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI32-PENINPUTQUEUE1-diagnostic-log
+        path: eka2l1-menuui32-peninputqueue1.log
+        if-no-files-found: warn
+        retention-days: 14
