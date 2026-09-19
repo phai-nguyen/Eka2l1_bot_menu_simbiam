@@ -2,9 +2,6 @@ name: Build EKA2L1 NATIVEBOOT2 B10 FSFORMAT1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - '.nativeboot2-b10-fsformat1-trigger'
 
 permissions:
   contents: read
