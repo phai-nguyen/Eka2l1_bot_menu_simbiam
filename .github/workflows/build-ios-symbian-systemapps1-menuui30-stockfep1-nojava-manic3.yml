@@ -48,9 +48,9 @@ jobs:
         python3 -m py_compile "$PATCHER"
         python3 "$PATCHER" "$UPSTREAM"
 
-        rg -q 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
-        ! rg -q '"avkonfep_general.dll", epocver::epoc93fp1' "$UPSTREAM/src/emu/ios"
-        rg -q 'goommonitor_general.dll' "$UPSTREAM/src/emu/ios"
+        grep -R -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
+        ! grep -R -Fq '"avkonfep_general.dll", epocver::epoc93fp1' "$UPSTREAM/src/emu/ios"
+        grep -R -Fq 'goommonitor_general.dll' "$UPSTREAM/src/emu/ios"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI29 PENINPUT_IPC:' "$SVC"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI28 PENINPUT_ANIM:' "$ANIM"
         test ! -e "$UPSTREAM/src/emu/j2me"
