@@ -58,6 +58,16 @@ def main():
         fail("MENUUI31 baseline missing")
 
     ac=anim.read_text(encoding="utf-8")
+    if "#include <utils/event.h>\n" not in ac:
+        ac=replace_once(ac,
+"""#include <services/window/window.h>
+""",
+"""#include <services/window/window.h>
+#include <utils/event.h>
+""","raw_event definition include")
+        anim.write_text(ac,encoding="utf-8")
+        ac=anim.read_text(encoding="utf-8")
+
     if "SYMBIAN-SYSTEMAPPS1 MENUUI34 SIMULATE_EVENT:" in ac:
         print("MENUUI34 already present")
         return
