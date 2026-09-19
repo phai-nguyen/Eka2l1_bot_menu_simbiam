@@ -89,11 +89,6 @@ def main() -> None:
         fail("MANIC3 baseline missing")
 
     old = """        const std::string server_name = ss->get_server()->name();
-        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());
-
-        const int result = sync ? ss->send_receive_sync(ord, arg, status) : ss->send_receive(ord, arg, status);
-
-        if (ss->get_server()->is_hle()) {
 """
     new = """        const std::string server_name = ss->get_server()->name();
 
@@ -105,10 +100,12 @@ def main() -> None:
                 status.ptr_address(), arg.flag,
                 arg.args[0], arg.args[1], arg.args[2], arg.args[3]);
         }
+"""
+    text = replace_once(text, old, new, "peninput send trace")
 
-        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());
-
-        const int result = sync ? ss->send_receive_sync(ord, arg, status) : ss->send_receive(ord, arg, status);
+    old = """        const int result = sync ? ss->send_receive_sync(ord, arg, status) : ss->send_receive(ord, arg, status);
+"""
+    new = """        const int result = sync ? ss->send_receive_sync(ord, arg, status) : ss->send_receive(ord, arg, status);
 
         if (menuui29_peninput) {
             LOG_WARN(KERNEL,
@@ -116,10 +113,8 @@ def main() -> None:
                 sync ? 1 : 0, ord, h, crr_pr ? crr_pr->name() : std::string("<null>"),
                 result, status.ptr_address());
         }
-
-        if (ss->get_server()->is_hle()) {
 """
-    text = replace_once(text, old, new, "peninput session trace")
+    text = replace_once(text, old, new, "peninput return trace")
     svc.write_text(text, encoding="utf-8")
 
     final = svc.read_text(encoding="utf-8")
