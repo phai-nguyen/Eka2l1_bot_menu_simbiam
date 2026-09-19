@@ -2,6 +2,9 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI34 SIMULATEEVENT1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/menuui34-simulateevent1-trigger.txt"
 
 permissions:
   contents: read
