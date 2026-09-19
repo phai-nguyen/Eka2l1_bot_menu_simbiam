@@ -24,16 +24,19 @@ jobs:
       run: |
         set -euo pipefail
         test "${{ steps.cache.outputs.cache-hit }}" = "true"
-        mkdir -p dump/App dump/Bridge dump/ios-src dump/system
-        cp upstream/src/emu/ios/App/ContentView.swift dump/App/
-        cp upstream/src/emu/ios/App/DeviceStore.swift dump/App/
-        cp upstream/src/emu/ios/App/EmulatorView.swift dump/App/ 2>/dev/null || true
-        cp upstream/src/emu/ios/Bridge/IosEmulator.h dump/Bridge/
-        cp upstream/src/emu/ios/Bridge/IosEmulator.mm dump/Bridge/
-        cp upstream/src/emu/ios/src/emu_bridge.mm dump/ios-src/ 2>/dev/null || true
-        cp upstream/src/emu/ios/src/launcher.cpp dump/ios-src/ 2>/dev/null || true
+        mkdir -p dump/ios dump/system
+        find upstream/src/emu/ios -maxdepth 4 -type f | sort > dump/ios-tree.txt
+        while IFS= read -r f; do
+          rel="${f#upstream/src/emu/ios/}"
+          case "$f" in
+            *.swift|*.mm|*.m|*.cpp|*.cc|*.c|*.h|*.hpp|*.plist|*.strings|*CMakeLists.txt)
+              mkdir -p "dump/ios/$(dirname "$rel")"
+              cp "$f" "dump/ios/$rel"
+              ;;
+          esac
+        done < dump/ios-tree.txt
         cp upstream/src/emu/system/src/epoc.cpp dump/system/
-        grep -RIn "SYMBIAN-SYSTEMAPPS1\|Ứng dụng\|Cài đặt trò chơi\|Thiết bị\|Applications\|TabView\|Picker" dump > dump/search.txt || true
+        grep -RIn "SYMBIAN-SYSTEMAPPS1\|Ứng dụng\|Cài đặt trò chơi\|Thiết bị\|Applications\|TabView\|Picker\|system apps" dump/ios > dump/search.txt || true
     - uses: actions/upload-artifact@v4
       with:
         name: MENUUI36-IOS-FRONTEND-SOURCES
