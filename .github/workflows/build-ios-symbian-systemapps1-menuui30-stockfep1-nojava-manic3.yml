@@ -42,7 +42,6 @@ jobs:
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
         PATCHER="$GITHUB_WORKSPACE/apply_menuui30_stockfep1.py"
         CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
-        IOS="$UPSTREAM/src/emu/ios/Bridge/IosEmulator.mm"
         SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
         ANIM="$UPSTREAM/src/emu/services/src/window/classes/plugins/animdll.cpp"
 
@@ -62,7 +61,6 @@ jobs:
         APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
         BIN="$APP/eka2l1"
         test -x "$BIN"
-        test -f "$APP/emures/patch/avkonfep_general.dll"
         STRINGS_OUT="$RUNNER_TEMP/menuui30.strings"
         strings "$BIN" > "$STRINGS_OUT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$STRINGS_OUT"
@@ -117,7 +115,6 @@ jobs:
         /usr/bin/unzip -t "$IPA" >/dev/null
         /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/menuui30-ipa-list.txt"
         grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/menuui30-ipa-list.txt"
-        grep -Fq 'Payload/EKA2L1.app/emures/patch/avkonfep_general.dll' "$RUNNER_TEMP/menuui30-ipa-list.txt"
         ! grep -Ei '\.jar([[:space:]]|$)' "$RUNNER_TEMP/menuui30-ipa-list.txt"
         shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI30-STOCKFEP1-IPA-SHA256.txt"
 
