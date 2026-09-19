@@ -2,6 +2,9 @@ name: Build EKA2L1 NATIVEBOOT2 EMUHUB1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    paths:
+      - '.nativeboot2-emuhub1-trigger-2'
 
 permissions:
   contents: read
