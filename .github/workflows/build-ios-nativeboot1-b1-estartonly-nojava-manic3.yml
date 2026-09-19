@@ -2,6 +2,9 @@ name: Build EKA2L1 NATIVEBOOT1 B1 ESTARTONLY NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    paths:
+      - '.nativeboot1-b1-trigger-2'
 
 permissions:
   contents: read
@@ -100,8 +103,8 @@ jobs:
           echo 'host_sysstart=DISABLED'
           echo 'host_menu=DISABLED'
           echo 'hardcoded_component_plan=DISABLED'
-          echo 'hle_keep=fs,loader,fbs,wserv,centralrepo,featmgr,hwrm,etel,comm,socket,bt,accessory,skin,domain'
-          echo 'native_ownership=applist,akncap,view,notifier,keysound,eikappui,system_agent'
+          echo 'hle_keep=fs,loader,fbs,wserv,centralrepo,featmgr,hwrm,etel,comm,socket,bt,accessory,skin'
+          echo 'native_ownership=domainSrv,applist,akncap,view,notifier,keysound,eikappui,system_agent'
           echo 'c32_core_property=0x101F75B6:0x102045DD=10'
           echo 'trace=process,server,collision,missing-server,rendezvous'
           echo 'MENUUI36=PRESERVED'
