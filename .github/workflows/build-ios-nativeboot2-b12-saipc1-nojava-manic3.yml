@@ -2,6 +2,12 @@ name: Build EKA2L1 NATIVEBOOT2 B12 SAIPC1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - apply_nativeboot2_b12_saipc1.py
+      - .github/workflows/build-ios-nativeboot2-b12-saipc1-nojava-manic3.yml
 
 permissions:
   contents: read
