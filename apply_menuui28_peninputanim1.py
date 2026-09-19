@@ -418,11 +418,7 @@ def main() -> None:
 """
     wc = replace_once(wc, old, new, "PenInput DLL recognition")
 
-    old = """    void window_server::queue_input_from_driver(drivers::input_event &evt) {
-        if (!loaded) {
-            return;
-        }
-"""
+    old = """    void window_server::queue_input_from_driver(drivers::input_event &evt) {"""
     new = """    bool window_server::mirror_peninput_raw_event(const epoc::event &evt) {
         if (!peninput_anim_present_.load(std::memory_order_acquire)
             || !peninput_anim_active_.load(std::memory_order_acquire)
@@ -514,26 +510,16 @@ def main() -> None:
         return sent;
     }
 
-    void window_server::queue_input_from_driver(drivers::input_event &evt) {
-        if (!loaded) {
-            return;
-        }
-"""
+    void window_server::queue_input_from_driver(drivers::input_event &evt) {"""
     wc = replace_once(wc, old, new, "PenInput raw-event mirror")
 
-    old = """                    make_mouse_event(original_input_evt, guest_event, get_current_focus_screen());
-
-                    touch_shipper.add_new_event(guest_event);
-"""
+    old = """                    make_mouse_event(original_input_evt, guest_event, get_current_focus_screen());"""
     new = """                    make_mouse_event(original_input_evt, guest_event, get_current_focus_screen());
 
                     // Real peninputanim.dll registers for WSERV raw events.
                     // Mirror before hit-testing so coordinates are still in
                     // guest screen space; normal delivery continues below.
-                    mirror_peninput_raw_event(guest_event);
-
-                    touch_shipper.add_new_event(guest_event);
-"""
+                    mirror_peninput_raw_event(guest_event);"""
     wc = replace_once(wc, old, new, "PenInput mirror hook")
     window_cpp.write_text(wc, encoding="utf-8")
 
