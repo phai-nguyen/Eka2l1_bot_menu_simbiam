@@ -77,8 +77,7 @@ namespace eka2l1::ldd {
     }
 
     std::unique_ptr<channel> custom_startup_factory::make_channel(epoc::version ver) {
-        LOG_WARN(LDD_MMCIF, "[NBOOT2][CUSTOM_CHANNEL] create version={}.{}.{}",
-            ver.major, ver.minor, ver.build);
+        LOG_WARN(LDD_MMCIF, "[NBOOT2][CUSTOM_CHANNEL] create");
         return std::make_unique<custom_startup_channel>(kern, sys_, ver);
     }
 
