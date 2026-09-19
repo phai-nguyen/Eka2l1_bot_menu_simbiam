@@ -1,0 +1,157 @@
+name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI34 SIMULATEEVENT1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore MENUUI34 cache
+      id: menuui34_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui34-simulateevent1-nojava-manic3-macos15-v1
+
+    - name: Restore MENUUI33 baseline
+      id: menuui33_cache
+      if: steps.menuui34_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui33-keysound1-nojava-manic3-macos15-v1
+
+    - name: Apply MENUUI34 SimulateEvent and rebuild
+      if: steps.menuui34_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-menuui34-simulateevent1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.menuui33_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        PATCHER="$GITHUB_WORKSPACE/apply_menuui34_simulateevent1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        ANIM="$UPSTREAM/src/emu/services/src/window/classes/plugins/animdll.cpp"
+        WIN="$UPSTREAM/src/emu/services/src/window/window.cpp"
+        WINH="$UPSTREAM/src/emu/services/include/services/window/window.h"
+        KEY="$UPSTREAM/src/emu/services/src/audio/keysound/keysound.cpp"
+        MQ="$UPSTREAM/src/emu/kernel/src/msgqueue.cpp"
+
+        python3 -m py_compile "$PATCHER"
+        python3 "$PATCHER" "$UPSTREAM"
+
+        grep -Fq 'PENINPUT_OP_SIMULATE_EVENT = 510' "$ANIM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 SIMULATE_EVENT:' "$ANIM"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 POST_RAW_EVENT:' "$WIN"
+        grep -Fq 'post_peninput_simulated_raw_event' "$WINH"
+        grep -Fq 'drivers::input_event_type::key_raw' "$WIN"
+        grep -Fq 'peninput_anim_simulating_' "$WINH"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI33 KEYSOUND13:' "$KEY"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI32 PENINPUT_QUEUE:' "$MQ"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI31 PENINPUT_RAW:' "$WIN"
+        grep -R -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+        STRINGS_OUT="$RUNNER_TEMP/menuui34.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 SIMULATE_EVENT:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 POST_RAW_EVENT:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI33 KEYSOUND13:' "$STRINGS_OUT"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI31 PENINPUT_RAW:' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'MENUUI34 SIMULATEEVENT1 NOJAVA MANIC3 BUILD AUDIT'
+          echo 'base_cache=MENUUI33_KEYSOUND1_NOJAVA_MANIC3'
+          echo 'peninput_opcode_510=EPeninputOpSimulateEvent_IMPLEMENTED'
+          echo 'raw_key_down_up_repeat=POSTED_TO_WINDOWSERVER'
+          echo 'raw_pointer=POSTED_WITH_SIMULATED_GUARD'
+          echo 'hardcoded_character_mapping=NONE'
+          echo 'MENUUI33_KEYSOUND=PRESERVED'
+          echo 'MENUUI32_QUEUE=PRESERVED'
+          echo 'MENUUI31_RAW=PRESERVED'
+          echo 'MENUUI30_STOCKFEP=PRESERVED'
+          echo 'java_j2me=REMOVED'
+        } > "$GITHUB_WORKSPACE/MENUUI34-SIMULATEEVENT1-BUILD-AUDIT.txt"
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/MENUUI34-SIMULATEEVENT1-source.diff"
+
+    - name: Verify restored MENUUI34 cache
+      if: steps.menuui34_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 SIMULATE_EVENT:' "$UPSTREAM/src/emu/services/src/window/classes/plugins/animdll.cpp"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI34 POST_RAW_EVENT:' "$UPSTREAM/src/emu/services/src/window/window.cpp"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'MENUUI34 SIMULATEEVENT1 cache_hit=true' > "$GITHUB_WORKSPACE/MENUUI34-SIMULATEEVENT1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/MENUUI34-SIMULATEEVENT1-source.diff"
+
+    - name: Save MENUUI34 cache
+      if: steps.menuui34_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui34-simulateevent1-nojava-manic3-macos15-v1
+
+    - name: Package MENUUI34 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI34-SIMULATEEVENT1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-menuui34"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/menuui34-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/menuui34-ipa-list.txt"
+        ! grep -Ei '\.jar([[:space:]]|$)' "$RUNNER_TEMP/menuui34-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/MENUUI34-SIMULATEEVENT1-IPA-SHA256.txt"
+
+    - name: Upload MENUUI34 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI34-SIMULATEEVENT1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI34-SIMULATEEVENT1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload MENUUI34 audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI34-SIMULATEEVENT1-NOJAVA-MANIC3-AUDIT
+        path: |
+          MENUUI34-SIMULATEEVENT1-BUILD-AUDIT.txt
+          MENUUI34-SIMULATEEVENT1-source.diff
+          MENUUI34-SIMULATEEVENT1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI34-SIMULATEEVENT1-diagnostic-log
+        path: eka2l1-menuui34-simulateevent1.log
+        if-no-files-found: warn
+        retention-days: 14
