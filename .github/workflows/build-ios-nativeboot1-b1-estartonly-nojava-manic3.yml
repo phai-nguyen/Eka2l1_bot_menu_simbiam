@@ -2,9 +2,6 @@ name: Build EKA2L1 NATIVEBOOT1 B1 ESTARTONLY NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - '.nativeboot1-b1-trigger-3'
 
 permissions:
   contents: read
