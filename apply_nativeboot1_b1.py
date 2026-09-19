@@ -66,7 +66,7 @@ def patch_services(path: Path) -> None:
             const bool native_phone_boot = cfg->native_phone_boot;
             LOG_WARN(SYSTEM,
                 "[NBOOT1][HLE_POLICY] enabled={} fs=HLE loader=HLE fbs=HLE wserv=HLE hwrm=HLE etel=HLE "
-                "applist=NATIVE akncap=NATIVE view=NATIVE notifier=NATIVE keysound=NATIVE eikappui=NATIVE sysagt=NATIVE",
+                "applist=NATIVE akncap=NATIVE view=NATIVE notifier=NATIVE keysound=NATIVE eikappui=NATIVE sysagt=NATIVE domain=NATIVE_FIRST",
                 native_phone_boot ? 1 : 0);
 """
     text = replace_once(text, cfg_anchor, policy, "init native boot policy")
@@ -86,8 +86,11 @@ def patch_services(path: Path) -> None:
             }
 """
     text = replace_once(text, comm_anchor, comm_insert, "C32 ready property")
-    if "CREATE_SERVER(sys, dm_domain_server);" not in text:
-        fail("init services: dm_domain_server baseline missing")
+    # EStart itself creates domainSrv.exe and then waits for its initialization
+    # property. If a newer baseline happens to have an HLE Domain Manager, do
+    # not pre-register it in native boot: let the ROM process own the first try.
+    if "CREATE_SERVER(sys, dm_domain_server);" in text:
+        text = wrap_server_once(text, "dm_domain_server", "EStart launches ROM domainSrv.exe; native ownership gets the first attempt")
     path.write_text(text, encoding="utf-8")
 
 def patch_system_boot(path: Path) -> None:
@@ -304,7 +307,7 @@ def main() -> None:
 
     gates = {
         paths["config"]: ["bool native_phone_boot{ true }"],
-        paths["services"]: ["[NBOOT1][HLE_POLICY]", "[NBOOT1][C32_READY]", "if (!native_phone_boot)", "CREATE_SERVER(sys, dm_domain_server);"],
+        paths["services"]: ["[NBOOT1][HLE_POLICY]", "[NBOOT1][C32_READY]", "if (!native_phone_boot)"],
         paths["system"]: ["[NBOOT1][BOOT_MODE]", "[NBOOT1][ESTART_CREATE]", 'u"z:\\\\sys\\\\bin\\\\estart.exe"', "host_sysstart=0 host_menu=0"],
         paths["kernel"]: ["[NBOOT1][PROC_CREATE]", "[NBOOT1][SYSSTART_CREATE]", "[NBOOT1][PROC_CREATE_FAIL]"],
         paths["process"]: ["[NBOOT1][PROC_RUN]", "[NBOOT1][PROC_EXIT]", "[NBOOT1][RENDEZVOUS]"],
@@ -326,8 +329,8 @@ def main() -> None:
     print("handoff=EStart_only")
     print("host_sysstart=DISABLED")
     print("host_menu=DISABLED")
-    print("HLE_core=fs,loader,fbs,wserv,hwrm,etel,comm,socket,bt,accessory,skin,domain")
-    print("NATIVE_ownership=applist,akncap,view,notifier,keysound,eikappui,system_agent")
+    print("HLE_core=fs,loader,fbs,wserv,hwrm,etel,comm,socket,bt,accessory,skin")
+    print("NATIVE_ownership=domainSrv,applist,akncap,view,notifier,keysound,eikappui,system_agent")
     print("C32_core_property=PUBLISHED")
     print("NOJAVA=PRESERVED")
     print("MENUUI36=PRESERVED")
