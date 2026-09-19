@@ -148,19 +148,14 @@ def main():
     }"""
     c=c[:recv_start]+recv_new+c[recv_end:]
 
-    old="""        case EWsWinOpReceiveFocus: {
-            receive_focus(ctx, cmd);
-            break;
-        }
-
-        case EWsWinOpSetTextCursor: {
-"""
-    new="""        case EWsWinOpReceiveFocus: {
-            receive_focus(ctx, cmd);
-            break;
-        }
-
-        case EWsWinOpAutoForeground: {
+    exec_sig="    bool window_group::execute_command(service::ipc_context &ctx, ws_cmd &cmd)"
+    exec_start,exec_end=inline_span(c,exec_sig)
+    exec_body=c[exec_start:exec_end]
+    if "case EWsWinOpAutoForeground:" not in exec_body:
+        default_pos=exec_body.rfind("        default:")
+        if default_pos < 0:
+            fail("window_group execute_command default case missing")
+        auto_case="""        case EWsWinOpAutoForeground: {
             const bool enabled = (*reinterpret_cast<std::uint32_t *>(cmd.data_ptr) != 0);
             set_auto_foreground(enabled);
             LOG_WARN(SERVICE_WINDOW,
@@ -170,9 +165,9 @@ def main():
             break;
         }
 
-        case EWsWinOpSetTextCursor: {
 """
-    c=replace_once(c,old,new,"AutoForeground opcode")
+        exec_body=exec_body[:default_pos]+auto_case+exec_body[default_pos:]
+        c=c[:exec_start]+exec_body+c[exec_end:]
     wgc.write_text(c,encoding="utf-8")
 
     ic=io.read_text(encoding="utf-8")
