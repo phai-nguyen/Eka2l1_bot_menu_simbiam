@@ -19,7 +19,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: upstream
-        key: eka2l1-nativeboot2-emuhub1-nojava-manic3-macos15-v1
+        key: eka2l1-nativeboot2-emuhub1-nojava-manic3-macos15-v2
 
     - name: Restore stable MENUUI36 baseline
       id: menuui36_cache
@@ -54,6 +54,8 @@ jobs:
         grep -Fq 'NATIVEBOOT2 EMUHUB1' "$ROOT"
         grep -Fq 'EKAL(@"Emulator")' "$ROOT"
         grep -Fq '[NBOOT2][ESTART_RUN]' "$STATE"
+        grep -Fq 'u"Z:\\sys\\bin\\EStart.exe"' "$STATE"
+        ! grep -Fq 'u"Z:\sys\bin\EStart.exe"' "$STATE"
         grep -Fq '[NBOOT2][BRIDGE_ROLLBACK]' "$BRIDGE"
         grep -Fq '[NBOOT2][HLE_POLICY]' "$INIT"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$WGC"
@@ -115,7 +117,7 @@ jobs:
       uses: actions/cache/save@v4
       with:
         path: upstream
-        key: eka2l1-nativeboot2-emuhub1-nojava-manic3-macos15-v1
+        key: eka2l1-nativeboot2-emuhub1-nojava-manic3-macos15-v2
 
     - name: Package unsigned IPA
       run: |
