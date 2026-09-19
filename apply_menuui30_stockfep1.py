@@ -17,6 +17,7 @@ This change:
 """
 from __future__ import annotations
 import sys
+import re
 from pathlib import Path
 
 MARK="MENUUI30 STOCKFEP1"
@@ -67,29 +68,55 @@ def main() -> None:
         print("MENUUI30 already present")
         return
 
-    old='''        const std::vector<std::tuple<std::u16string, std::string, epocver>> dlls_need_to_copy = {
-            { u"Z:\\\\sys\\\\bin\\\\goommonitor.dll", "goommonitor_general.dll", epocver::epoc94 },
-            { u"Z:\\\\sys\\\\bin\\\\avkonfep.dll", "avkonfep_general.dll", epocver::epoc93fp1 }
-        };
-'''
-    new='''        const std::vector<std::tuple<std::u16string, std::string, epocver>> dlls_need_to_copy = {
-            { u"Z:\\\\sys\\\\bin\\\\goommonitor.dll", "goommonitor_general.dll", epocver::epoc94 }
-        };
-'''
-    text=replace_once(text,old,new,"remove mandatory Avkon FEP override")
+    # Remove only the avkonfep override entry. The older iOS state.cpp uses
+    # patch\\avkonfep_general.dll while newer iOS uses a flat bundle filename.
+    lines=text.splitlines(keepends=True)
+    avkon_lines=[i for i,line in enumerate(lines)
+                 if "avkonfep_general.dll" in line and "epoc93fp1" in line]
+    if len(avkon_lines) != 1:
+        fail(f"Avkon override line count={len(avkon_lines)}")
+    del lines[avkon_lines[0]]
+    text="".join(lines)
 
-    old='''            common::copy_file(source, dest, true);
+    # Insert restoration immediately before package-registry loading; this is
+    # after the additional-DLL copy loop on both the old iOS state.cpp and the
+    # newer bridge implementation.
+    anchor="""            manager::packages *pkgmngr = symsys->get_packages();
+"""
+    if anchor in text:
+        restore="""            // MENUUI30 STOCKFEP1: restore the Nokia firmware FEP that the
+            // previous iOS mandatory patcher preserved as avkonfep.dll.bak.
+            const auto stock_fep_raw = io->get_raw_path(u"Z:\\\\sys\\\\bin\\\\avkonfep.dll");
+            if (stock_fep_raw.has_value()) {
+                const std::string stock_fep = common::ucs2_to_utf8(stock_fep_raw.value());
+                const std::string stock_fep_backup = stock_fep + ".bak";
+                if (common::exists(stock_fep_backup)) {
+                    const bool restored = common::copy_file(stock_fep_backup, stock_fep, true);
+                    LOG_WARN(eka2l1::FRONTEND_CMDLINE,
+                        "SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP: result={} source='{}' dest='{}'",
+                        restored ? "restored" : "copy_failed", stock_fep_backup, stock_fep);
+                } else {
+                    LOG_WARN(eka2l1::FRONTEND_CMDLINE,
+                        "SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP: result=no_backup_keep_current dest='{}'",
+                        stock_fep);
+                }
+            } else {
+                LOG_WARN(eka2l1::FRONTEND_CMDLINE,
+                    "SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP: result=no_raw_path");
+            }
+
+"""
+        text=replace_once(text,anchor,restore+anchor,"old iOS stock FEP restore")
+    else:
+        # Newer bridge layout has a dedicated install_required_rom_patches().
+        anchor2="""            common::copy_file(source, dest, true);
         }
     }
 }
-'''
-    new='''            common::copy_file(source, dest, true);
+"""
+        restore2="""            common::copy_file(source, dest, true);
         }
 
-        // MENUUI30 STOCKFEP1: EKA2L1's iOS frontend used to replace the
-        // firmware Avkon FEP with HostBridgedImeFEP. The real Nokia touch
-        // keyboard path needs the firmware FEP, while the original copy is
-        // already preserved by the old installer as avkonfep.dll.bak.
         const auto stock_fep_raw = io->get_raw_path(u"Z:\\\\sys\\\\bin\\\\avkonfep.dll");
         if (stock_fep_raw.has_value()) {
             const std::string stock_fep = common::ucs2_to_utf8(stock_fep_raw.value());
@@ -110,8 +137,8 @@ def main() -> None:
         }
     }
 }
-'''
-    text=replace_once(text,old,new,"stock FEP restore block")
+"""
+        text=replace_once(text,anchor2,restore2,"new iOS stock FEP restore")
     ios.write_text(text,encoding="utf-8")
 
     final=ios.read_text(encoding="utf-8")
