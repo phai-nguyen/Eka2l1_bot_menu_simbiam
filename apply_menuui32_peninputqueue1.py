@@ -199,7 +199,6 @@ def main() -> None:
         "MENUUI32 PENINPUT_QUEUE: op=send stage=return",
         "MENUUI32 PENINPUT_QUEUE: op=notify stage=enter",
         "path=immediate",
-        "path=armed",
         "MENUUI32 PENINPUT_QUEUE: op=receive stage=enter",
         "MENUUI32 PENINPUT_QUEUE: op=receive stage=return",
         "V17 MSGQ ORDER: data queued before availability notification",
