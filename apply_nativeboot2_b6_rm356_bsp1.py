@@ -144,18 +144,8 @@ def patch_fs_cpp(path: Path) -> None:
 """
     text = replace_once(text, dispatch_anchor, dispatch, "RM356 FS dispatch")
 
-    default_old = """        default: {
-            LOG_ERROR(SERVICE_EFSRV, "Unknown FSServer client opcode {}!", ctx->msg->function);
-
-            // Every other request is one a real file server answers straight away, so
-            // dropping it wedges the client: the harvester mounts its file-system
-            // plugins with Fs::MountPlugin and waits for the reply that never came.
-            ctx->complete(epoc::error_not_supported);
-            break;
-        }
-"""
-    default_new = """        default: {
-            if (ctx->sys->get_config()->native_phone_boot) {
+    default_log_anchor = '            LOG_ERROR(SERVICE_EFSRV, "Unknown FSServer client opcode {}!", ctx->msg->function);\n'
+    default_log_new = """            if (ctx->sys->get_config()->native_phone_boot) {
                 LOG_WARN(SERVICE_EFSRV,
                     "[NBOOT2][RM356_FS_UNKNOWN] opcode={} a0=0x{:08X} a1=0x{:08X} a2=0x{:08X} a3=0x{:08X}",
                     ctx->msg->function, ctx->msg->args.args[0], ctx->msg->args.args[1],
@@ -163,14 +153,8 @@ def patch_fs_cpp(path: Path) -> None:
             } else {
                 LOG_ERROR(SERVICE_EFSRV, "Unknown FSServer client opcode {}!", ctx->msg->function);
             }
-
-            // Keep unknown operations explicit; only the startup operations
-            // listed above are intentionally acknowledged by the RM-356 BSP.
-            ctx->complete(epoc::error_not_supported);
-            break;
-        }
 """
-    text = replace_once(text, default_old, default_new, "RM356 FS unknown trace")
+    text = replace_once(text, default_log_anchor, default_log_new, "RM356 FS unknown trace")
 
     impl_anchor = """    void fs_server_client::file_lock(service::ipc_context *ctx) {
 """
