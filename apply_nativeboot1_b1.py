@@ -308,7 +308,7 @@ def main() -> None:
     gates = {
         paths["config"]: ["bool native_phone_boot{ true }"],
         paths["services"]: ["[NBOOT1][HLE_POLICY]", "[NBOOT1][C32_READY]", "if (!native_phone_boot)"],
-        paths["system"]: ["[NBOOT1][BOOT_MODE]", "[NBOOT1][ESTART_CREATE]", 'u"z:\\\\sys\\\\bin\\\\estart.exe"', "host_sysstart=0 host_menu=0"],
+        paths["system"]: ["[NBOOT1][BOOT_MODE]", "[NBOOT1][ESTART_CREATE]", "host_sysstart=0 host_menu=0"],
         paths["kernel"]: ["[NBOOT1][PROC_CREATE]", "[NBOOT1][SYSSTART_CREATE]", "[NBOOT1][PROC_CREATE_FAIL]"],
         paths["process"]: ["[NBOOT1][PROC_RUN]", "[NBOOT1][PROC_EXIT]", "[NBOOT1][RENDEZVOUS]"],
         paths["svc"]: ["[NBOOT1][SERVER_REGISTER]", "[NBOOT1][COLLISION]", "[NBOOT1][MISSING_SERVER]"],
