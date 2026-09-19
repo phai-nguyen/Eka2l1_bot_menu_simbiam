@@ -66,35 +66,45 @@ def main():
         print("MENUUI36 already present")
         return
 
-    h=replace_once(h,
-"""        kernel::process *uid_owner_change_process;
-        ws::uid screen_change_event_handle;
+    # V35 cache comes from an older EKA2L1 tree whose field layout differs
+    # from current upstream. Patch the two inline methods by signature instead
+    # of anchoring the surrounding data members.
+    def inline_span(text, signature):
+        start=text.find(signature)
+        if start < 0:
+            fail(f"inline signature missing: {signature}")
+        brace=text.find("{",start)
+        if brace < 0:
+            fail(f"inline opening brace missing: {signature}")
+        depth=0
+        for i in range(brace,len(text)):
+            if text[i]=="{":
+                depth+=1
+            elif text[i]=="}":
+                depth-=1
+                if depth==0:
+                    return start,i+1
+        fail(f"unterminated inline function: {signature}")
 
-        bool can_receive_focus() {
-            return flags & flag_focus_receiveable;
-        }
-
-        void set_receive_focus(const bool val) {
-            flags &= ~flag_focus_receiveable;
-
-            if (val)
-                flags |= flag_focus_receiveable;
-        }
-""",
-"""        kernel::process *uid_owner_change_process;
-        ws::uid screen_change_event_handle;
-
-        // MENUUI36: focus eligibility is WindowGroup state in real WSERV.
+    can_sig="        bool can_receive_focus()"
+    can_start,can_end=inline_span(h,can_sig)
+    if "receives_focus_" not in h[:can_start]:
+        h=h[:can_start]+"""        // MENUUI36: focus eligibility is WindowGroup state in real WSERV.
         // Keep it separate from generic window flags so visibility/fade/etc.
         // can never resurrect keyboard focus for a non-focusable overlay.
         bool receives_focus_{ false };
         bool auto_foreground_{ true };
 
-        bool can_receive_focus() const {
-            return receives_focus_;
-        }
+"""+h[can_start:]
 
-        void set_receive_focus(const bool val) {
+    can_start,can_end=inline_span(h,can_sig)
+    h=h[:can_start]+"""        bool can_receive_focus() const {
+            return receives_focus_;
+        }"""+h[can_end:]
+
+    set_sig="        void set_receive_focus(const bool val)"
+    set_start,set_end=inline_span(h,set_sig)
+    h=h[:set_start]+"""        void set_receive_focus(const bool val) {
             receives_focus_ = val;
             flags &= ~flag_focus_receiveable;
             if (val) {
@@ -108,27 +118,13 @@ def main():
 
         void set_auto_foreground(const bool val) {
             auto_foreground_ = val;
-        }
-""","dedicated WindowGroup focus state")
+        }"""+h[set_end:]
     wgh.write_text(h,encoding="utf-8")
 
     c=wgc.read_text(encoding="utf-8")
-    old="""    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd) {
-        flags &= ~flag_focus_receiveable;
-
-        if (*reinterpret_cast<std::uint32_t *>(cmd.data_ptr)) {
-            flags |= flag_focus_receiveable;
-
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to enable keyboard focus", common::ucs2_to_utf8(name));
-        } else {
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to disable keyboard focus", common::ucs2_to_utf8(name));
-        }
-
-        scr->update_focus(&client->get_ws(), nullptr);
-        context.complete(epoc::error_none);
-    }
-"""
-    new="""    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd) {
+    recv_sig="    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd)"
+    recv_start,recv_end=inline_span(c,recv_sig)
+    recv_new="""    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd) {
         const bool requested = (*reinterpret_cast<std::uint32_t *>(cmd.data_ptr) != 0);
         const std::uint32_t focus_before = (scr && scr->focus) ? scr->focus->id : 0;
 
@@ -149,9 +145,8 @@ def main():
             focus_before, focus_after, resolved ? resolved->id : 0);
 
         context.complete(epoc::error_none);
-    }
-"""
-    c=replace_once(c,old,new,"ReceiveFocus persistent state")
+    }"""
+    c=c[:recv_start]+recv_new+c[recv_end:]
 
     old="""        case EWsWinOpReceiveFocus: {
             receive_focus(ctx, cmd);
@@ -181,14 +176,16 @@ def main():
     wgc.write_text(c,encoding="utf-8")
 
     ic=io.read_text(encoding="utf-8")
-    old="""        epoc::window_group *focus = serv_->get_focus();
-
-        if (!focus) {
-            return;
-        }
-
-        int ui_rotation = focus->scr->ui_rotation;
-"""
+    ship_sig="    void window_key_shipper::start_shipping()"
+    ship_start,ship_end=inline_span(ic,ship_sig)
+    focus_start=ic.find("        epoc::window_group *focus = serv_->get_focus();",ship_start,ship_end)
+    if focus_start < 0:
+        fail("key shipper focus declaration missing")
+    rotation_anchor="        int ui_rotation = focus->scr->ui_rotation;"
+    rotation_pos=ic.find(rotation_anchor,focus_start,ship_end)
+    if rotation_pos < 0:
+        fail("key shipper rotation anchor missing")
+    old=ic[focus_start:rotation_pos+len(rotation_anchor)]
     new="""        epoc::window_group *focus = serv_->get_focus();
 
         // MENUUI36 invariant: key events must never be delivered to a
