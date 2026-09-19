@@ -1,0 +1,41 @@
+name: Dump MENUUI36 iOS frontend sources
+
+"on":
+  push:
+    paths:
+      - '.dump-menuui36-ios-ui-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - name: Restore MENUUI36 cache
+      id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui36-winfocus1-nojava-manic3-macos15-v1
+    - name: Collect frontend sources
+      run: |
+        set -euo pipefail
+        test "${{ steps.cache.outputs.cache-hit }}" = "true"
+        mkdir -p dump/App dump/Bridge dump/ios-src dump/system
+        cp upstream/src/emu/ios/App/ContentView.swift dump/App/
+        cp upstream/src/emu/ios/App/DeviceStore.swift dump/App/
+        cp upstream/src/emu/ios/App/EmulatorView.swift dump/App/ 2>/dev/null || true
+        cp upstream/src/emu/ios/Bridge/IosEmulator.h dump/Bridge/
+        cp upstream/src/emu/ios/Bridge/IosEmulator.mm dump/Bridge/
+        cp upstream/src/emu/ios/src/emu_bridge.mm dump/ios-src/ 2>/dev/null || true
+        cp upstream/src/emu/ios/src/launcher.cpp dump/ios-src/ 2>/dev/null || true
+        cp upstream/src/emu/system/src/epoc.cpp dump/system/
+        grep -RIn "SYMBIAN-SYSTEMAPPS1\|Ứng dụng\|Cài đặt trò chơi\|Thiết bị\|Applications\|TabView\|Picker" dump > dump/search.txt || true
+    - uses: actions/upload-artifact@v4
+      with:
+        name: MENUUI36-IOS-FRONTEND-SOURCES
+        path: dump
+        retention-days: 2
