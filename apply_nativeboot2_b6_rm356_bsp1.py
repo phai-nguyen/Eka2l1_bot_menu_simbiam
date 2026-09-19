@@ -272,7 +272,7 @@ def patch_fs_cpp(path: Path) -> None:
 
         fs_server *serv = server<fs_server>();
         serv->system_drive_prop->set_int(*drive);
-        std::u16string default_path = u"C:\";
+        std::u16string default_path = u"C:\\";
         default_path[0] = drive_to_char16(static_cast<drive_number>(*drive));
         serv->default_sys_path = default_path;
 
@@ -329,6 +329,10 @@ def main() -> None:
     hc = hal_cpp.read_text(encoding="utf-8")
     fh = fs_h.read_text(encoding="utf-8")
     fc = fs_cpp.read_text(encoding="utf-8")
+    if 'std::u16string default_path = u"C:\\\\";' not in fc:
+        fail("escaped C:\\\\ default_path literal missing")
+    if 'std::u16string default_path = u"C:\\\";' in fc:
+        fail("broken single-backslash C: default_path literal present")
 
     for gate in (
         "[NBOOT2][RM356_STARTUP_REASON]",
