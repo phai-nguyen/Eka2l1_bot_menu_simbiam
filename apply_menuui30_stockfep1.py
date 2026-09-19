@@ -34,11 +34,27 @@ def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_menuui30_stockfep1.py <upstream-root>")
     up=Path(sys.argv[1]).resolve()
-    ios=up/"src/emu/ios/Bridge/IosEmulator.mm"
     svc=up/"src/emu/kernel/src/svc.cpp"
     anim=up/"src/emu/services/src/window/classes/plugins/animdll.cpp"
-    if not ios.is_file():
-        fail(f"missing {ios}")
+
+    # The iOS frontend moved between layouts in the long-lived project cache.
+    # Locate the implementation by content, not by an upstream-master path.
+    candidates=[]
+    ios_root=up/"src/emu/ios"
+    for p in ios_root.rglob("*"):
+        if not p.is_file() or p.suffix.lower() not in {".mm",".cpp",".cc",".m"}:
+            continue
+        try:
+            probe=p.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if "avkonfep_general.dll" in probe and "dlls_need_to_copy" in probe:
+            candidates.append(p)
+    if len(candidates) != 1:
+        fail("Avkon FEP installer candidate count={} paths={}".format(
+            len(candidates), ",".join(str(p) for p in candidates)))
+    ios=candidates[0]
+    print(f"MENUUI30 iOS installer: {ios}")
     if "SYMBIAN-SYSTEMAPPS1 MENUUI29 PENINPUT_IPC:" not in svc.read_text(encoding="utf-8"):
         fail("MENUUI29 baseline missing")
     if "SYMBIAN-SYSTEMAPPS1 MENUUI28 PENINPUT_ANIM:" not in anim.read_text(encoding="utf-8"):
