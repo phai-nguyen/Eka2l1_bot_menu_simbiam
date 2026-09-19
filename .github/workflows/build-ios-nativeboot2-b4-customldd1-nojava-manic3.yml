@@ -2,9 +2,6 @@ name: Build EKA2L1 NATIVEBOOT2 B4 CUSTOMLDD1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - '.nativeboot2-b4-customldd1-trigger'
 
 permissions:
   contents: read
