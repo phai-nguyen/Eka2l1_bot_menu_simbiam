@@ -2,9 +2,6 @@ name: Build EKA2L1 NATIVEBOOT2 B2 NOKIAISC1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
-  push:
-    paths:
-      - '.nativeboot2-b2-nokiaisc1-trigger'
 
 permissions:
   contents: read
