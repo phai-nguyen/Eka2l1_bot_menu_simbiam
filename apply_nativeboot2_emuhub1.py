@@ -144,7 +144,7 @@ def patch_state_cpp(path: Path) -> None:
             if (native_phone_mode) {
                 // Z: is mounted above. This is deliberately the sole host handoff:
                 // EStart must create domainSrv/SysStart and the firmware resource chain.
-                static const std::u16string estart_path = u"Z:\sys\bin\EStart.exe";
+                static const std::u16string estart_path = u"Z:\\sys\\bin\\EStart.exe";
                 LOG_WARN(FRONTEND_CMDLINE,
                     "[NBOOT2][BOOT_MODE] handoff={} host_sysstart=0 host_menu=0",
                     common::ucs2_to_utf8(estart_path));
@@ -603,6 +603,12 @@ def main() -> None:
     # Architectural invariants: native boot is on-demand and EStart-only.
     state_body = paths["state_cpp"].read_text(encoding="utf-8")
     root_body = paths["root"].read_text(encoding="utf-8")
+    expected_estart_literal = r'u"Z:\\sys\\bin\\EStart.exe"'
+    broken_estart_literal = r'u"Z:\sys\bin\EStart.exe"'
+    if expected_estart_literal not in state_body:
+        fail("correct escaped EStart C++ literal missing")
+    if broken_estart_literal in state_body:
+        fail("broken single-backslash EStart C++ literal present")
     forbidden = ("PHONE_BOOT_PLAN", "sysstart_path", 'spawn_new_process(u"Z:\\sys\\bin\\sysstart.exe"',
                  'spawn_new_process(u"Z:\\sys\\bin\\menu3.exe"')
     for token in forbidden:
