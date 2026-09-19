@@ -2,6 +2,9 @@ name: Build EKA2L1 SYMBIAN SYSTEMAPPS1 MENUUI33 KEYSOUND1 NOJAVA MANIC3 IPA
 
 "on":
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/menuui33-keysound1-trigger.txt"
 
 permissions:
   contents: read
