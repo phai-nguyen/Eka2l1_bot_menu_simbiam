@@ -1,0 +1,61 @@
+name: Inspect RM356 StartupAdaptation ABI
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/inspect-rm356-startupadaptation-abi.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore B13 cache
+        id: b13
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-nativeboot2-b13-saglobalstate1-nojava-manic3-macos15-v1
+
+      - name: Collect RM356 startup adaptation binaries and metadata
+        run: |
+          set -euo pipefail
+          test "${{ steps.b13.outputs.cache-hit }}" = "true"
+          mkdir -p inspect/files
+          ROOT="$GITHUB_WORKSPACE/upstream/data/firmware-profiles"
+          echo "=== matching files ===" | tee inspect/report.txt
+          find "$ROOT" -type f \( -iname '*startupadaptation*' -o -iname '*saserver*' -o -iname '*sa*server*' \) -print | sort | tee -a inspect/report.txt
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            rel="${f#$GITHUB_WORKSPACE/upstream/}"
+            safe="$(echo "$rel" | tr '/:' '__')"
+            cp "$f" "inspect/files/$safe"
+            {
+              echo
+              echo "=== $rel ==="
+              file "$f" || true
+              shasum -a 256 "$f" || true
+              echo "--- strings filtered ---"
+              strings -a "$f" | grep -Eai 'SAServer|StartupAdaptation|GlobalState|StateChange|Response|Command|Event|Notify|Cancel|Server|Connect|EGlobal|KErr|SIM|RTC|RF' | head -n 500 || true
+              echo "--- first 512 bytes ---"
+              xxd -l 512 "$f" || true
+            } >> inspect/report.txt
+          done < <(find "$ROOT" -type f \( -iname '*startupadaptation*' -o -iname '*saserver*' -o -iname '*sa*server*' \) -print | sort)
+
+          echo "=== broader Z sys/bin candidates ===" >> inspect/report.txt
+          find "$ROOT" -type f -path '*/drives/z/*' | grep -Eai '/(sys/bin|system/programs)/.*(sa|adapt|starter|startup).*\.(exe|dll)$' | sort | head -n 1000 >> inspect/report.txt || true
+
+      - name: Upload inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: RM356-StartupAdaptation-ABI-Inspection
+          path: inspect
+          retention-days: 7
