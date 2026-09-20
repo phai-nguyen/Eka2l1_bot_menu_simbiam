@@ -1,0 +1,31 @@
+name: RED B19 SALANGABI1 Contract
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - test_nativeboot2_b19_salangabi1.py
+      - .github/workflows/test-nativeboot2-b19-salangabi1-red.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore B18 baseline
+        id: b18
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-nativeboot2-b18-sartc1-nojava-manic3-macos15-v1
+      - name: Verify B19 test is RED on B18
+        run: |
+          set -euo pipefail
+          test "${{ steps.b18.outputs.cache-hit }}" = "true"
+          python3 test_nativeboot2_b19_salangabi1.py upstream
