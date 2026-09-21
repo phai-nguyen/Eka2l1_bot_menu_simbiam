@@ -1,0 +1,117 @@
+name: Seed EKA2L1 FASTBUILD1 B28 Bootstrap ONCE
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-current
+    paths:
+      - .github/workflows/seed-ios-nativeboot2-fastbuild1-bootstrap-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Require nativeboot2-current
+      run: test "$GITHUB_REF_NAME" = "nativeboot2-current"
+
+    - name: Enable sccache
+      uses: mozilla-actions/sccache-action@v0.0.11
+
+    - name: Check existing bootstrap
+      id: bootstrap
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+    - name: Restore B19 baseline
+      if: steps.bootstrap.outputs.cache-hit != 'true'
+      id: b19_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Reconstruct and build exact B28 bootstrap
+      if: steps.bootstrap.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        echo "SCCACHE_BASEDIRS=$UPSTREAM" >> "$GITHUB_ENV"
+        export SCCACHE_BASEDIRS="$UPSTREAM"
+
+        python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+
+        python3 ci/fastbuild1_manifest.py validate "$GITHUB_WORKSPACE"
+        python3 ci/fastbuild1_manifest.py regress "$GITHUB_WORKSPACE" "$UPSTREAM"
+
+        "$CMAKE_BIN" -S "$UPSTREAM" -B "$UPSTREAM/build-ios-device" \
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        sccache --zero-stats || true
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+        sccache --show-stats | tee "$GITHUB_WORKSPACE/FASTBUILD1-SCCACHE-STATS.txt"
+
+        python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        git -C "$UPSTREAM" diff --check
+
+    - name: Save stable B28 bootstrap
+      if: steps.bootstrap.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+    - name: Write bootstrap audit
+      if: always()
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        {
+          echo "FASTBUILD1 B28 BOOTSTRAP AUDIT"
+          echo "branch=$GITHUB_REF_NAME"
+          echo "cache_key=eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1"
+          echo "existing_hit=${{ steps.bootstrap.outputs.cache-hit }}"
+          echo "baseline=B28_WSERVLIBTYPE1"
+          echo "parallel=4"
+          xcodebuild -version
+          clang --version | head -n 1
+          "$CMAKE_BIN" --version | head -n 1
+          echo "NOJAVA=PRESERVED"
+          echo "MANIC3=PRESERVED"
+        } > "$GITHUB_WORKSPACE/FASTBUILD1-BOOTSTRAP-AUDIT.txt"
+
+    - name: Upload bootstrap audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-FASTBUILD1-BOOTSTRAP-AUDIT
+        path: |
+          FASTBUILD1-BOOTSTRAP-AUDIT.txt
+          FASTBUILD1-SCCACHE-STATS.txt
+        if-no-files-found: warn
+        retention-days: 14
