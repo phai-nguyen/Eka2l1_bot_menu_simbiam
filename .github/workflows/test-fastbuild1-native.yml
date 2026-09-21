@@ -22,9 +22,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Run FASTBUILD1 unit/static tests
+      - name: Run FASTBUILD1 final acceptance suite
         run: |
           set -euo pipefail
-          python3 -m unittest -v test_fastbuild1_manifest.py
-          python3 -m unittest -v test_fastbuild1_workflows.py
+          python3 -m unittest -v test_fastbuild1_manifest.py test_fastbuild1_workflows.py
           python3 ci/fastbuild1_manifest.py validate .
+          git diff --check
+          test "$(git hash-object .github/workflows/build-ios-nativeboot2-b28-wservlibtype1-nojava-manic3.yml)" =             "44d1c8aaa7ff5f0ff97271396b8bf771ad125b54"
