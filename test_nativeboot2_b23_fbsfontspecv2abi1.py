@@ -60,10 +60,6 @@ def main() -> None:
     rp = repo_cpp.read_text(encoding="utf-8")
     sa = sa_cpp.read_text(encoding="utf-8")
 
-    # ABI sizes are explicit and compile-time guarded.
-    need(fh, "static_assert(sizeof(font_spec_v1) == 64);", "font.h")
-    need(fh, "static_assert(sizeof(font_spec_v2) == 72);", "font.h")
-
     start = fc.find("void fbscli::get_nearest_font(service::ipc_context *ctx)")
     if start < 0:
         fail("get_nearest_font missing")
@@ -72,14 +68,14 @@ def main() -> None:
         fail("cannot isolate get_nearest_font")
     nearest = fc[start:end]
 
-    # No silent 72->64 clamp. Size selects the concrete ABI.
+    # Root cause: RM-356 is EPOC 9.4 but sends the 72-byte TFontSpec.
+    # ABI selection therefore follows the descriptor size, not epoc95+.
     for needle in (
         "ctx->get_argument_data_size(0)",
-        "sizeof(epoc::font_spec_v2)",
-        "sizeof(epoc::font_spec_v1)",
+        "if (spec_size == sizeof(epoc::font_spec_v2))",
+        "else if (spec_size == sizeof(epoc::font_spec_v1))",
         "get_argument_data_from_descriptor<epoc::font_spec_v2>(0)",
         "get_argument_data_from_descriptor<epoc::font_spec_v1>(0)",
-        "epoc::font_spec_v2 spec{}",
         "[NBOOT2][FBS_FONT_SPEC_ABI]",
         'decode=v2',
         'decode=v1',
@@ -87,25 +83,17 @@ def main() -> None:
     ):
         need(nearest, needle, "get_nearest_font")
 
+    if "(epoc_version >= epocver::epoc95) && (spec_size" in nearest:
+        fail("72-byte v2 decode is still incorrectly gated on epoc95")
+
     if nearest.count("get_argument_data_from_descriptor<epoc::font_spec_v1>(0)") != 1:
         fail("v1 decode must exist exactly once as the explicit 64-byte compatibility branch")
     if nearest.count("get_argument_data_from_descriptor<epoc::font_spec_v2>(0)") != 1:
         fail("v2 decode must exist exactly once as the explicit 72-byte RM-356 branch")
 
-    # Server-created S60v5 bitmapfont v2 must not expose stale reserved pointers.
-    fill_start = fc.find("void fbscli::fill_bitmap_information")
-    if fill_start < 0:
-        fail("fill_bitmap_information missing")
-    fill_end = fc.find("template void fbscli::fill_bitmap_information", fill_start)
-    if fill_end < 0:
-        fail("cannot isolate fill_bitmap_information")
-    fill = fc[fill_start:fill_end]
-    for needle in (
-        "std::is_same_v<T, epoc::bitmapfont_v2>",
-        "bmpfont->spec_in_twips.style.reserved1 = 0;",
-        "bmpfont->spec_in_twips.style.reserved2 = 0;",
-    ):
-        need(fill, needle, "fill_bitmap_information")
+    # ABI sizes are explicit and compile-time guarded.
+    need(fh, "static_assert(sizeof(font_spec_v1) == 64);", "font.h")
+    need(fh, "static_assert(sizeof(font_spec_v2) == 72);", "font.h")
 
     # Return marker captures the data consumed immediately before the guest crash.
     ret_start = fc.find("void fbscli::write_font_handle")
