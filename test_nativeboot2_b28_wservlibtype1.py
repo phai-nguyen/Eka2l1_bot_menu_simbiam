@@ -61,7 +61,7 @@ def main()->None:
     need(s,"[NBOOT2][WSERV_PANIC_CONTEXT]","svc.cpp")
 
     v94_start=s.find("const eka2l1::hle::func_map svc_register_funcs_v94")
-    v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v91_diff",v94_start)
+    v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v93",v94_start)
     if v94_start<0 or v94_end<0:
         fail("cannot isolate EPOC94 SVC table")
     v94=s[v94_start:v94_end]
