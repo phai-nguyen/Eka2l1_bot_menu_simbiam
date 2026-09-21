@@ -50,8 +50,18 @@ class FastbuildWorkflowContract(unittest.TestCase):
         text = FAST.read_text(encoding="utf-8")
         self.assertIn("probe_svc_change", text)
         self.assertIn("#define NBOOT2_FASTBUILD1_PROBE 1", text)
+        self.assertIn('static_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");', text)
         self.assertIn("if: inputs.probe_svc_change != true", text)
         self.assertIn("FASTBUILD1_PROBE=1", text)
+
+    def test_total_timing_covers_checkout_and_ipa_upload(self):
+        text = FAST.read_text(encoding="utf-8")
+        start = text.index("- name: Mark FASTBUILD start")
+        checkout = text.index("- name: Checkout project")
+        upload_ipa = text.index("- name: Upload IPA")
+        write_audit = text.index("- name: Write FASTBUILD audit")
+        self.assertLess(start, checkout)
+        self.assertLess(upload_ipa, write_audit)
 
     def test_timing_and_packaging_invariants_are_present(self):
         text = FAST.read_text(encoding="utf-8")
