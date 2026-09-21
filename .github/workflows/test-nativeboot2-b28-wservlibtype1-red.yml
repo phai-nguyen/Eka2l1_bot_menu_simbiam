@@ -1,0 +1,36 @@
+name: RED NATIVEBOOT2 B28 WSERVLIBTYPE1
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b28-wservlibtype1
+    paths:
+      - test_nativeboot2_b28_wservlibtype1.py
+      - .github/workflows/test-nativeboot2-b28-wservlibtype1-red.yml
+
+permissions:
+  contents: read
+
+jobs:
+  red-contract:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore exact B27 baseline
+      id: b27_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b27-wservpanic13trace1-nojava-manic3-macos15-v1
+        fail-on-cache-miss: true
+
+    - name: Prove B27 baseline then run B28 RED contract
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 test_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
+        python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
