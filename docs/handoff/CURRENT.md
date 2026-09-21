@@ -6,8 +6,8 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B28 WSERVLIBTYPE1
 Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
-Latest development build: B29 CENREPTX1 — BUILD-VALIDATED
-Latest B29 build-tested project HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
+Latest development build: B29 CENREPTX1 + DIAG1 — BUILD-VALIDATED
+Latest B29-DIAG1 build-tested project HEAD: f2916297aad315c656c5800f88a7c62d1ce4816a
 Latest device-tested milestone: B28
 FASTBUILD1 status: PROMOTED
 
@@ -53,23 +53,26 @@ Run ID:
 Job ID:
 106412254328
 
-Build-tested project HEAD:
+Functional B29 build-tested project HEAD:
 7bceb18a337b0977f0f2f68ea0232748dd848392
 
-Unsigned IPA:
+Latest diagnostic build-tested project HEAD:
+f2916297aad315c656c5800f88a7c62d1ce4816a
+
+Unsigned IPA to device-test:
 EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
 
 IPA SHA-256:
-25c6846ced19f435523570c2e586fd18031f4c7f05e94e89a50e8f2bace63b70
+b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc
 
 IPA artifact:
-- ID: 10650184716
-- ZIP digest: sha256:bb69c7477e763317d8f15507fb174bfa674ac46a79e36cda82c21baab2843a5f
+- ID: 10652337447
+- ZIP digest: sha256:6f0cac8dfd94d4c3079b10bebe7d192dde6651f17d3491ed6017d6122344153a
 - expires: 2026-10-05
 
 Audit artifact:
-- ID: 10650309612
-- ZIP digest: sha256:1fac54168a24440de04eeb367511778db157dafbc3e9790c64e213058e6e22ca
+- ID: 10652602353
+- ZIP digest: sha256:90505db5ff05ae1444ad5e7e3edbc72aa17e7284d22e3a108d730edac3cc3b85
 - expires: 2026-10-05
 
 B29 RED evidence:
@@ -400,7 +403,52 @@ GREEN:
 - IPA SHA-256 25c6846ced19f435523570c2e586fd18031f4c7f05e94e89a50e8f2bace63b70
 
 Required device decision:
-Confirm repo 0x10272618 now shows CEN_TX_START -> CEN_SET_CREATE -> CEN_TX_COMMIT and that the old eiksrvs Leave -1 / TransactionCancel sequence disappears or moves. Do not promote B29 or choose B30 until that ordering is known.
+Use the B29-DIAG1 IPA above. Confirm repo 0x10272618 now shows the detailed transaction path and determine the first divergence before promoting B29 or choosing B30.
+
+### B29-DIAG1 — diagnostics only
+
+BUILD-VALIDATED.
+
+DIAG1 does not alter B29 semantics. It adds:
+- [NBOOT2][CEN_SET_BEGIN]
+- [NBOOT2][CEN_SET_RESULT]
+- [NBOOT2][CEN_SET_FAIL]
+- [NBOOT2][CEN_TX_COMMIT_BEGIN]
+- [NBOOT2][CEN_TX_COMMIT_KEY]
+- [NBOOT2][CEN_TX_COMMIT_RESULT]
+- [NBOOT2][CEN_TX_COMMIT_FAIL]
+
+Existing CEN_TX_START / CEN_SET_CREATE / CEN_TX_COMMIT / CEN_TX_CANCEL markers remain.
+
+RED:
+- run 35626098291
+- expected failure: CEN_SET_BEGIN absent
+
+First GREEN attempt:
+- run 35626322869
+- patcher stopped before compile because a common Set anchor occurred in int/real/string cases
+- root cause fixed by scoping replacements to each Set case
+
+Final GREEN:
+- run 35626484148
+- job 106421997929
+- project HEAD f2916297aad315c656c5800f88a7c62d1ce4816a
+- B29 + DIAG1 PASS
+- B20-B28 PASS
+- compile/link PASS
+- binary contains all DIAG1 marker strings
+- sccache 8/9 hits (88.89%)
+- total_seconds=142
+- IPA SHA-256 b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc
+
+For repo 0x10272618, inspect:
+CEN_TX_START -> CEN_SET_BEGIN -> CEN_SET_RESULT/CEN_SET_FAIL -> CEN_SET_CREATE when applicable -> CEN_TX_COMMIT_BEGIN -> CEN_TX_COMMIT_KEY -> CEN_TX_COMMIT_RESULT/CEN_TX_COMMIT_FAIL -> CEN_TX_CANCEL if rollback occurs.
+
+Important diagnostic question:
+record existing=0/1 and existing_type/requested_type for the FEP keys. SymbianSource operations.h explicitly permits internal SetSettingL to create a missing setting; higher-level SDK prose also distinguishes public Create(). Do not change B29 semantics again until the device trace shows which path this firmware actually exercises.
+
+Full snapshot:
+docs/handoff/history/B29-DIAG1.md
 
 ## New missing executive observed after the UI failure
 
@@ -466,6 +514,7 @@ Do not reintroduce:
 - B27: WSERVPANIC13TRACE1 — device trace isolated SVC 0x63 -> leave -> WSERV-INTERNAL 13
 - B28: WSERVLIBTYPE1 — device validated; removes missing LibraryType -> WSERV-INTERNAL 13 / Domino 13 blocker
 - B29: CENREPTX1 — build validated on nativeboot2-current; awaiting device validation
+- B29-DIAG1: diagnostic-only logging build validated; use this IPA for the next device test
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -473,11 +522,12 @@ Snapshots:
 - docs/handoff/history/B27-WSERVPANIC13TRACE1.md
 - docs/handoff/history/B28-WSERVLIBTYPE1.md
 - docs/handoff/history/B29-CENREPTX1.md
+- docs/handoff/history/B29-DIAG1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 WSERVLIBTYPE1 is the latest device-validated immutable milestone. B29 CENREPTX1 is build-validated at project HEAD 7bceb18a337b0977f0f2f68ea0232748dd848392, run 35623561823, and targets the repo 0x10272618 FEP transaction/Set blocker. Device-test B29 and analyze [NBOOT2][CEN_TX_START], [NBOOT2][CEN_SET_CREATE], [NBOOT2][CEN_TX_COMMIT]/[CEN_TX_CANCEL], eiksrvs Leave -1, AknCapServer progress, and preserved B28 Wserv markers before deciding B30."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 is the latest device-validated immutable milestone. B29 CENREPTX1 plus B29-DIAG1 is build-validated at project HEAD f2916297aad315c656c5800f88a7c62d1ce4816a, run 35626484148. Device-test IPA SHA b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc and analyze repo 0x10272618 using CEN_TX_START, CEN_SET_BEGIN/RESULT/FAIL, CEN_SET_CREATE, CEN_TX_COMMIT_BEGIN/KEY/RESULT/FAIL, CEN_TX_CANCEL, eiksrvs Leave -1, AknCapServer progress, and preserved B28 Wserv markers before deciding B30."
 
 This file is authoritative unless newer committed device evidence supersedes it.
