@@ -15,22 +15,22 @@ permissions:
 jobs:
   red-contract:
     runs-on: macos-15
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
     - name: Checkout project
       uses: actions/checkout@v4
 
-    - name: Restore exact B27 baseline
-      id: b27_cache
-      uses: actions/cache/restore@v4
-      with:
-        path: upstream
-        key: eka2l1-nativeboot2-b27-wservpanic13trace1-nojava-manic3-macos15-v1
-        fail-on-cache-miss: true
-
-    - name: Prove B27 baseline then run B28 RED contract
+    - name: Materialize pinned upstream source
       run: |
         set -euo pipefail
-        UPSTREAM="$GITHUB_WORKSPACE/upstream"
-        python3 test_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
-        python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream-red"
+        rm -rf "$UPSTREAM"
+        git init "$UPSTREAM"
+        git -C "$UPSTREAM" remote add origin https://github.com/EKA2L1/EKA2L1.git
+        git -C "$UPSTREAM" fetch --depth 1 origin 971ebd747db0b2a58229f8a2c232c0d1f6192785
+        git -C "$UPSTREAM" checkout --detach FETCH_HEAD
+
+    - name: Run B28 RED contract
+      run: |
+        set -euo pipefail
+        python3 test_nativeboot2_b28_wservlibtype1.py "$GITHUB_WORKSPACE/upstream-red"
