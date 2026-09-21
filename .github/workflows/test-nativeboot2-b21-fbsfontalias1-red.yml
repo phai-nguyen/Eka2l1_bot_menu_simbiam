@@ -18,14 +18,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Restore B20 baseline
-        id: b20
+      - name: Restore B19 baseline from default branch
+        id: b19
         uses: actions/cache/restore@v4
         with:
           path: upstream
-          key: eka2l1-nativeboot2-b20-cenresetall1-nojava-manic3-macos15-v1
-      - name: Verify B21 test is RED on B20
+          key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+      - name: Recreate B20 and verify B21 contract is RED
         run: |
           set -euo pipefail
-          test "${{ steps.b20.outputs.cache-hit }}" = "true"
+          test "${{ steps.b19.outputs.cache-hit }}" = "true"
+          python3 apply_nativeboot2_b20_cenresetall1.py upstream
+          python3 test_nativeboot2_b20_cenresetall1.py upstream
           python3 test_nativeboot2_b21_fbsfontalias1.py upstream
