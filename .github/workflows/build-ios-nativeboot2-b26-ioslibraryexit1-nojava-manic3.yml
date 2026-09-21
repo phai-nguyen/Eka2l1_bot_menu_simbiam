@@ -76,11 +76,11 @@ jobs:
           apply_nativeboot2_b25_fbssharedheap1.py test_nativeboot2_b25_fbssharedheap1.py \
           apply_nativeboot2_b26_ioslibraryexit1.py test_nativeboot2_b26_ioslibraryexit1.py
 
-        if [ "\${{ steps.b25_cache.outputs.cache-hit }}" = "true" ]; then
+        if [ "${{ steps.b25_cache.outputs.cache-hit }}" = "true" ]; then
           echo "Using exact B25 cache"
           python3 test_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
         else
-          test "\${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+          test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
           echo "Recreating B25 from B19 cache"
           python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
           python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
