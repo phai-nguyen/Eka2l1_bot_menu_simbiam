@@ -37,11 +37,9 @@ def main()->None:
     f=fbs.read_text(encoding="utf-8")
     r=root.read_text(encoding="utf-8")
 
-    # Preserve already device-validated / diagnostic milestones.
-    need(f,"[NBOOT2][FBS_SHARED_HEAP_READY]","fbs.cpp")
-    need(r,"[NBOOT2][IOS_EXIT_UI] phase=library_show_done","RootViewController.mm")
-    need(s,"[NBOOT2][WSERV_PANIC_CONTEXT]","svc.cpp")
-
+    # Check the new behavior first. This ordering lets the RED proof run
+    # against the pinned upstream source and fail specifically because B28
+    # does not exist yet, rather than because earlier project markers are absent.
     # EPOC9 ABI is handle first, TUidType output pointer second.
     need(
         s,
@@ -54,6 +52,11 @@ def main()->None:
     need(s,"type->uid2 = std::get<1>(types_of_codeseg);","library_type")
     need(s,"type->uid3 = std::get<2>(types_of_codeseg);","library_type")
     need(s,"[NBOOT2][WSERV_LIBRARY_TYPE]","svc.cpp")
+
+    # Preserve already device-validated / diagnostic milestones.
+    need(f,"[NBOOT2][FBS_SHARED_HEAP_READY]","fbs.cpp")
+    need(r,"[NBOOT2][IOS_EXIT_UI] phase=library_show_done","RootViewController.mm")
+    need(s,"[NBOOT2][WSERV_PANIC_CONTEXT]","svc.cpp")
 
     v94_start=s.find("const eka2l1::hle::func_map svc_register_funcs_v94")
     v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v91_diff",v94_start)
