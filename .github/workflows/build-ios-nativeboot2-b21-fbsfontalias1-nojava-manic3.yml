@@ -1,4 +1,5 @@
 name: Build EKA2L1 NATIVEBOOT2 B21 FBSFONTALIAS1 NOJAVA MANIC3 IPA
+# rerun after B21 font_store API anchor correction
 
 "on":
   workflow_dispatch:
