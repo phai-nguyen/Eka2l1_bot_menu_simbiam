@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Apply B29-LOADERDIAG1 diagnostics after B29 CENREPTX1 + DIAG1.
+"""Apply B29-LOADERDIAG1 after B29 CENREPTX1 + DIAG1.
 
-Diagnostics only. No loader search, parse, codeseg, dependency, or completion
-semantics are changed. The instrumentation targets the generic rooted-no-drive
-RLibrary path class exposed by the B29 device trace.
+Diagnostic-only instrumentation for the loader path exposed by the B29 device
+trace. This patch is deliberately matched to the exact B28 FASTBUILD bootstrap
+source, whose lib_manager::load() treats rooted-no-drive paths as direct VFS
+paths instead of trying drives A:..Z:.
+
+No loader search, parser, codeseg, dependency, or completion semantics are
+changed. No target DLL/UID is hardcoded.
 """
 from __future__ import annotations
 import sys
@@ -51,7 +55,7 @@ def main() -> None:
         print(f"{MARK}: already applied")
         return
 
-    # E32 dependency failure telemetry. This is generic and only emits on failure.
+    # Dependency failures: emit only when the pre-existing resolver gives up.
     old='''        if (!cs) {
             // Skip these ordinals
             LOG_TRACE(KERNEL, "Can't find {}", dll_name8);
@@ -88,16 +92,15 @@ def main() -> None:
 '''
     lm=replace_once(lm,old,new,"ELF dependency diagnostics")
 
-    # Rooted-no-drive request classifier and begin marker.
-    # The B28 bootstrap contains historical loader edits, so anchor on the
-    # function shape rather than one exact signature/body line.
+    # Structural function-entry insertion, robust to the historical fast-path
+    # block present in the B28 cache.
     func_needle="    codeseg_ptr lib_manager::load("
     func_pos=lm.find(func_needle)
     if func_pos < 0:
-        fail("root begin diagnostics: lib_manager::load function missing")
+        fail("lib_manager::load function missing")
     open_brace=lm.find("{",func_pos)
     if open_brace < 0:
-        fail("root begin diagnostics: function opening brace missing")
+        fail("lib_manager::load opening brace missing")
     insert_pos=open_brace+1
     root_diag='''
         const bool nativeboot2_root_diag =
@@ -105,13 +108,14 @@ def main() -> None:
 
         if (nativeboot2_root_diag) {
             LOG_WARN(KERNEL,
-                "[NBOOT2][LDR_ROOT_BEGIN] request={}",
+                "[NBOOT2][LDR_ROOT_BEGIN] request={} rooted=1 has_drive=0",
                 common::ucs2_to_utf8(name));
         }
 '''
     lm=lm[:insert_pos]+root_diag+lm[insert_pos:]
 
-    # Open/format/parse/stage diagnostics inside the existing loader lambda.
+    # Instrument the exact B28 cached image-classification branches without
+    # adding any parser probe or changing stream position.
     old='''            symfile f = io_->open_file(lib_path, READ_MODE | BIN_MODE | additional_mode_);
             if (!f) {
                 LOG_ERROR(KERNEL, "Can't open {}", common::ucs2_to_utf8(lib_path));
@@ -120,18 +124,9 @@ def main() -> None:
 
             eka2l1::ro_file_stream image_data_stream(f.get());
 
-            const bool is_e32 = loader::is_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream));
-            const bool is_rom = !is_e32 && (f->is_in_rom() || (kern_->get_epoc_version() == epocver::epoc91));
-
-            if (is_rom) {
+            if (f->is_in_rom()) {
                 auto romimg = loader::parse_romimg(reinterpret_cast<common::ro_stream *>(&image_data_stream), mem_, kern_->get_epoc_version(), is_driver_lib);
                 if (!romimg) {
-                    return nullptr;
-                }
-
-                if ((kern_->get_epoc_version() == epocver::epoc91)
-                    && !stage_rom_image_outside_core(reinterpret_cast<common::ro_stream *>(&image_data_stream),
-                        romimg->header.code_address)) {
                     return nullptr;
                 }
 
@@ -144,6 +139,8 @@ def main() -> None:
 
                 return load_as_e32img(*e32img, lib_path);
             }
+
+            return nullptr;
 '''
     new='''            symfile f = io_->open_file(lib_path, READ_MODE | BIN_MODE | additional_mode_);
             if (!f) {
@@ -158,17 +155,13 @@ def main() -> None:
 
             eka2l1::ro_file_stream image_data_stream(f.get());
 
-            const bool is_e32 = loader::is_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream));
-            const bool in_rom = f->is_in_rom();
-            const bool is_rom = !is_e32 && (in_rom || (kern_->get_epoc_version() == epocver::epoc91));
+            if (f->is_in_rom()) {
+                if (nativeboot2_root_diag) {
+                    LOG_WARN(KERNEL,
+                        "[NBOOT2][LDR_FORMAT] path={} is_e32=0 is_rom=1 in_rom=1 format=ROM",
+                        common::ucs2_to_utf8(lib_path));
+                }
 
-            if (nativeboot2_root_diag) {
-                LOG_WARN(KERNEL,
-                    "[NBOOT2][LDR_FORMAT] path={} is_e32={} is_rom={} in_rom={}",
-                    common::ucs2_to_utf8(lib_path), is_e32, is_rom, in_rom);
-            }
-
-            if (is_rom) {
                 auto romimg = loader::parse_romimg(reinterpret_cast<common::ro_stream *>(&image_data_stream), mem_, kern_->get_epoc_version(), is_driver_lib);
                 if (!romimg) {
                     if (nativeboot2_root_diag) {
@@ -179,19 +172,14 @@ def main() -> None:
                     return nullptr;
                 }
 
-                if ((kern_->get_epoc_version() == epocver::epoc91)
-                    && !stage_rom_image_outside_core(reinterpret_cast<common::ro_stream *>(&image_data_stream),
-                        romimg->header.code_address)) {
-                    if (nativeboot2_root_diag) {
-                        LOG_WARN(KERNEL,
-                            "[NBOOT2][LDR_STAGE_FAIL] path={} format=ROM code_address=0x{:08X}",
-                            common::ucs2_to_utf8(lib_path), romimg->header.code_address);
-                    }
-                    return nullptr;
-                }
-
                 return load_as_romimg(*romimg, lib_path, is_driver_lib);
             } else {
+                if (nativeboot2_root_diag) {
+                    LOG_WARN(KERNEL,
+                        "[NBOOT2][LDR_FORMAT] path={} is_e32=1 is_rom=0 in_rom=0 format=E32",
+                        common::ucs2_to_utf8(lib_path));
+                }
+
                 auto e32img = loader::parse_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream));
                 if (!e32img) {
                     if (nativeboot2_root_diag) {
@@ -204,86 +192,88 @@ def main() -> None:
 
                 return load_as_e32img(*e32img, lib_path);
             }
-'''
-    lm=replace_once(lm,old,new,"format/parse diagnostics")
-
-    # Per-drive candidate + final rooted load result.
-    old='''        if (eka2l1::has_root_dir(lib_path) && eka2l1::root_name(lib_path, true).empty()) {
-            for (drive_number drv = drive_a; drv <= drive_z; drv = static_cast<drive_number>(static_cast<int>(drv) + 1)) {
-                std::u16string candidate(1, drive_to_char16(drv));
-                candidate += u':';
-                candidate += lib_path;
-
-                if (io_->exist(candidate)) {
-                    if (codeseg_ptr result = load_depend_on_drive(candidate, is_driver_lib)) {
-                        result->set_full_path(candidate);
-                        return result;
-                    }
-                }
-            }
 
             return nullptr;
-        }
 '''
-    new='''        if (eka2l1::has_root_dir(lib_path) && eka2l1::root_name(lib_path, true).empty()) {
-            for (drive_number drv = drive_a; drv <= drive_z; drv = static_cast<drive_number>(static_cast<int>(drv) + 1)) {
-                std::u16string candidate(1, drive_to_char16(drv));
-                candidate += u':';
-                candidate += lib_path;
+    lm=replace_once(lm,old,new,"B28 image branch diagnostics")
 
-                if (io_->exist(candidate)) {
-                    LOG_WARN(KERNEL,
-                        "[NBOOT2][LDR_ROOT_CANDIDATE] request={} candidate={} exists=1",
-                        common::ucs2_to_utf8(lib_path), common::ucs2_to_utf8(candidate));
+    # Preserve the B28 direct rooted-path semantics exactly. We only expose
+    # whether the direct VFS lookup succeeds and whether a present file is
+    # loadable.
+    old='''        if (!io_->exist(lib_path)) {
+            return nullptr;
+        }
 
-                    if (codeseg_ptr result = load_depend_on_drive(candidate, is_driver_lib)) {
-                        LOG_WARN(KERNEL,
-                            "[NBOOT2][LDR_CODESEG_RESULT] request={} candidate={} success=1",
-                            common::ucs2_to_utf8(lib_path), common::ucs2_to_utf8(candidate));
-                        result->set_full_path(candidate);
-                        return result;
-                    }
+        // Add the codeseg that trying to be loaded path to search path, for dependencies search.
+        search_paths.insert(search_paths.begin(), eka2l1::file_directory(lib_path, true));
 
-                    LOG_WARN(KERNEL,
-                        "[NBOOT2][LDR_CODESEG_RESULT] request={} candidate={} success=0",
-                        common::ucs2_to_utf8(lib_path), common::ucs2_to_utf8(candidate));
-                } else {
-                    LOG_WARN(KERNEL,
-                        "[NBOOT2][LDR_ROOT_CANDIDATE] request={} candidate={} exists=0",
-                        common::ucs2_to_utf8(lib_path), common::ucs2_to_utf8(candidate));
-                }
+        if (auto cs = load_depend_on_drive(lib_path, is_driver_lib)) {
+            cs->set_full_path(lib_path);
+            search_paths.erase(search_paths.begin());
+            return cs;
+        }
+
+        search_paths.erase(search_paths.begin());
+        return nullptr;
+'''
+    new='''        if (!io_->exist(lib_path)) {
+            if (nativeboot2_root_diag) {
+                LOG_WARN(KERNEL,
+                    "[NBOOT2][LDR_ROOT_DIRECT] request={} path={} has_drive=0 exists=0",
+                    common::ucs2_to_utf8(name), common::ucs2_to_utf8(lib_path));
+                LOG_WARN(KERNEL,
+                    "[NBOOT2][LDR_ROOT_MISS] request={} reason=direct_vfs_miss",
+                    common::ucs2_to_utf8(name));
             }
+            return nullptr;
+        }
 
+        if (nativeboot2_root_diag) {
             LOG_WARN(KERNEL,
-                "[NBOOT2][LDR_ROOT_MISS] request={} reason=no_loadable_candidate",
-                common::ucs2_to_utf8(lib_path));
-            return nullptr;
+                "[NBOOT2][LDR_ROOT_DIRECT] request={} path={} has_drive=0 exists=1",
+                common::ucs2_to_utf8(name), common::ucs2_to_utf8(lib_path));
         }
-'''
-    lm=replace_once(lm,old,new,"root candidate diagnostics")
 
-    # Loader service request/result boundary. Only rooted-no-drive requests emit.
-    old='''        // Access to this library manager is locked by kernel lock, so we directly append additional search path
-        hle::lib_manager *mngr = ctx.sys->get_lib_manager();
-        kernel::process *own_pr = ctx.msg->own_thr->owning_process();
+        // Add the codeseg that trying to be loaded path to search path, for dependencies search.
+        search_paths.insert(search_paths.begin(), eka2l1::file_directory(lib_path, true));
 
-        std::vector<std::u16string> search_list;
+        if (auto cs = load_depend_on_drive(lib_path, is_driver_lib)) {
+            if (nativeboot2_root_diag) {
+                LOG_WARN(KERNEL,
+                    "[NBOOT2][LDR_CODESEG_RESULT] request={} path={} success=1",
+                    common::ucs2_to_utf8(name), common::ucs2_to_utf8(lib_path));
+            }
+            cs->set_full_path(lib_path);
+            search_paths.erase(search_paths.begin());
+            return cs;
+        }
+
+        if (nativeboot2_root_diag) {
+            LOG_WARN(KERNEL,
+                "[NBOOT2][LDR_CODESEG_RESULT] request={} path={} success=0",
+                common::ucs2_to_utf8(name), common::ucs2_to_utf8(lib_path));
+        }
+        search_paths.erase(search_paths.begin());
+        return nullptr;
 '''
-    new='''        // Access to this library manager is locked by kernel lock, so we directly append additional search path
-        hle::lib_manager *mngr = ctx.sys->get_lib_manager();
-        kernel::process *own_pr = ctx.msg->own_thr->owning_process();
+    lm=replace_once(lm,old,new,"B28 direct rooted-path diagnostics")
+
+    # Loader service boundary. Insert after the stable own-process assignment;
+    # do not depend on the historical search_list container type.
+    old='''        kernel::process *own_pr = ctx.msg->own_thr->owning_process();
+'''
+    new='''        kernel::process *own_pr = ctx.msg->own_thr->owning_process();
         const bool nativeboot2_root_diag =
             eka2l1::has_root_dir(*lib_path) && eka2l1::root_name(*lib_path, true).empty();
 
         if (nativeboot2_root_diag) {
             LOG_WARN(SERVICE_LOADER,
-                "[NBOOT2][LDR_LIB_REQUEST] process={} request_path={} owner={}",
+                "[NBOOT2][LDR_LIB_REQUEST] process={} request_path={} rooted_no_drive=1 owner={}",
                 own_pr->name(), common::ucs2_to_utf8(*lib_path),
                 static_cast<int>(handle_owner));
         }
-
-        std::vector<std::u16string> search_list;
 '''
+    # The exact assignment occurs once in load_library in the B28 cache.
     ls=replace_once(ls,old,new,"loader request diagnostics")
 
     old='''        if (!cs) {
@@ -293,12 +283,10 @@ def main() -> None:
         }
 '''
     new='''        if (!cs) {
-            if (nativeboot2_root_diag) {
-                LOG_WARN(SERVICE_LOADER,
-                    "[NBOOT2][LDR_LIB_RESULT] process={} request_path={} success=0 completion={}",
-                    own_pr->name(), common::ucs2_to_utf8(*lib_path),
-                    epoc::error_not_found);
-            }
+            LOG_WARN(SERVICE_LOADER,
+                "[NBOOT2][LDR_LIB_RESULT] process={} request_path={} rooted_no_drive={} success=0 completion={}",
+                own_pr->name(), common::ucs2_to_utf8(*lib_path),
+                nativeboot2_root_diag, epoc::error_not_found);
             LOG_DEBUG(SERVICE_LOADER, "Try loading {} to {} failed", lib_name, own_pr->name());
             ctx.complete(epoc::error_not_found);
             return;
@@ -314,7 +302,7 @@ def main() -> None:
 
         if (nativeboot2_root_diag) {
             LOG_WARN(SERVICE_LOADER,
-                "[NBOOT2][LDR_LIB_RESULT] process={} request_path={} success=1 handle=0x{:08X} completion=0",
+                "[NBOOT2][LDR_LIB_RESULT] process={} request_path={} rooted_no_drive=1 success=1 handle=0x{:08X} completion=0",
                 own_pr->name(), common::ucs2_to_utf8(*lib_path),
                 lib_handle_and_obj.first);
         }
@@ -334,12 +322,11 @@ def main() -> None:
 
     for needle in (
         "[NBOOT2][LDR_ROOT_BEGIN]",
-        "[NBOOT2][LDR_ROOT_CANDIDATE]",
+        "[NBOOT2][LDR_ROOT_DIRECT]",
         "[NBOOT2][LDR_ROOT_MISS]",
         "[NBOOT2][LDR_OPEN_FAIL]",
         "[NBOOT2][LDR_FORMAT]",
         "[NBOOT2][LDR_PARSE_FAIL]",
-        "[NBOOT2][LDR_STAGE_FAIL]",
         "[NBOOT2][LDR_CODESEG_RESULT]",
         "[NBOOT2][LDR_DEP_FAIL]",
     ):
@@ -351,6 +338,7 @@ def main() -> None:
 
     print(f"{MARK}: applied")
     print("semantics=B29_UNCHANGED")
+    print("baseline=B28_FASTBUILD_CACHE")
     print("scope=ROOTED_RLIBRARY_DIAGNOSTICS_ONLY")
     print("target_hardcode=NONE")
     print("B28_WSERVLIBTYPE1=PRESERVED")
