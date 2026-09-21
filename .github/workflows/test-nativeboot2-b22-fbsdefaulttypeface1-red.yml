@@ -64,5 +64,35 @@ jobs:
         PY
         echo '=== END B21 shutdown_locked baseline ==='
 
+        echo '=== B21 shutdown_threads locations ==='
+        grep -R -n -F 'shutdown_threads' "$UPSTREAM/src/emu/ios" || true
+        echo '=== B21 shutdown_threads body ==='
+        python3 - "$UPSTREAM" <<'PY'
+        import sys
+        from pathlib import Path
+        root = Path(sys.argv[1]) / "src/emu/ios"
+        for p in root.rglob("*"):
+            if not p.is_file() or p.suffix not in {".cpp",".mm",".h"}:
+                continue
+            try:
+                s = p.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            idx = s.find("shutdown_threads")
+            if idx < 0:
+                continue
+            start = s.rfind("\n", 0, idx)
+            # Prefer the nearest function signature line.
+            start = max(0, s.rfind("\n", 0, start))
+            nxt = s.find("\n    void ", idx + 20)
+            if nxt < 0:
+                nxt = s.find("\n    bool ", idx + 20)
+            if nxt < 0:
+                nxt = min(len(s), idx + 12000)
+            print(f"FILE={p}")
+            print(s[start:nxt])
+        PY
+        echo '=== END B21 shutdown_threads body ==='
+
         python3 -m py_compile test_nativeboot2_b22_fbsdefaulttypeface1.py
         python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
