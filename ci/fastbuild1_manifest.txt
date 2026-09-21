@@ -1,0 +1,13 @@
+[post_bootstrap]
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here.
+
+[regressions]
+test_nativeboot2_b20_cenresetall1.py
+test_nativeboot2_b21_fbsfontalias1.py
+test_nativeboot2_b22_fbsdefaulttypeface1.py
+test_nativeboot2_b23_fbsfontspecv2abi1.py
+test_nativeboot2_b24_fbsvtableabi1.py
+test_nativeboot2_b25_fbssharedheap1.py
+test_nativeboot2_b26_ioslibraryexit1.py
+test_nativeboot2_b27_wservpanic13trace1.py
+test_nativeboot2_b28_wservlibtype1.py
