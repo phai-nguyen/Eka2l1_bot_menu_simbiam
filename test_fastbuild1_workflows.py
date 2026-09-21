@@ -69,6 +69,12 @@ class FastbuildWorkflowContract(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
+
+    def test_workflows_have_no_malformed_github_expressions(self):
+        for path in (FAST, SEED):
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("${ {", text, str(path))
+
     def test_seed_workflow_is_manual_only_and_saves_exact_bootstrap(self):
         text = SEED.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", text)
