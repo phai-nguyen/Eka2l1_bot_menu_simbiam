@@ -175,7 +175,7 @@ test_fastbuild1_workflows.py must assert:
 - git hash-object of the B28 workflow equals 44d1c8aaa7ff5f0ff97271396b8bf771ad125b54;
 - fast workflow contains nativeboot2-current, the stable B28 bootstrap key, and B19 fallback key;
 - fast workflow contains no actions/cache/save;
-- sccache action is mozilla-actions/sccache-action@v0.0.10;
+- sccache action is mozilla-actions/sccache-action@v0.0.11;
 - SCCACHE_GHA_ENABLED is true and SCCACHE_IGNORE_SERVER_IO_ERROR is 1;
 - CMAKE_C_COMPILER_LAUNCHER and CMAKE_CXX_COMPILER_LAUNCHER are sccache;
 - B28 test appears before manifest apply;
@@ -204,7 +204,7 @@ env:
 ~~~
 and:
 ~~~yaml
-- uses: mozilla-actions/sccache-action@v0.0.10
+- uses: mozilla-actions/sccache-action@v0.0.11
 ~~~
 4. Restore the stable B28 bootstrap key.
 5. If the bootstrap misses, restore B19 key eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1 and apply B20 through B28 scripts, then run the B28 contract.
@@ -296,7 +296,7 @@ jobs:
 Then:
 - checkout;
 - fail unless GITHUB_REF_NAME is nativeboot2-current;
-- enable mozilla-actions/sccache-action@v0.0.10;
+- enable mozilla-actions/sccache-action@v0.0.11;
 - lookup the stable B28 key;
 - on miss restore the B19 key;
 - apply B20 through B28;
