@@ -1,0 +1,57 @@
+name: Test NATIVEBOOT2 B22 FBSDEFAULTTYPEFACE1 RED
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b22-fbsdefaulttypeface1
+    paths:
+      - test_nativeboot2_b22_fbsdefaulttypeface1.py
+      - .github/workflows/test-nativeboot2-b22-fbsdefaulttypeface1-red.yml
+
+permissions:
+  contents: read
+
+jobs:
+  red-contract:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B21 baseline
+      id: b21_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b21-fbsfontalias1-nojava-manic3-macos15-v1
+
+    - name: Prove B22 contract is red on B21
+      run: |
+        set -euo pipefail
+        test "${{ steps.b21_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BRIDGE="$UPSTREAM/src/emu/ios/src/emu_bridge.mm"
+
+        echo '=== B21 shutdown_locked baseline ==='
+        python3 - "$BRIDGE" <<'PY'
+        import sys
+        from pathlib import Path
+        s = Path(sys.argv[1]).read_text(encoding="utf-8")
+        start = s.find("static void shutdown_locked")
+        if start < 0:
+            start = s.find("void shutdown_locked")
+        if start < 0:
+            print("shutdown_locked: NOT FOUND")
+        else:
+            nxt = s.find("\n    static ", start + 30)
+            if nxt < 0:
+                nxt = min(len(s), start + 12000)
+            print(s[start:nxt])
+        PY
+        echo '=== END B21 shutdown_locked baseline ==='
+
+        python3 -m py_compile test_nativeboot2_b22_fbsdefaulttypeface1.py
+        python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
