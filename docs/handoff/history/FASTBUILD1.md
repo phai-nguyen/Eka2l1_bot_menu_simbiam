@@ -287,6 +287,22 @@ The connector still does not expose workflow_dispatch, so that final probe used 
 
 The final promotion timing is therefore `total_seconds=63` from run 35618944742, measured from before checkout through completion of the IPA upload step.
 
+## Final acceptance suite
+
+Run:
+- 35619769274
+- conclusion: SUCCESS
+- commit under verification: 51dedd61ffcf9247d8205e4086758150de2a1eaa
+
+Exact acceptance checks:
+- `python3 -m unittest -v test_fastbuild1_manifest.py test_fastbuild1_workflows.py`
+- 13/13 tests PASS
+- `python3 ci/fastbuild1_manifest.py validate .` -> VALID
+- `git diff --check` -> exit 0
+- B28 workflow git blob -> `44d1c8aaa7ff5f0ff97271396b8bf771ad125b54`
+
+The temporary GitHub Actions TDD runner used to execute RED/GREEN and this final acceptance suite is execution scaffolding, not part of FASTBUILD1 runtime/build architecture; it is removed after this successful acceptance run. The Python contract tests remain checked in.
+
 ## Promotion decision
 
 Promotion gate: PASS.
