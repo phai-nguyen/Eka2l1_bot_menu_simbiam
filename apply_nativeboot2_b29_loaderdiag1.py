@@ -89,10 +89,17 @@ def main() -> None:
     lm=replace_once(lm,old,new,"ELF dependency diagnostics")
 
     # Rooted-no-drive request classifier and begin marker.
-    old='''    codeseg_ptr lib_manager::load(const std::u16string &name) {
-        bool is_driver_lib = false;
-'''
-    new='''    codeseg_ptr lib_manager::load(const std::u16string &name) {
+    # The B28 bootstrap contains historical loader edits, so anchor on the
+    # function shape rather than one exact signature/body line.
+    func_needle="    codeseg_ptr lib_manager::load("
+    func_pos=lm.find(func_needle)
+    if func_pos < 0:
+        fail("root begin diagnostics: lib_manager::load function missing")
+    open_brace=lm.find("{",func_pos)
+    if open_brace < 0:
+        fail("root begin diagnostics: function opening brace missing")
+    insert_pos=open_brace+1
+    root_diag='''
         const bool nativeboot2_root_diag =
             eka2l1::has_root_dir(name) && eka2l1::root_name(name, true).empty();
 
@@ -101,10 +108,8 @@ def main() -> None:
                 "[NBOOT2][LDR_ROOT_BEGIN] request={}",
                 common::ucs2_to_utf8(name));
         }
-
-        bool is_driver_lib = false;
 '''
-    lm=replace_once(lm,old,new,"root begin diagnostics")
+    lm=lm[:insert_pos]+root_diag+lm[insert_pos:]
 
     # Open/format/parse/stage diagnostics inside the existing loader lambda.
     old='''            symfile f = io_->open_file(lib_path, READ_MODE | BIN_MODE | additional_mode_);
