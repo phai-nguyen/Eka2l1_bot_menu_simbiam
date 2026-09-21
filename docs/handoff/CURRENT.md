@@ -6,6 +6,8 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B28 WSERVLIBTYPE1
 Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
+Latest development build: B29 CENREPTX1 — BUILD-VALIDATED
+Latest B29 build-tested project HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
 Latest device-tested milestone: B28
 FASTBUILD1 status: PROMOTED
 
@@ -21,51 +23,74 @@ Primary device-test environment:
 
 ## Current baseline
 
-B28 = NATIVEBOOT2-B28-WSERVLIBTYPE1
+Active development candidate:
+B29 = NATIVEBOOT2-B29-CENREPTX1
 
-Immutable milestone branch:
-nativeboot2-b28-wservlibtype1
+Status:
+BUILD-VALIDATED, NOT YET DEVICE-VALIDATED
 
 Active development branch:
 nativeboot2-current
 
-Build workflow:
-.github/workflows/build-ios-nativeboot2-b28-wservlibtype1-nojava-manic3.yml
+Stable immutable fallback milestone:
+B28 WSERVLIBTYPE1 on nativeboot2-b28-wservlibtype1
 
-Apply script:
-apply_nativeboot2_b28_wservlibtype1.py
+FASTBUILD workflow:
+.github/workflows/build-ios-nativeboot2-current-fast.yml
 
-Contract:
-test_nativeboot2_b28_wservlibtype1.py
+B29 apply script:
+apply_nativeboot2_b29_cenreptx1.py
 
-Successful build run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35606704683
+B29 contract:
+test_nativeboot2_b29_cenreptx1.py
+
+B29 GREEN build run:
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35623561823
 
 Run ID:
-35606704683
+35623561823
 
-Build code HEAD:
-773752a4475dce019e8ae4342f2ab7d0b2abc060
+Job ID:
+106412254328
+
+Build-tested project HEAD:
+7bceb18a337b0977f0f2f68ea0232748dd848392
 
 Unsigned IPA:
-EKA2L1-NATIVEBOOT2-B28-WSERVLIBTYPE1-NOJAVA-MANIC3-unsigned.ipa
+EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
 
 IPA SHA-256:
-8fd1ef35863a8b8deb175650259052977d15c0e66dc578a415e95050ebfbc81b
+25c6846ced19f435523570c2e586fd18031f4c7f05e94e89a50e8f2bace63b70
 
 IPA artifact:
-- ID: 10642526382
-- ZIP digest: sha256:3d92f5b4ba6812ba44e4a3a6516750bbd08e35418197e6f988e2a808f4afd145
+- ID: 10650184716
+- ZIP digest: sha256:bb69c7477e763317d8f15507fb174bfa674ac46a79e36cda82c21baab2843a5f
 - expires: 2026-10-05
 
 Audit artifact:
-- ID: 10642476357
-- ZIP digest: sha256:7bb7db13282a9e1fb4a83c914079cbb7cfb6c276e81d633ebf7606ae7c32359f
+- ID: 10650309612
+- ZIP digest: sha256:1fac54168a24440de04eeb367511778db157dafbc3e9790c64e213058e6e22ca
 - expires: 2026-10-05
+
+B29 RED evidence:
+- project HEAD: 14a558b2dba4ad0ae4adcbbb86b367e8d60e0db2
+- run: 35623202762
+- expected failure: missing cen_rep_transaction_commit registration
+- B20-B28 passed before the intended B29 failure
+
+B29 GREEN evidence:
+- B29 apply PASS
+- B29 contract PASS
+- B20-B28 regression chain PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA packaging/upload PASS
+- NOJAVA preserved
+- MANIC3 preserved
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED for normal B29/B30 development.
+FASTBUILD1 is PROMOTED for B29 device validation and normal B30+ development.
 
 Active development branch:
 nativeboot2-current
@@ -151,7 +176,7 @@ Development rule from now on:
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
 5. Do not return to sibling milestone branches as the primary development/cache path.
 
-FASTBUILD1 does not change guest behavior. B28 is now device-validated for its narrow LibraryType/Wserv purpose. The active blocker has moved later into Central Repository/FEP/UIKON startup.
+FASTBUILD1 does not change guest behavior. B28 remains the latest device-validated immutable milestone. B29 CENREPTX1 is now build-validated on nativeboot2-current and targets the Central Repository/FEP/UIKON blocker; device evidence is still required before promotion to an immutable B29 milestone.
 
 ## Validated milestones
 
@@ -326,7 +351,7 @@ Symbian source identifies:
 
 Eiksrv CEikServAppUiServer::ConstructL() opens this repository, starts an EConcurrentReadWriteTransaction, writes the default FEP state/ID/key data, then commits.
 
-Current EKA2L1 Central Repository implementation is incompatible with that path:
+The B28 baseline Central Repository implementation is incompatible with that path:
 - TransactionStart is stubbed and does not call set_active(true).
 - TransactionCancel is stubbed.
 - Set write mode returns KErrNotFound for absent keys unless a transaction is actually active.
@@ -343,6 +368,39 @@ The B28 log correlates this directly:
 AknCapServer also has Leave -1 paths through centralrepository.dll + cone.dll.
 
 Therefore the preferred B29 direction is a generic Central Repository transaction/Set fix, not a repo/key hardcode.
+
+## B29 — CENREPTX1
+
+BUILD-VALIDATED, NOT YET DEVICE-VALIDATED.
+
+B29 implements the narrow generic Central Repository compatibility required by the B28 Eiksrv/FEP trace:
+- registers/routes cen_rep_transaction_commit;
+- makes StartTransaction activate state and map Symbian modes 1/2/3;
+- stages transactional Set changes with copy-on-write;
+- makes Set create a missing key with repository default metadata;
+- Commit installs staged changes, persists once, then notifies;
+- Cancel discards staged changes;
+- fixes transaction-mode decoding so active bits do not contaminate the mode;
+- adds [NBOOT2][CEN_TX_START], [NBOOT2][CEN_SET_CREATE], [NBOOT2][CEN_TX_COMMIT], [NBOOT2][CEN_TX_CANCEL].
+
+B29 does not hardcode repository 0x10272618 or FEP key values and does not modify SVC 0x2D/0x48/0x4A/0x50.
+
+TDD RED:
+- run 35623202762
+- expected B29 contract failure
+- B20-B28 PASS first
+
+GREEN:
+- run 35623561823
+- job 106412254328
+- B29 PASS
+- B20-B28 PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA SHA-256 25c6846ced19f435523570c2e586fd18031f4c7f05e94e89a50e8f2bace63b70
+
+Required device decision:
+Confirm repo 0x10272618 now shows CEN_TX_START -> CEN_SET_CREATE -> CEN_TX_COMMIT and that the old eiksrvs Leave -1 / TransactionCancel sequence disappears or moves. Do not promote B29 or choose B30 until that ordering is known.
 
 ## New missing executive observed after the UI failure
 
@@ -366,7 +424,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B28 is validated. Investigate/fix Central Repository FEP transaction semantics first. Do not batch 0x2D, 0x48, 0x4A, or 0x50 into the same milestone without new causal evidence.
+B29 is build-validated. Device-test B29 first and use the first new divergence after CEN_TX_START/CEN_SET_CREATE/CEN_TX_COMMIT to choose B30. Do not batch 0x2D, 0x48, 0x4A, or 0x50 without new causal evidence.
 
 ## Preserved invariants
 
@@ -384,6 +442,7 @@ Keep:
 - B26 safe Exit Emulator path
 - B27 Wserv panic diagnostics
 - B28 narrow LibraryType implementation
+- B29 narrow generic CenRep transaction/Set compatibility
 - NOJAVA
 - MANIC3
 
@@ -406,17 +465,19 @@ Do not reintroduce:
 - B26: IOSLIBRARYEXIT1 — device validated
 - B27: WSERVPANIC13TRACE1 — device trace isolated SVC 0x63 -> leave -> WSERV-INTERNAL 13
 - B28: WSERVLIBTYPE1 — device validated; removes missing LibraryType -> WSERV-INTERNAL 13 / Domino 13 blocker
+- B29: CENREPTX1 — build validated on nativeboot2-current; awaiting device validation
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
 - docs/handoff/history/B26-IOSLIBRARYEXIT1.md
 - docs/handoff/history/B27-WSERVPANIC13TRACE1.md
 - docs/handoff/history/B28-WSERVLIBTYPE1.md
+- docs/handoff/history/B29-CENREPTX1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 WSERVLIBTYPE1 is device-validated and removed the SVC 0x63 -> WSERV-INTERNAL 13 / Domino 13 blocker. The next evidence-backed blocker is Central Repository/FEP startup on repo 0x10272618: TransactionStart is stubbed, the first FEP Set path leaves -1, and CommitTransaction is unimplemented. Investigate a narrow generic B29 CENREP transaction/Set fix first; do not speculatively batch SVC 0x2D/0x48/0x4A/0x50."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 WSERVLIBTYPE1 is the latest device-validated immutable milestone. B29 CENREPTX1 is build-validated at project HEAD 7bceb18a337b0977f0f2f68ea0232748dd848392, run 35623561823, and targets the repo 0x10272618 FEP transaction/Set blocker. Device-test B29 and analyze [NBOOT2][CEN_TX_START], [NBOOT2][CEN_SET_CREATE], [NBOOT2][CEN_TX_COMMIT]/[CEN_TX_CANCEL], eiksrvs Leave -1, AknCapServer progress, and preserved B28 Wserv markers before deciding B30."
 
 This file is authoritative unless newer committed device evidence supersedes it.
