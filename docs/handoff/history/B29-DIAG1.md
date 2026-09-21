@@ -4,7 +4,7 @@ Date: 2026-09-21
 Development branch: nativeboot2-current
 Functional baseline: B29 CENREPTX1
 Diagnostic build-tested project HEAD: f2916297aad315c656c5800f88a7c62d1ce4816a
-Status: BUILD-VALIDATED, DEVICE LOG REQUIRED
+Status: DEVICE-OBSERVED; B29 FUNCTIONAL HYPOTHESIS VALIDATED
 
 ## Purpose
 
@@ -156,6 +156,29 @@ Audit artifact:
 
 Post-build binary verification:
 the packaged eka2l1 Mach-O contains all B29-DIAG1 marker strings, including SET_BEGIN/RESULT/FAIL and COMMIT_BEGIN/KEY/RESULT/FAIL.
+
+## Device result
+
+The supplied B29 and B29-DIAG1 device logs validate the diagnostic hypothesis.
+
+For repository 0x10272618:
+- CEN_TX_START succeeds with mode=2.
+- Four FEP settings complete without CEN_SET_FAIL.
+- CEN_TX_COMMIT_RESULT reports changed=4, key_info=4, completion=0.
+- No CEN_TX_COMMIT_FAIL is observed.
+- No CEN_TX_CANCEL follows the successful FEP transaction.
+- Settings created during the earlier B29 run are seen as existing during the later DIAG1 run, demonstrating persistence across runs.
+
+The first repeated failure moved after the CenRep transaction:
+- optional Fepswitch.exe is not found;
+- Eiksrv then attempts to load its UI-specific library;
+- EKA2L1 returns KErrNotFound from library loading;
+- EikAppUiServerThread leaves -1.
+
+Therefore DIAG1 completed its purpose and B29 CENREPTX1 is device-validated for the CenRep/FEP blocker.
+
+The next diagnostic build is B29-LOADERDIAG1; see:
+docs/handoff/history/B29-LOADERDIAG1.md
 
 ## Required device log interpretation
 
