@@ -16,3 +16,7 @@ Task 1: complete — RED run 35611701170 failed on missing ci package as expecte
 Task 2: complete — RED run 35611963896 failed only because the fast workflow was absent; GREEN run 35612160731 passed the six Task-2 workflow contracts plus Task-1 suite and manifest validation. Fast workflow commit a0dae974. Ruling carried: sccache-action v0.0.11.
 
 Task 3: complete — RED run 35612260312 failed only because the manual seed workflow was absent; GREEN run 35612350063 passed 4 manifest tests + 7 workflow contracts + manifest validation. Seed workflow commit 6e9c0c94.
+
+Task 4: Ruling: the available GitHub connector has no workflow_dispatch mutation, so the cold seed will be executed once through a temporary push-triggered bootstrap workflow on nativeboot2-current, using the same verified seed logic/cache key, then that temporary workflow will be deleted. Final seed workflow remains manual-only. Cost if wrong: a wrongly scoped bootstrap cache; mitigated by branch check, exact key, B20-B28 contracts, build verification, and deleting the temporary trigger afterward.
+
+Task 4: Finding before benchmark: seed workflow uses lookup-only=true, which would not materialize upstream on an existing-cache rerun while the audit still dereferences upstream. Must pin with RED and fix before seed.
