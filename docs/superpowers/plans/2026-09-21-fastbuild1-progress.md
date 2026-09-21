@@ -26,3 +26,16 @@ Task 4 pre-benchmark fix: RED run 35612595589 proved seed lookup-only would not 
 Task 4 benchmark evidence: cold fallback run 35612768609 PASS (B19_FALLBACK, total 614s); seed run 35612902115 PASS; hot run 35614076698 PASS (B28_CACHE, total 71s); initial probe 35615089931 PASS (1 request/1 hit/0 miss, total 128s, no IPA); identical retry 35615429046 PASS (1 request/1 hit/0 miss, total 127s, no IPA); post-probe hot 35615810558 PASS (B28_CACHE, total 60s, IPA restored, SHA d077a550ae1120275d5a80f84200e15cff891ebc82f5f9229a52054111019182).
 
 Task 4: Ruling: strengthen the one-file probe before promotion — official mozilla/sccache source hashes preprocessed C/C++ source, so an unused trailing #define can legitimately hit an existing baseline object and does not prove new-content write→reuse. Add a transient static_assert consuming the probe macro, run it once and rerun identically; require first run to issue exactly one request and establish a distinct cache entry, second run to hit it. Cost if wrong: ~2 extra CI runs; no committed runtime change because the probe touches only restored upstream.
+
+
+Task 4 strong-probe evidence: run 35616222173 PASS with 1 request / 0 hit / 1 miss / 1 real compile / 0 write errors; identical retry 35616567861 PASS with 1 request / 1 hit / 0 miss / 0 compiles; post-probe normal run 35616906674 PASS with IPA restored.
+
+Task 5: initial history/CURRENT promotion snapshot committed after the benchmark gate passed.
+
+Final review: self-review (no subagent tool).
+
+Final: fixed weak permanent one-file probe — test_probe_is_transient_and_never_uploads_ipa RED in run 35617848036, then GREEN in run 35618944698 after permanent workflow gained the compile-time static_assert; final permanent-equivalent probe run 35619278590 PASS with 1/1 cache hit and no IPA.
+
+Final: fixed incomplete total timing scope — test_total_timing_covers_checkout_and_ipa_upload RED in run 35617848036, then GREEN in run 35618944698; corrected normal build run 35618944742 PASS with total_seconds=63 measured from before checkout through completed IPA upload.
+
+Task 5 verification evidence: run 35618944698 passed 4/4 manifest tests + 9/9 workflow contract tests + manifest validation; run 35618944742 passed B20-B28, compile/link, NOJAVA/MANIC3, IPA packaging/upload, and produced SHA b289101c866bfa2a86e8046605d08299833b4dcdd0ea98e69425d78a7f93ff8d.
