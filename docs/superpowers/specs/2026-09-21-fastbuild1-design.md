@@ -1,9 +1,10 @@
 # FASTBUILD1 Design — EKA2L1 Nokia 5800 NativeBoot CI
 
 Date: 2026-09-21  
-Status: Design approved in conversation; implementation not started  
+Status: Implemented and promoted on `nativeboot2-current` (2026-09-21)  
 Baseline functional branch: `nativeboot2-b28-wservlibtype1`  
-Design branch: `nativeboot2-fastbuild1-design`
+Design branch: `nativeboot2-fastbuild1-design`  
+Active implementation branch: `nativeboot2-current`
 
 ## 1. Purpose
 
