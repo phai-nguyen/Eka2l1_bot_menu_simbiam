@@ -1,0 +1,197 @@
+name: Build EKA2L1 NATIVEBOOT2 CURRENT FAST STRONG PROBE ONCE
+
+"on":
+  push:
+    branches:
+      - nativeboot2-current
+    paths:
+      - ".github/workflows/build-ios-nativeboot2-current-fast-strong-probe-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
+
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Mark FASTBUILD start
+      run: echo "FASTBUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Enable sccache
+      uses: mozilla-actions/sccache-action@v0.0.11
+
+    - name: Mark bootstrap start
+      run: echo "FASTBUILD_BOOTSTRAP_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Restore stable B28 bootstrap
+      id: fast_bootstrap
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+    - name: Restore B19 fallback
+      id: b19_cache
+      if: steps.fast_bootstrap.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Prepare B28 baseline
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        if [ "${{ steps.fast_bootstrap.outputs.cache-hit }}" = "true" ]; then
+          python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+          echo "FASTBUILD_BOOTSTRAP_SOURCE=B28_CACHE" >> "$GITHUB_ENV"
+        else
+          test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+          echo "FASTBUILD_BOOTSTRAP_SOURCE=B19_FALLBACK" >> "$GITHUB_ENV"
+          python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+          python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+        fi
+        echo "FASTBUILD_BOOTSTRAP_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Apply current milestones and run regressions
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 ci/fastbuild1_manifest.py validate "$GITHUB_WORKSPACE"
+        python3 ci/fastbuild1_manifest.py apply "$GITHUB_WORKSPACE" "$UPSTREAM"
+        python3 ci/fastbuild1_manifest.py regress "$GITHUB_WORKSPACE" "$UPSTREAM"
+        echo "FASTBUILD_PATCH_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Configure compiler cache
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        echo "SCCACHE_BASEDIRS=$UPSTREAM" >> "$GITHUB_ENV"
+        export SCCACHE_BASEDIRS="$UPSTREAM"
+        "$CMAKE_BIN" -S "$UPSTREAM" -B "$UPSTREAM/build-ios-device" \
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        sccache --zero-stats || true
+
+    - name: Inject one-file benchmark probe
+      run: |
+        set -euo pipefail
+        SVC="$GITHUB_WORKSPACE/upstream/src/emu/kernel/src/svc.cpp"
+        printf '\n#define NBOOT2_FASTBUILD1_PROBE 1\nstatic_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");\n' >> "$SVC"
+        grep -Fq '#define NBOOT2_FASTBUILD1_PROBE 1' "$SVC"
+        grep -Fq 'static_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");' "$SVC"
+        echo "FASTBUILD1_PROBE=1" >> "$GITHUB_ENV"
+
+    - name: Build iOS target
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        echo "FASTBUILD_BUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+        sccache --show-stats | tee "$GITHUB_WORKSPACE/FASTBUILD1-SCCACHE-STATS.txt"
+        echo "FASTBUILD_BUILD_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Verify binary invariants
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][WSERV_LIBRARY_TYPE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$RUNNER_TEMP/fastbuild1.strings"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$RUNNER_TEMP/fastbuild1.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        git -C "$UPSTREAM" diff --check
+
+    - name: Package unsigned IPA
+      if: false
+      run: |
+        set -euo pipefail
+        echo "FASTBUILD_PACKAGE_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-fastbuild1"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt"
+        echo "FASTBUILD_PACKAGE_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Write FASTBUILD audit
+      if: always()
+      run: |
+        set -euo pipefail
+        NOW=$(date +%s)
+        BOOTSTRAP_START=${FASTBUILD_BOOTSTRAP_START_EPOCH:-$FASTBUILD_START_EPOCH}
+        BOOTSTRAP_DONE=${FASTBUILD_BOOTSTRAP_DONE_EPOCH:-$NOW}
+        PATCH_DONE=${FASTBUILD_PATCH_DONE_EPOCH:-$BOOTSTRAP_DONE}
+        BUILD_START=${FASTBUILD_BUILD_START_EPOCH:-$PATCH_DONE}
+        BUILD_DONE=${FASTBUILD_BUILD_DONE_EPOCH:-$BUILD_START}
+        PACKAGE_START=${FASTBUILD_PACKAGE_START_EPOCH:-$BUILD_DONE}
+        PACKAGE_DONE=${FASTBUILD_PACKAGE_DONE_EPOCH:-$PACKAGE_START}
+        {
+          echo "FASTBUILD1 BUILD AUDIT"
+          echo "bootstrap_source=${FASTBUILD_BOOTSTRAP_SOURCE:-UNKNOWN}"
+          echo "probe=${FASTBUILD1_PROBE:-0}"
+          echo "bootstrap_restore_seconds=$((BOOTSTRAP_DONE-BOOTSTRAP_START))"
+          echo "patch_regression_seconds=$((PATCH_DONE-BOOTSTRAP_DONE))"
+          echo "cmake_build_seconds=$((BUILD_DONE-BUILD_START))"
+          echo "package_seconds=$((PACKAGE_DONE-PACKAGE_START))"
+          echo "total_seconds=$((NOW-FASTBUILD_START_EPOCH))"
+          echo "parallel=4"
+          xcodebuild -version | sed 's/^/xcode=/'
+          clang --version | head -n 1 | sed 's/^/clang=/'
+          echo "NOJAVA=PRESERVED"
+          echo "MANIC3=PRESERVED"
+        } > "$GITHUB_WORKSPACE/FASTBUILD1-BUILD-AUDIT.txt"
+
+    - name: Upload IPA
+      if: false
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload FASTBUILD audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-FASTBUILD1-STRONG-PROBE-AUDIT
+        path: |
+          FASTBUILD1-BUILD-AUDIT.txt
+          FASTBUILD1-SCCACHE-STATS.txt
+          FASTBUILD1-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
+
+# strong-probe-sequence=1
