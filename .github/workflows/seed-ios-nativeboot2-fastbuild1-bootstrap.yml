@@ -30,7 +30,6 @@ jobs:
       with:
         path: upstream
         key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
-        lookup-only: true
 
     - name: Restore B19 baseline
       if: steps.bootstrap.outputs.cache-hit != 'true'
@@ -91,7 +90,7 @@ jobs:
           echo "FASTBUILD1 B28 BOOTSTRAP AUDIT"
           echo "branch=$GITHUB_REF_NAME"
           echo "cache_key=eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1"
-          echo "existing_hit=${ { steps.bootstrap.outputs.cache-hit }}"
+          echo "existing_hit=${{ steps.bootstrap.outputs.cache-hit }}"
           echo "baseline=B28_WSERVLIBTYPE1"
           echo "parallel=4"
           xcodebuild -version
