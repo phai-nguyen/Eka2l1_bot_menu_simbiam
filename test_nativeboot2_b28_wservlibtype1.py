@@ -27,15 +27,9 @@ def main()->None:
         fail("usage: test_nativeboot2_b28_wservlibtype1.py <upstream-root>")
     up=Path(sys.argv[1]).resolve()
     svc=up/"src/emu/kernel/src/svc.cpp"
-    fbs=up/"src/emu/services/src/fbs/fbs.cpp"
-    root=up/"src/emu/ios/app/RootViewController.mm"
-    for p in (svc,fbs,root):
-        if not p.is_file():
-            fail(f"missing baseline file: {p}")
-
+    if not svc.is_file():
+        fail(f"missing baseline file: {svc}")
     s=svc.read_text(encoding="utf-8")
-    f=fbs.read_text(encoding="utf-8")
-    r=root.read_text(encoding="utf-8")
 
     # Check the new behavior first. This ordering lets the RED proof run
     # against the pinned upstream source and fail specifically because B28
@@ -53,7 +47,15 @@ def main()->None:
     need(s,"type->uid3 = std::get<2>(types_of_codeseg);","library_type")
     need(s,"[NBOOT2][WSERV_LIBRARY_TYPE]","svc.cpp")
 
-    # Preserve already device-validated / diagnostic milestones.
+    # Preservation checks only run after the new B28 behavior exists.
+    # This keeps the RED proof focused on the missing LibraryType feature.
+    fbs=up/"src/emu/services/src/fbs/fbs.cpp"
+    root=up/"src/emu/ios/app/RootViewController.mm"
+    for p in (fbs,root):
+        if not p.is_file():
+            fail(f"missing project baseline file: {p}")
+    f=fbs.read_text(encoding="utf-8")
+    r=root.read_text(encoding="utf-8")
     need(f,"[NBOOT2][FBS_SHARED_HEAP_READY]","fbs.cpp")
     need(r,"[NBOOT2][IOS_EXIT_UI] phase=library_show_done","RootViewController.mm")
     need(s,"[NBOOT2][WSERV_PANIC_CONTEXT]","svc.cpp")
