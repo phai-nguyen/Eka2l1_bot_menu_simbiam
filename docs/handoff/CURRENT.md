@@ -126,6 +126,13 @@ Final static/TDD run:
 - workflow tests: 9/9 PASS
 - manifest VALID
 
+Final acceptance suite:
+- run: 35619769274
+- combined tests: 13/13 PASS
+- manifest VALID
+- git diff --check PASS
+- B28 workflow blob pin PASS
+
 Permanent probe behavior:
 - appends a transient macro plus compile-time-only static_assert to restored svc.cpp
 - probe runs do not package/upload IPA
