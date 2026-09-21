@@ -14,3 +14,5 @@ Task 0: Ruling: use mozilla-actions/sccache-action@v0.0.11 instead of plan's v0.
 Task 1: complete — RED run 35611701170 failed on missing ci package as expected; GREEN run 35611811639 passed 4 manifest tests + manifest validation. Implementation commits e15d64c4..1d8a70ce.
 
 Task 2: complete — RED run 35611963896 failed only because the fast workflow was absent; GREEN run 35612160731 passed the six Task-2 workflow contracts plus Task-1 suite and manifest validation. Fast workflow commit a0dae974. Ruling carried: sccache-action v0.0.11.
+
+Task 3: complete — RED run 35612260312 failed only because the manual seed workflow was absent; GREEN run 35612350063 passed 4 manifest tests + 7 workflow contracts + manifest validation. Seed workflow commit 6e9c0c94.
