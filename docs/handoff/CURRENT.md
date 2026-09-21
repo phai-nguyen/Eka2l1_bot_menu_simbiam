@@ -6,8 +6,8 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B29 CENREPTX1
 Latest immutable functional code HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
-Latest development evidence: B29 CENREPTX1 + DIAG1 + LOADERDIAG1 — DEVICE-OBSERVED
-Latest LOADERDIAG1 build-tested code commit: 9aa612714878541ec4b3f7481516bba00b6d52a4
+Latest development build: B30 ROOTEDLIBPATH1 — BUILD-VALIDATED
+Latest B30 build-tested code commit: 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
 Latest device-tested milestone: B29
 FASTBUILD1 status: PROMOTED
 
@@ -32,11 +32,11 @@ nativeboot2-b29-cenreptx1
 Immutable B29 functional commit:
 7bceb18a337b0977f0f2f68ea0232748dd848392
 
-Active diagnostic candidate:
-B29-LOADERDIAG1
+Active functional candidate:
+B30 ROOTEDLIBPATH1
 
 Status:
-DEVICE-OBSERVED; ROOTED-NO-DRIVE PATH RESOLUTION CONFIRMED CAUSAL
+BUILD-VALIDATED, DEVICE TEST REQUIRED
 
 Active development branch:
 nativeboot2-current
@@ -44,49 +44,46 @@ nativeboot2-current
 FASTBUILD workflow:
 .github/workflows/build-ios-nativeboot2-current-fast.yml
 
-LOADERDIAG1 apply script:
-apply_nativeboot2_b29_loaderdiag1.py
+B30 apply script:
+apply_nativeboot2_b30_rootedlibpath1.py
 
-LOADERDIAG1 contract:
-test_nativeboot2_b29_loaderdiag1.py
+B30 contract:
+test_nativeboot2_b30_rootedlibpath1.py
 
 GREEN run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35662229010
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35666140887
 
 Run ID:
-35662229010
+35666140887
 
 Job ID:
-106539879024
+106552222745
 
 Build-tested code commit:
-9aa612714878541ec4b3f7481516bba00b6d52a4
+58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
 
 Unsigned IPA to device-test:
 EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
 
 IPA SHA-256:
-b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c
+e93aeedfae3d9d7d033e7c1e15374bac74ba584ed5becd264a0a05dc3cd41e67
 
 IPA artifact:
-- ID: 10668485125
-- ZIP digest: sha256:850219186c73d92e0153c31f7d2b28110cf41eb7dc7e6d9c69f1081431142d1a
+- ID: 10669182381
+- size: 19,874,899 bytes
+- ZIP digest: sha256:98e4dae0e680af2538c1d0215ff11e3972fd6b1aacfc2445d11ee8f29474a413
 - expires: 2026-10-05
 
 Audit artifact:
-- ID: 10668055503
-- ZIP digest: sha256:5cc3328e8728a5fc064eebbf95cef289eac4c9a8e56874fda9a01878e7ce6b8e
+- ID: 10669247230
+- ZIP digest: sha256:dd975141c66820a11fb3b8daf6532d591d4981c8fbfb9b09fbc9c8e2818ed8f3
 - expires: 2026-10-05
 
 FASTBUILD1 for this build:
 - bootstrap_source=B28_CACHE
-- bootstrap restore: 29 s
-- patch/regression: 2 s
-- CMake build: 71 s
-- package: 2 s
-- total: 137 s
-- sccache: 9/11 hits = 81.82%
-- actual compilations: 2
+- total run wall time: 167 s
+- sccache: 10/11 hits = 90.91%
+- actual compilations: 1
 - NOJAVA preserved
 - MANIC3 preserved
 
@@ -94,13 +91,32 @@ Post-build verification:
 - B29 CENREPTX1 PASS
 - B29-DIAG1 PASS
 - B29-LOADERDIAG1 PASS
+- B30 ROOTEDLIBPATH1 PASS
 - B20-B28 regression chain PASS
 - iOS compile/link PASS
-- packaged Mach-O contains all ten LOADERDIAG1 markers
+- packaged Mach-O contains B30 LDR_ROOT_RESOLVED and LDR_ROOT_EXHAUSTED markers
+- package/upload PASS
+
+TDD RED:
+- run 35665850841
+- job 106551322423
+- expected failure: B30 drive-candidate code absent on the B29 baseline
+
+Implementation scope:
+- rooted-no-drive paths only
+- drive-qualified candidate search in lib_manager::load()
+- reuse existing load_depend_on_drive()
+- preserve LOADERDIAG1
+- no ROM/E32 classification backport
+- no dependency/relocation/SVC batch
+- no EiksrvUi hardcode
+
+Full snapshot:
+docs/handoff/history/B30-ROOTEDLIBPATH1.md
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED for B30 ROOTEDLIBPATH1 development.
+FASTBUILD1 is PROMOTED. B30 ROOTEDLIBPATH1 is build-validated and is the current device-test candidate.
 
 Active development branch:
 nativeboot2-current
@@ -528,7 +544,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-LOADERDIAG1 has established the causal branch. Implement B30 ROOTEDLIBPATH1 as a narrow rooted-no-drive drive-resolution backport. Keep all parser/dependency/SVC behavior unchanged until the B30 device trace reveals the next boundary.
+B30 ROOTEDLIBPATH1 is build-validated. Device-test the B30 IPA. The rooted-no-drive request must progress through LDR_ROOT_CANDIDATE and preferably LDR_ROOT_RESOLVED instead of terminating at LDR_ROOT_DIRECT exists=0 -> LDR_ROOT_MISS. If loading then fails later, use the first LDR_FORMAT / LDR_PARSE_FAIL / LDR_CODESEG_RESULT / LDR_DEP_FAIL / LDR_LIB_RESULT boundary as the next causal target. Keep ROM/E32 classification, dependency behavior, relocation behavior, and SVC 0x2D/0x48/0x4A/0x50 unchanged until that trace.
 
 ## Preserved invariants
 
@@ -572,6 +588,7 @@ Do not reintroduce:
 - B29: CENREPTX1 — device validated; immutable branch nativeboot2-b29-cenreptx1
 - B29-DIAG1: device-observed; proves CenRep/FEP success and localizes the next failure to library loading
 - B29-LOADERDIAG1: device-observed; proves rooted-no-drive direct VFS miss is causal and selects B30 ROOTEDLIBPATH1
+- B30: ROOTEDLIBPATH1 — build validated at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; device test pending
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -581,11 +598,12 @@ Snapshots:
 - docs/handoff/history/B29-CENREPTX1.md
 - docs/handoff/history/B29-DIAG1.md
 - docs/handoff/history/B29-LOADERDIAG1.md
+- docs/handoff/history/B30-ROOTEDLIBPATH1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 is the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392 on branch nativeboot2-b29-cenreptx1. B29-LOADERDIAG1 device logs prove every \sys\bin\EiksrvUi.dll request is rooted_no_drive=1 and fails at LDR_ROOT_DIRECT exists=0 -> LDR_ROOT_MISS before open/parse/dependency stages. Current upstream EKA2L1 commit 437b29006bd8a0186f4070c9445f43e98e5c7435 contains the exact drive-less absolute path resolution fix. Implement B30 ROOTEDLIBPATH1 narrowly on nativeboot2-current: add rooted-no-drive mounted-drive resolution only, preserve B29/DIAG1/LOADERDIAG1 and all prior invariants, and do not batch ROM/E32, dependency, relocation, or SVC 0x2D/0x48/0x4A/0x50 changes."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 remains the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392. B30 ROOTEDLIBPATH1 is build-validated at code commit 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9, run 35666140887, IPA SHA e93aeedfae3d9d7d033e7c1e15374bac74ba584ed5becd264a0a05dc3cd41e67, artifact 10669182381. B30 narrowly resolves rooted-no-drive library paths across drive-qualified candidates in lib_manager::load(), preserves B29 LOADERDIAG1, and does not import ROM/E32 classification, dependency, relocation, or SVC changes. Device-test this IPA and inspect LDR_LIB_REQUEST, LDR_ROOT_BEGIN, LDR_ROOT_CANDIDATE, LDR_ROOT_RESOLVED/LDR_ROOT_EXHAUSTED, LDR_FORMAT/PARSE_FAIL, LDR_CODESEG_RESULT, LDR_DEP_FAIL and LDR_LIB_RESULT around the first \\sys\\bin\\EiksrvUi.dll request. Do not patch SVC 0x2D/0x48/0x4A/0x50 or import other upstream loader changes until the B30 trace establishes the next causal boundary."
 
 This file is authoritative unless newer committed device evidence supersedes it.
