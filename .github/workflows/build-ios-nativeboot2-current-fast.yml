@@ -30,11 +30,11 @@ jobs:
       SCCACHE_IGNORE_SERVER_IO_ERROR: "1"
 
     steps:
-    - name: Checkout project
-      uses: actions/checkout@v4
-
     - name: Mark FASTBUILD start
       run: echo "FASTBUILD_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
+    - name: Checkout project
+      uses: actions/checkout@v4
 
     - name: Enable sccache
       uses: mozilla-actions/sccache-action@v0.0.11
@@ -106,8 +106,9 @@ jobs:
       run: |
         set -euo pipefail
         SVC="$GITHUB_WORKSPACE/upstream/src/emu/kernel/src/svc.cpp"
-        printf '\n#define NBOOT2_FASTBUILD1_PROBE 1\n' >> "$SVC"
+        printf '\n#define NBOOT2_FASTBUILD1_PROBE 1\nstatic_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");\n' >> "$SVC"
         grep -Fq '#define NBOOT2_FASTBUILD1_PROBE 1' "$SVC"
+        grep -Fq 'static_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");' "$SVC"
         echo "FASTBUILD1_PROBE=1" >> "$GITHUB_ENV"
 
     - name: Build iOS target
@@ -157,6 +158,14 @@ jobs:
         shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt"
         echo "FASTBUILD_PACKAGE_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
+    - name: Upload IPA
+      if: inputs.probe_svc_change != true
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
     - name: Write FASTBUILD audit
       if: always()
       run: |
@@ -184,14 +193,6 @@ jobs:
           echo "NOJAVA=PRESERVED"
           echo "MANIC3=PRESERVED"
         } > "$GITHUB_WORKSPACE/FASTBUILD1-BUILD-AUDIT.txt"
-
-    - name: Upload IPA
-      if: inputs.probe_svc_change != true
-      uses: actions/upload-artifact@v4
-      with:
-        name: EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA
-        path: upstream/EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
-        retention-days: 14
 
     - name: Upload FASTBUILD audit
       if: always()
