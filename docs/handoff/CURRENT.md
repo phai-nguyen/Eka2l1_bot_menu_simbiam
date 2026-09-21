@@ -3,7 +3,7 @@
 Updated: 2026-09-21
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 clean build-tested branch HEAD: 8dc0423c9cdcf8fa353e16eae9ec8359b1587f66
+Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B28 WSERVLIBTYPE1
 Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
 Latest device-tested milestone: B27
@@ -100,24 +100,36 @@ Measured evidence:
 - strong one-file probe run 35616222173: 1 request / 1 miss / 1 real compile
 - identical probe retry 35616567861: 1 request / 1 hit / 0 miss
 - post-probe clean run 35616906674: 56 s
-- final clean verification run 35617195868: 69 s
+- pre-final-review clean run 35617195868: 69 s with the earlier timer scope
+- final corrected-scope hot run 35618944742: 63 s
+- final permanent-equivalent probe 35619278590: 1 request / 1 hit / 0 miss / no IPA
 
-Final clean verification run:
-- code HEAD: 8dc0423c9cdcf8fa353e16eae9ec8359b1587f66
+Final FASTBUILD1 implementation verification:
+- implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
+- build run: 35618944742
 - bootstrap_source=B28_CACHE
 - B20-B28 PASS
 - compile requests: 0
+- bootstrap restore: 36 s
+- CMake build: 1 s
+- package: 2 s
+- corrected total_seconds: 63 s
 - NOJAVA preserved
 - MANIC3 preserved
-- unsigned IPA SHA-256: be170c9e03f9fe901c775a323d00e16411752beb68950e4bbd7e46097fabaf1f
-- IPA artifact: 10647395134
-- audit artifact: 10646479731
+- unsigned IPA SHA-256: b289101c866bfa2a86e8046605d08299833b4dcdd0ea98e69425d78a7f93ff8d
+- IPA artifact: 10647737754
+- audit artifact: 10647383101
 
-Static/TDD clean-head run:
-- 35617195978
+Final static/TDD run:
+- 35618944698
 - manifest tests: 4/4 PASS
-- workflow tests: 8/8 PASS
+- workflow tests: 9/9 PASS
 - manifest VALID
+
+Permanent probe behavior:
+- appends a transient macro plus compile-time-only static_assert to restored svc.cpp
+- probe runs do not package/upload IPA
+- final verification run 35619278590 produced audit artifact 10647023252 and no IPA artifact
 
 B28 workflow remains byte-for-byte unchanged:
 44d1c8aaa7ff5f0ff97271396b8bf771ad125b54
