@@ -1,5 +1,5 @@
 [post_bootstrap]
-# FASTBUILD1 post-probe benchmark trigger 2026-09-21
+# FASTBUILD1 final post-strong-probe trigger 2026-09-21
 # B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here.
 
 [regressions]
