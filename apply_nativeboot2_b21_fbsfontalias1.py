@@ -140,13 +140,18 @@ def main() -> None:
     if "font_name_aliases_" not in sh:
         sh = replace_once(sh, member_anchor, member_new, "font alias storage")
 
-    api_anchor = "        void attach_user_font_fallbacks();\n\n"
-    api_new = api_anchor + (
+    # Older cached baselines may not contain attach_user_font_fallbacks().
+    # Anchor the new API on seek_the_open_font(), which exists in every
+    # baseline supported by the B21 implementation and is the call site that
+    # consumes the alias mapping.
+    api_anchor = "        open_font_info *seek_the_open_font(epoc::font_spec_base &spec);\n"
+    api_new = (
         "        void set_font_name_alias(const std::u16string &alias, const std::u16string &font_name);\n"
         "        std::optional<std::u16string> resolve_font_name_alias(const std::u16string &alias) const;\n\n"
+        + api_anchor
     )
     if "void set_font_name_alias(const std::u16string &alias" not in sh:
-        sh = replace_once(sh, api_anchor, api_new, "font alias API")
+        sh = replace_once(sh, api_anchor, api_new, "font alias API before seek_the_open_font")
     store_h.write_text(sh, encoding="utf-8")
 
     sc = store_cpp.read_text(encoding="utf-8")
