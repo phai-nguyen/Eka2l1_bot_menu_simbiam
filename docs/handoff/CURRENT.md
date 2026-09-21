@@ -6,7 +6,7 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B29 CENREPTX1
 Latest immutable functional code HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
-Latest development build: B29 CENREPTX1 + DIAG1 + LOADERDIAG1 — BUILD-VALIDATED
+Latest development evidence: B29 CENREPTX1 + DIAG1 + LOADERDIAG1 — DEVICE-OBSERVED
 Latest LOADERDIAG1 build-tested code commit: 9aa612714878541ec4b3f7481516bba00b6d52a4
 Latest device-tested milestone: B29
 FASTBUILD1 status: PROMOTED
@@ -36,7 +36,7 @@ Active diagnostic candidate:
 B29-LOADERDIAG1
 
 Status:
-BUILD-VALIDATED, DEVICE LOG REQUIRED
+DEVICE-OBSERVED; ROOTED-NO-DRIVE PATH RESOLUTION CONFIRMED CAUSAL
 
 Active development branch:
 nativeboot2-current
@@ -100,7 +100,7 @@ Post-build verification:
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED for B29 loader diagnostics and normal B30+ development.
+FASTBUILD1 is PROMOTED for B30 ROOTEDLIBPATH1 development.
 
 Active development branch:
 nativeboot2-current
@@ -186,7 +186,7 @@ Development rule from now on:
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
 5. Do not return to sibling milestone branches as the primary development/cache path.
 
-FASTBUILD1 does not change guest behavior. B29 CENREPTX1 is now the latest device-validated immutable milestone. The active diagnostic target is the later Eiksrv library-load failure exposed after B29's successful FEP transaction.
+FASTBUILD1 does not change guest behavior. B29 CENREPTX1 remains the latest device-validated immutable milestone. LOADERDIAG1 has now confirmed the next causal bug: rooted paths without a drive are opened verbatim instead of being resolved across mounted drives.
 
 ## Validated milestones
 
@@ -482,13 +482,26 @@ Final GREEN:
 - binary invariants PASS
 - IPA SHA-256 b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c
 
-Device decision matrix:
-- ROOT_DIRECT exists=0 + ROOT_MISS => rooted-no-drive direct VFS lookup is causal.
-- exists=1 + PARSE_FAIL => image parser path is causal.
-- exists=1 + CODESEG_RESULT success=0 + DEP_FAIL => dependency resolution is causal.
-- LIB_RESULT success=1 => failure has moved beyond library loading.
+Device result:
+- LDR_LIB_REQUEST = 5
+- LDR_ROOT_BEGIN = 5
+- LDR_ROOT_DIRECT exists=0 = 5
+- LDR_ROOT_MISS = 5
+- LDR_LIB_RESULT success=0 completion=-1 = 5
+- LDR_OPEN_FAIL = 0
+- LDR_FORMAT = 0
+- LDR_PARSE_FAIL = 0
+- LDR_CODESEG_RESULT = 0
+- LDR_DEP_FAIL = 0
 
-Do not implement newer rooted-path search behavior or patch SVC 0x2D/0x48/0x4A/0x50 until this device trace establishes the causal branch.
+Every EiksrvUi request is \sys\bin\EiksrvUi.dll with rooted_no_drive=1 and fails before open/parse/dependency loading.
+
+Current upstream EKA2L1 commit 437b29006bd8a0186f4070c9445f43e98e5c7435 contains the exact corresponding fix and describes the bug as drive-less absolute paths being opened verbatim instead of searched across drives.
+
+B30 decision:
+ROOTEDLIBPATH1.
+
+Backport only rooted-no-drive drive resolution into lib_manager::load(), reuse existing load_depend_on_drive(), and keep LOADERDIAG1 enabled for the first B30 device test. Do not batch ROM/E32 classification, relocation, dependency, or SVC fixes.
 
 Full snapshot:
 docs/handoff/history/B29-LOADERDIAG1.md
@@ -515,7 +528,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B29 is device-validated. Device-test B29-LOADERDIAG1 and use the first LDR_* failure boundary to decide B30. Do not implement rooted-path fallback or batch SVC 0x2D/0x48/0x4A/0x50 without that causal evidence.
+LOADERDIAG1 has established the causal branch. Implement B30 ROOTEDLIBPATH1 as a narrow rooted-no-drive drive-resolution backport. Keep all parser/dependency/SVC behavior unchanged until the B30 device trace reveals the next boundary.
 
 ## Preserved invariants
 
@@ -558,7 +571,7 @@ Do not reintroduce:
 - B28: WSERVLIBTYPE1 — device validated; removes missing LibraryType -> WSERV-INTERNAL 13 / Domino 13 blocker
 - B29: CENREPTX1 — device validated; immutable branch nativeboot2-b29-cenreptx1
 - B29-DIAG1: device-observed; proves CenRep/FEP success and localizes the next failure to library loading
-- B29-LOADERDIAG1: diagnostic-only build validated; use this IPA for the next device test
+- B29-LOADERDIAG1: device-observed; proves rooted-no-drive direct VFS miss is causal and selects B30 ROOTEDLIBPATH1
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -573,6 +586,6 @@ Snapshots:
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 is the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392 on branch nativeboot2-b29-cenreptx1. B29-LOADERDIAG1 is build-validated at code commit 9aa612714878541ec4b3f7481516bba00b6d52a4, run 35662229010, IPA SHA b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c. Device-test that IPA and analyze LDR_LIB_REQUEST/RESULT, LDR_ROOT_BEGIN/DIRECT/MISS, LDR_OPEN_FAIL, LDR_FORMAT/PARSE_FAIL, LDR_CODESEG_RESULT and LDR_DEP_FAIL around the first eiksrvs UI-library load before deciding B30. Do not patch rooted-path fallback or SVC 0x2D/0x48/0x4A/0x50 without the new causal ordering."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 is the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392 on branch nativeboot2-b29-cenreptx1. B29-LOADERDIAG1 device logs prove every \sys\bin\EiksrvUi.dll request is rooted_no_drive=1 and fails at LDR_ROOT_DIRECT exists=0 -> LDR_ROOT_MISS before open/parse/dependency stages. Current upstream EKA2L1 commit 437b29006bd8a0186f4070c9445f43e98e5c7435 contains the exact drive-less absolute path resolution fix. Implement B30 ROOTEDLIBPATH1 narrowly on nativeboot2-current: add rooted-no-drive mounted-drive resolution only, preserve B29/DIAG1/LOADERDIAG1 and all prior invariants, and do not batch ROM/E32, dependency, relocation, or SVC 0x2D/0x48/0x4A/0x50 changes."
 
 This file is authoritative unless newer committed device evidence supersedes it.
