@@ -76,6 +76,7 @@ class FastbuildWorkflowContract(unittest.TestCase):
         self.assertIn(BOOTSTRAP_KEY, text)
         self.assertIn("actions/cache/save@v4", text)
         self.assertIn("test_nativeboot2_b28_wservlibtype1.py", text)
+        self.assertNotIn("lookup-only: true", text)
         self.assertIn("xcodebuild -version", text)
         self.assertIn("clang --version", text)
 
