@@ -3,7 +3,7 @@
 Date: 2026-09-21
 Development branch: nativeboot2-current
 Build-tested project HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
-Status: BUILD-VALIDATED, NOT YET DEVICE-VALIDATED
+Status: DEVICE-VALIDATED FOR THE CENREP/FEP BLOCKER
 
 ## Purpose
 
@@ -160,23 +160,69 @@ Audit artifact:
 - artifact ZIP SHA-256: 1fac54168a24440de04eeb367511778db157dafbc3e9790c64e213058e6e22ca
 - expires: 2026-10-05
 
-## Required device test
+## Device validation
 
-The next device log should establish whether B29 removes the first repeatable UIKON/Eiksrv failure.
+DEVICE-VALIDATED FOR THE B29 NARROW PURPOSE.
 
-Expected positive evidence:
-- repo 0x10272618 still opens;
-- [NBOOT2][CEN_TX_START] appears with mode=2;
-- first missing FEP settings generate [NBOOT2][CEN_SET_CREATE], expected keys include the default FEP keyspace 0x1001/0x1002/0x1004/0x1008 as driven by firmware;
-- [NBOOT2][CEN_TX_COMMIT] appears instead of TransactionCancel caused by Leave -1;
-- eiksrvs no longer follows the same centralrepository.dll/eiksrv.dll Leave -1 path;
-- AknCapServer progresses farther if its earlier cone/Central Repository failures shared the same cause;
-- B28 [NBOOT2][WSERV_LIBRARY_TYPE] remains healthy;
-- WSERV-INTERNAL 13 / Domino 13 remain absent;
+Two device logs were compared:
+- original B29 CENREPTX1 build;
+- B29 CENREPTX1 + DIAG1.
+
+Both prove the old Central Repository/FEP blocker is removed.
+
+Observed repository 0x10272618 sequence:
+- [NBOOT2][CEN_TX_START] mode=2 active=true completion=0
+- four FEP settings are written successfully
+- no CEN_SET_FAIL occurs
+- [NBOOT2][CEN_TX_COMMIT] / [NBOOT2][CEN_TX_COMMIT_RESULT] reports changed=4, key_info=4, completion=0
+- no transaction cancel follows this successful FEP transaction
+
+B29-DIAG1 additionally proves the setting types and persistence behavior:
+- key 0x1002 uses integer type
+- keys 0x1001/0x1004/0x1008 use string type
+- values created during the earlier B29 run are observed as existing on the later DIAG1 run, confirming persistence across runs
+
+The first repeated failure has moved later:
+1. CenRep FEP commit succeeds.
+2. Fepswitch.exe spawn fails with KErrNotFound, but Symbian eiksrv.cpp explicitly treats Fepswitch as optional and ignores KErrNotFound.
+3. Eiksrv then calls RLibrary::Load for \\sys\\bin\\EiksrvUi.dll.
+4. EKA2L1 reports the EiksrvUi load failed.
+5. EikAppUiServerThread leaves with -1 and eiksrvs later exits.
+
+Therefore B29 is not the current blocker.
+
+Preserved:
+- B28 WSERV_LIBRARY_TYPE remains healthy.
+- SVCMISS 0x63 remains absent.
+- WSERV-INTERNAL 13 remains absent.
+- Domino 13 remains absent.
 - Exit Emulator remains safe.
 
-If the failure moves, identify the first new divergence from this point. Do not automatically patch SVC 0x2D or the old Wserv gaps unless the B29 runtime ordering ties one to the new failure.
+## Milestone snapshot
 
-## Milestone rule
+Immutable branch:
+nativeboot2-b29-cenreptx1
 
-B29 is currently a development build on nativeboot2-current. Per FASTBUILD1 workflow policy, create the immutable nativeboot2-b29-* milestone branch only after device validation.
+Snapshot commit:
+7bceb18a337b0977f0f2f68ea0232748dd848392
+
+This branch intentionally captures the functional B29 implementation before later diagnostic-only instrumentation.
+
+## Next diagnostic target
+
+Do not patch EiksrvUi loading yet.
+
+The current EKA2L1 loader collapses several distinct failures into KErrNotFound:
+- no rooted candidate exists;
+- candidate exists but open_file fails;
+- ROM/E32 classification differs from expectation;
+- parse_romimg/parse_e32img fails;
+- ROFS staging fails;
+- codeseg creation/load fails;
+- an E32 dependency cannot be resolved.
+
+The next build must add generic rooted RLibrary diagnostics around these boundaries without changing loader behavior. Use the resulting device trace to decide B30.
+
+## Milestone result
+
+B29 CENREPTX1 — DEVICE-VALIDATED.
