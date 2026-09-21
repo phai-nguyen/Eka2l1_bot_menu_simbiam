@@ -25,17 +25,5 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest -v test_fastbuild1_manifest.py
-          if [ -f test_fastbuild1_workflows.py ]; then
-            if [ -f .github/workflows/seed-ios-nativeboot2-fastbuild1-bootstrap.yml ]; then
-              python3 -m unittest -v test_fastbuild1_workflows.py
-            else
-              python3 -m unittest -v \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_b28_workflow_is_untouched \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_fast_workflow_scope_and_cache \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_sccache_is_optional_acceleration \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_b28_contract_runs_before_post_bootstrap_apply \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_probe_is_transient_and_never_uploads_ipa \
-                test_fastbuild1_workflows.FastbuildWorkflowContract.test_timing_and_packaging_invariants_are_present
-            fi
-          fi
+          python3 -m unittest -v test_fastbuild1_workflows.py
           python3 ci/fastbuild1_manifest.py validate .
