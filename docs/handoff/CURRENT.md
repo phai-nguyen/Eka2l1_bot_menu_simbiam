@@ -2,12 +2,12 @@
 
 Updated: 2026-09-21
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
-Active branch: nativeboot2-b25-fbssharedheap1
-Current HEAD: d930f4b3e958642e2e5821a15eadded903c9d722
+Active branch: nativeboot2-b26-ioslibraryexit1
+Device-tested code HEAD: e1e26c3b59c1b6bd4ec8649d0f83629e4fcd21d9
 
 ## Objective
 
-Boot Nokia 5800 RM-356 firmware as faithfully as possible inside EKA2L1 on iOS, keeping firmware SYSSTART as boot owner while using targeted HLE compatibility fixes where required.
+Boot Nokia 5800 RM-356 firmware as faithfully as possible inside EKA2L1 on iOS, keeping firmware SYSSTART as boot owner while using narrowly scoped HLE compatibility fixes where required.
 
 Primary device-test environment:
 - iPhone 12 Pro Max
@@ -17,233 +17,211 @@ Primary device-test environment:
 
 ## Current baseline
 
-B25 = NATIVEBOOT2-B25-FBSSHAREDHEAP1
+B26 = NATIVEBOOT2-B26-IOSLIBRARYEXIT1
+
+Branch:
+nativeboot2-b26-ioslibraryexit1
 
 Build workflow:
-.github/workflows/build-ios-nativeboot2-b25-fbssharedheap1-nojava-manic3.yml
+.github/workflows/build-ios-nativeboot2-b26-ioslibraryexit1-nojava-manic3.yml
 
 Apply script:
-apply_nativeboot2_b25_fbssharedheap1.py
+apply_nativeboot2_b26_ioslibraryexit1.py
 
 Contract:
-test_nativeboot2_b25_fbssharedheap1.py
+test_nativeboot2_b26_ioslibraryexit1.py
 
 Successful build run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35591745431
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35595573032
 
 IPA artifact:
-EKA2L1-NATIVEBOOT2-B25-FBSSHAREDHEAP1-NOJAVA-MANIC3-IPA
+EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-NOJAVA-MANIC3-IPA
 
-Artifact ID:
-10634908262
+IPA artifact ID:
+10636601390
 
 Unsigned IPA SHA-256:
-069676f3e3aa4badd31a53043bc808464fa7ddd54f76ac893e8aa74766c6daff
+9bf54e1d003db0ffa67cbc1983e309f162854f3700c7b9c058f7f5e243002dec
 
-## TDD evidence
+Audit artifact ID:
+10636925762
 
-RED run:
-35581550088
+## Device validation status
 
-RED result:
-B20-B24 passed, B25 failed because the shared-heap handoff implementation was absent.
+B25 and B26 are now device-validated.
 
-GREEN/build run:
-35591745431
+### B25 validation
 
-GREEN result:
-- B25 contract PASS
-- B24 regression PASS
-- B23 regression PASS
-- B22 regression PASS
-- B21 regression PASS
-- B20 regression PASS
-- iOS build PASS
-- IPA packaging PASS
-- IPA artifact upload PASS
+B25 FBSSHAREDHEAP1 successfully fixed the FBS canonical shared-heap mismatch.
 
-The temporary RED workflow was removed after proof.
+Observed B25/B26 logs:
+- [NBOOT2][FBS_SHARED_HEAP_HANDOFF] shared_found=true shared_guest_owned=true shared_renamed=true large_found=true large_guest_owned=true large_renamed=true
+- [NBOOT2][FBS_SHARED_HEAP_READY] shared_created=true large_created=true canonical_owner=kernel native_shared_renamed=true native_large_renamed=true
 
-## Root cause established from B24 logs
+The old B24 AknCapServer failure signature:
+- PC = 0x000000F0
+- r0 = 0x40201598
+- KERN-EXEC 3
 
-Native firmware fbserv created canonical global chunks:
+is no longer the active blocker.
 
+The firmware now renders the NOKIA splash screen.
+
+### B26 validation
+
+B25 exposed a separate host-side iOS crash when choosing Exit Emulator.
+
+B25 crash path was in UIKit:
+UICollectionView reloadData -> supplementary-view reuse -> EKAUnifiedLibraryViewController reloadWithSymbianApps -> RootViewController showAppsScreen -> exitEmulator.
+
+B26 changed only the iOS frontend exit choreography:
+1. complete bridge::stop_native_phone();
+2. return to main queue;
+3. defer showAppsScreen by one additional main-queue turn;
+4. remove the redundant immediate pollForAppsWithAttemptsLeft:20 from exitEmulator;
+5. leave Nokia guest boot/FBS behavior untouched.
+
+B26 markers:
+- [NBOOT2][IOS_EXIT_UI] phase=shutdown_requested
+- [NBOOT2][IOS_EXIT_UI] phase=normal_mode_ready
+- [NBOOT2][IOS_EXIT_UI] phase=library_show_deferred
+- [NBOOT2][IOS_EXIT_UI] phase=library_show_done
+
+Device evidence from Log(10).zip:
+- [NBOOT2][BRIDGE_EXIT_PHASE] phase=shutdown_done
+- [NBOOT2][BRIDGE_EXIT_PHASE] phase=normal_restart_begin
+- [NBOOT2][BRIDGE_EXIT_PHASE] phase=normal_restart_done has_device=1
+- normal frontend app enumeration resumes afterward
+- 54 visible ROM system apps were enumerated in the capture
+
+Video evidence:
+- firmware remains on NOKIA splash before exit;
+- Exit Emulator returns successfully to the Symbian app-library screen;
+- app remains running;
+- no repeat of the B25 UIKit crash.
+
+B26 IOSLIBRARYEXIT1 is therefore considered DEVICE-VALIDATED.
+
+## Established B24 -> B25 root cause
+
+Native firmware fbserv originally created:
 - FbsSharedChunk @ 0x40200000
 - FbsLargeChunk @ 0x44200000
 
-Later, HLE FBS created another canonical FbsSharedChunk:
+HLE FBS later created:
+- FbsSharedChunk @ 0x54200000
 
-- HLE FbsSharedChunk @ 0x54200000
-
-HLE returned a CBitmapFont offset:
-
+HLE returned an object offset such as:
 - address_offset = 0x1598
-- HLE object address = 0x54201598
+- HLE object = 0x54201598
 
-The client reconstructed the pointer from the canonical global chunk it had opened:
-
+The client opened the native canonical global name and reconstructed:
 0x40200000 + 0x1598 = 0x40201598
 
-This exactly matched AknCapServer r0 at the observed crash:
+This exactly matched the old AknCapServer crash r0.
 
-- KERN-EXEC 3
-- PC = 0x000000F0
-- r0 = 0x40201598
+B25 resolves this by renaming guest-owned native chunks before HLE canonical chunk creation:
+- FbsSharedChunk -> FbsSharedChunk.NativeBoot
+- FbsLargeChunk -> FbsLargeChunk.NativeBoot
 
-B24 independently proved CBitmapFont ordinal-97 relocation was correct, so the vtable relocation itself was ruled out as the primary cause.
+Native fbserv is preserved.
+Native handles are preserved.
+HLE still owns its own allocator/chunks.
+No native RHeap adoption is performed.
 
-## B25 behavior
+## Current boot state
 
-B25 modifies fbs_server::initialize_server() only for the FBS shared-heap handoff.
+Current visible milestone:
+NOKIA splash rendered successfully.
 
-Before HLE creates its canonical FBS chunks:
+The boot has not yet progressed beyond the NOKIA splash during the latest test window.
 
-1. Look up existing FbsSharedChunk and FbsLargeChunk.
-2. If an existing chunk is guest-process-owned, rename it:
-   - FbsSharedChunk -> FbsSharedChunk.NativeBoot
-   - FbsLargeChunk -> FbsLargeChunk.NativeBoot
-3. Do not terminate or suppress native fbserv.
-4. Preserve native fbserv chunk handles.
-5. Let HLE FBS create canonical FbsSharedChunk/FbsLargeChunk as before.
-6. Keep HLE chunk allocators unchanged.
-7. Do not adopt the native RHeap into HLE.
+The next work must return to guest-side startup analysis rather than frontend exit handling.
 
-New runtime markers:
+## B27 investigation target
 
-[NBOOT2][FBS_SHARED_HEAP_HANDOFF]
-[NBOOT2][FBS_SHARED_HEAP_READY]
+Log(10) shows these notable early guest-side failures:
 
-## Invariants preserved
+1. Main thread:
+   - category: SosPmmHandler: N
+   - exit code: -1
 
-B25 must preserve:
+2. Window Server:
+   - thread: Wserv
+   - category: WSERV-INTERNAL
+   - exit code: 13
 
-- firmware SYSSTART boot ownership
+3. Window Server companion:
+   - thread: NearlyIdleKickBack
+   - category: Domino
+   - exit code: 13
+
+The Wserv and NearlyIdleKickBack panics occur immediately after:
+- native ewsrv startup;
+- !Windowserver registration;
+- successful B25 FBS shared-heap handoff;
+- several property lookups/attachments;
+- an SVCMISS near ewsrv startup.
+
+These are CURRENT CANDIDATES, not yet proven root causes.
+
+Do not implement B27 from the panic names alone.
+
+### Required B27 procedure
+
+1. Isolate the exact instruction/request immediately preceding Wserv panic 13.
+2. Resolve the symbolic meaning/source location of WSERV-INTERNAL 13 and Domino 13 if possible.
+3. Determine whether the preceding SVCMISS or missing P&S properties are causal.
+4. Compare against upstream EKA2L1 Window Server behavior and relevant Symbian/S60 sources.
+5. Add targeted runtime markers before changing behavior.
+6. Establish a RED contract reproducing the specific missing behavior.
+7. Only then implement B27.
+8. Preserve B25 and B26 regression contracts.
+
+## Important preserved invariants
+
+Keep:
+- firmware SYSSTART as startup owner
 - native fbserv startup/rendezvous
+- B25 FBS shared-heap handoff
 - B24 CBitmapFont vtable diagnostics
-- B23 72-byte TFontSpec v2 ABI handling
-- B22 system default typeface handling
+- B23 TFontSpec v2 ABI handling
+- B22 default typeface handling
 - B21 font alias handling
 - B20 Central Repository ResetAll
 - B19 SA language ABI handling
-- EMUHUB1 frontend behavior
+- EMUHUB1 frontend
+- B26 safe Exit Emulator path
 - NOJAVA
 - MANIC3
 
-B25 intentionally does NOT change:
+Do not reintroduce:
+- host-driven SysStart/Menu launch
+- native fbserv suppression
+- native FBS heap adoption
+- speculative font-vtable changes
+- immediate library UICollectionView reload on Emulator exit
 
-- CBitmapFont vtable contents
-- ordinal-97 relocation rules
-- TFontSpec decoding beyond B23
-- font matcher behavior
-- AppServer behavior
-- startup ownership
-- native fbserv loader policy
-
-## Previous milestones
+## Milestone history
 
 Relevant chain:
-
 - B19: SALANGABI1
 - B20: CENRESETALL1
 - B21: FBSFONTALIAS1
 - B22: FBSDEFAULTTYPEFACE1
 - B23: FBSFONTSPECV2ABI1
 - B24: FBSVTABLEABI1
-- B25: FBSSHAREDHEAP1
+- B25: FBSSHAREDHEAP1 — device validated, NOKIA splash reached
+- B26: IOSLIBRARYEXIT1 — device validated, Exit Emulator no longer crashes
 
-B24 was diagnostic-only for CBitmapFont vtable ABI and established that ordinal-97 relocation matched the canonical codeseg lookup.
-
-## Device test required next
-
-Install the B25 IPA on the iPhone and boot the Nokia 5800 firmware.
-
-Collect full logs, especially:
-
-- EKA2L1.log
-- EKA2L1_Persistent.log
-- EKA2L1_Persistent-prev.log
-- EKA2L1_TakeThis.log
-
-Key questions for B25 device evidence:
-
-1. Are these markers present?
-   - [NBOOT2][FBS_SHARED_HEAP_HANDOFF]
-   - [NBOOT2][FBS_SHARED_HEAP_READY]
-
-2. Does AknCapServer still terminate with:
-   - KERN-EXEC 3
-   - PC = 0x000000F0
-
-3. Does r0 still equal:
-   - 0x40201598
-
-4. Does FBS_FONT_RETURN now correspond to the same canonical shared heap base seen by the client?
-
-5. Does the boot progress farther into UI/AppServer after the FBS handoff?
-
-## Interpretation rules for next log analysis
-
-If r0 is no longer 0x40201598 and AknCapServer progresses:
-- Treat B25 as validating the shared-heap collision hypothesis.
-- Identify the next earliest non-downstream failure.
-
-If r0 remains 0x40201598:
-- Verify whether guest-owned chunk rename actually occurred.
-- Check FBS_SHARED_HEAP_HANDOFF values.
-- Check whether RFbsSession opened the chunk before rename and retained an already-open handle.
-
-If AknCapServer crashes at a different PC/r0:
-- Treat the new earliest fault as the next root-cause candidate.
-- Do not assume B25 failed merely because boot is not complete.
-
-## Known downstream symptoms from B24
-
-These were considered likely cascades after FBS corruption and should not be treated as primary unless they occur before the FBS fault in new logs:
-
-- sysap KERN-EXEC 3
-- ailaunch failures
-- invalid window handles
-- AknIconPrecache2 SCDV panic
-
-## Exit path
-
-The emulator exit/restart path was already observed healthy in prior testing:
-
-- exit_requested
-- shutdown_begin
-- shutdown_threads_begin
-- flags_set
-- request_exit
-- core_wakeup
-- os_join_begin
-- os_join_done
-- graphics_abort
-- graphics_join_begin
-- graphics_join_done
-- shutdown_threads_done
-- state_reset_begin
-- state_reset_done
-- shutdown_done
-- normal_restart_begin
-- normal_restart_done
-
-Do not treat normal shutdown markers as a boot failure.
-
-## Working rule for future versions
-
-After each meaningful Bxx build/test:
-
-1. Update docs/handoff/CURRENT.md with the new active branch, HEAD, build run, artifact, SHA, evidence, root cause, and next test.
-2. Add a snapshot under docs/handoff/history/.
-3. Keep only current, verified hypotheses as active.
-4. Explicitly record hypotheses ruled out by device evidence.
-5. Keep runtime marker names and exact fault registers where relevant.
-6. Do not merge speculative fixes without a RED contract first.
+Detailed snapshots:
+- docs/handoff/history/B25-FBSSHAREDHEAP1.md
+- docs/handoff/history/B26-IOSLIBRARYEXIT1.md
 
 ## How to resume in a new ChatGPT conversation
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam and continue the Nokia 5800 NativeBoot project from the current branch. Use GitHub and analyze the newest device logs before making the next patch."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam and continue the Nokia 5800 NativeBoot project from the active branch. B25 and B26 are device-validated. Analyze the latest guest boot logs around Wserv WSERV-INTERNAL 13 / Domino 13 before implementing B27."
 
-This file is the authoritative project handoff unless newer device evidence or a newer committed handoff supersedes it.
+This file is the authoritative current project handoff unless newer committed device evidence supersedes it.
