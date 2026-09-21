@@ -1,0 +1,38 @@
+name: Test NATIVEBOOT2 B24 FBSVTABLEABI1 RED
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b24-fbsvtableabi1
+    paths:
+      - test_nativeboot2_b24_fbsvtableabi1.py
+      - .github/workflows/test-nativeboot2-b24-fbsvtableabi1-red.yml
+
+permissions:
+  contents: read
+
+jobs:
+  red-contract:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B23 baseline
+      id: b23_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b23-fbsfontspecv2abi1-nojava-manic3-macos15-v1
+
+    - name: Prove B24 RED on exact B23 baseline
+      run: |
+        set -euo pipefail
+        test "${{ steps.b23_cache.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 -m py_compile test_nativeboot2_b24_fbsvtableabi1.py
+        python3 test_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
