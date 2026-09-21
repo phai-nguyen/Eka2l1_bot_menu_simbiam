@@ -2,9 +2,12 @@
 
 Updated: 2026-09-21
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
-Active branch: nativeboot2-b28-wservlibtype1
-Latest build-tested code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
+Active development branch: nativeboot2-current
+Latest FASTBUILD1 clean build-tested branch HEAD: 8dc0423c9cdcf8fa353e16eae9ec8359b1587f66
+Latest immutable functional milestone: B28 WSERVLIBTYPE1
+Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
 Latest device-tested milestone: B27
+FASTBUILD1 status: PROMOTED
 
 ## Objective
 
@@ -20,8 +23,11 @@ Primary device-test environment:
 
 B28 = NATIVEBOOT2-B28-WSERVLIBTYPE1
 
-Branch:
+Immutable milestone branch:
 nativeboot2-b28-wservlibtype1
+
+Active development branch:
+nativeboot2-current
 
 Build workflow:
 .github/workflows/build-ios-nativeboot2-b28-wservlibtype1-nojava-manic3.yml
@@ -56,6 +62,77 @@ Audit artifact:
 - ID: 10642476357
 - ZIP digest: sha256:7bb7db13282a9e1fb4a83c914079cbb7cfb6c276e81d633ebf7606ae7c32359f
 - expires: 2026-10-05
+
+## FASTBUILD1 — promoted development build path
+
+FASTBUILD1 is PROMOTED for normal B29/B30 development.
+
+Active development branch:
+nativeboot2-current
+
+Latest immutable functional milestone:
+nativeboot2-b28-wservlibtype1
+
+Stable bootstrap:
+- milestone: B28 WSERVLIBTYPE1
+- key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+- seed run: 35612902115
+- fallback: B19 cache -> apply B20-B28
+- normal fast workflow does not save the whole upstream tree
+
+Fast workflow:
+.github/workflows/build-ios-nativeboot2-current-fast.yml
+
+Manual bootstrap workflow:
+.github/workflows/seed-ios-nativeboot2-fastbuild1-bootstrap.yml
+
+sccache:
+- mozilla-actions/sccache-action@v0.0.11
+- SCCACHE_GHA_ENABLED=true
+- SCCACHE_IGNORE_SERVER_IO_ERROR=1
+- SCCACHE_BASEDIRS=<upstream>
+- C/C++ compiler launchers = sccache
+
+Measured evidence:
+- B28 historical baseline: ~197 s
+- cold B19 fallback run 35612768609: 614 s
+- hot B28-cache run 35614076698: 71 s
+- strong one-file probe run 35616222173: 1 request / 1 miss / 1 real compile
+- identical probe retry 35616567861: 1 request / 1 hit / 0 miss
+- post-probe clean run 35616906674: 56 s
+- final clean verification run 35617195868: 69 s
+
+Final clean verification run:
+- code HEAD: 8dc0423c9cdcf8fa353e16eae9ec8359b1587f66
+- bootstrap_source=B28_CACHE
+- B20-B28 PASS
+- compile requests: 0
+- NOJAVA preserved
+- MANIC3 preserved
+- unsigned IPA SHA-256: be170c9e03f9fe901c775a323d00e16411752beb68950e4bbd7e46097fabaf1f
+- IPA artifact: 10647395134
+- audit artifact: 10646479731
+
+Static/TDD clean-head run:
+- 35617195978
+- manifest tests: 4/4 PASS
+- workflow tests: 8/8 PASS
+- manifest VALID
+
+B28 workflow remains byte-for-byte unchanged:
+44d1c8aaa7ff5f0ff97271396b8bf771ad125b54
+
+Full benchmark/probe evidence:
+docs/handoff/history/FASTBUILD1.md
+
+Development rule from now on:
+1. B29/B30 functional work lands on nativeboot2-current.
+2. Add the new apply_script|test_script row to ci/fastbuild1_manifest.txt.
+3. Build/test/device-test on nativeboot2-current.
+4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
+5. Do not return to sibling milestone branches as the primary development/cache path.
+
+FASTBUILD1 does not change the current guest-side blocker. B28 is still the functional baseline awaiting device validation.
 
 ## Validated milestones
 
@@ -280,6 +357,6 @@ Snapshots:
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Continue from B28 WSERVLIBTYPE1. B28 build is successful but not device-validated. Analyze the first device log around [NBOOT2][WSERV_LIBRARY_TYPE], SVCMISS 0x63, and Wserv WSERV-INTERNAL 13 before deciding B29."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted; B28 WSERVLIBTYPE1 remains the latest immutable functional milestone and is not device-validated. Analyze the first B28 device log around [NBOOT2][WSERV_LIBRARY_TYPE], SVCMISS 0x63, and Wserv WSERV-INTERNAL 13 before deciding B29. Any B29 work should land on nativeboot2-current first, then be snapshotted after validation."
 
 This file is authoritative unless newer committed device evidence supersedes it.
