@@ -1,0 +1,31 @@
+name: RED B21 FBSFONTALIAS1 Contract
+
+"on":
+  push:
+    branches:
+      - nativeboot2-b21-fbsfontalias1
+    paths:
+      - test_nativeboot2_b21_fbsfontalias1.py
+      - .github/workflows/test-nativeboot2-b21-fbsfontalias1-red.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore B20 baseline
+        id: b20
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-nativeboot2-b20-cenresetall1-nojava-manic3-macos15-v1
+      - name: Verify B21 test is RED on B20
+        run: |
+          set -euo pipefail
+          test "${{ steps.b20.outputs.cache-hit }}" = "true"
+          python3 test_nativeboot2_b21_fbsfontalias1.py upstream
