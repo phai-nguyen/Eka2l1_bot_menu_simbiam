@@ -126,21 +126,119 @@ Audit artifact:
 
 ## Device validation status
 
-NOT YET DEVICE-VALIDATED.
+DEVICE-VALIDATED FOR THE B28 NARROW PURPOSE.
 
-Required B28 device checks:
-1. Confirm EKDATA.DLL still loads.
-2. Confirm SVCMISS 0x63 is gone.
-3. Find:
-   [NBOOT2][WSERV_LIBRARY_TYPE]
-4. Verify the returned UID triplet; for the observed EKDATA.DLL call, UID3 is expected to correspond to 0x100039E0 if the handle is the just-loaded EKDATA library.
-5. Check whether EWsPanicFailedToInitialise / WSERV-INTERNAL 13 disappears.
-6. If Wserv still fails, identify the first new divergence after LibraryType rather than adding speculative fixes.
-7. Check whether boot advances beyond the NOKIA splash.
-8. Re-test Exit Emulator to retain B26 validation.
+Device log supplied 2026-09-21 proves the B27 fatal Window Server chain is removed.
 
-## Next decision rule
+Observed Wserv ordering:
+- SVCMISS 0x50 remains during early Wserv startup.
+- !Windowserver registers successfully.
+- B25 FBS shared-heap handoff/ready markers remain healthy.
+- SVCMISS 0x48 remains.
+- SVCMISS 0x4A remains.
+- EKDATA.DLL loads with UID3 0x100039E0 and runtime code 0x807ABDF8.
+- B28 marker:
+  [NBOOT2][WSERV_LIBRARY_TYPE] handle=0x400F0007 valid=1 output_mapped=1 uid1=0x10000079 uid2=0x1000008D uid3=0x100039E0
+- SVCMISS 0x63 is absent.
+- A later Wserv Leave -5 is trapped and startup continues.
+- WSERV-INTERNAL 13 is absent.
+- Domino 13 is absent.
+- StarterServer, tzserver, cntsrv and later UI/application services continue starting.
 
-If B28 removes SVCMISS 0x63 and moves Wserv farther into InitStaticsL, treat B28 as validated for its narrow purpose and investigate the next first failing call.
+This validates both sides of the B28 hypothesis:
+1. r0=0x400F0007 was the just-loaded EKDATA RLibrary handle.
+2. LibraryType must return EKDATA's TUidType; UID3 0x100039E0 matches exactly.
 
-Do not preemptively implement 0x48/0x4A/0x50 without fresh B28 device ordering evidence.
+Therefore B28 removes the B27 causal chain:
+EKDATA.DLL -> missing LibraryType -> leave -> EWsPanicFailedToInitialise -> WSERV-INTERNAL 13 -> Domino 13.
+
+B26 Exit Emulator behavior is also retained in this trace:
+- shutdown_done
+- normal_restart_begin
+- normal_restart_done has_device=1
+- normal EKA2L1 library enumeration resumes.
+
+Do not infer a complete Nokia UI boot from this validation alone. B28 proves Wserv gets past the former fatal initialization point; the next blocker is later in UIKON/AknCap/Eiksrv startup.
+
+## New blocker exposed after B28
+
+The strongest first-repeatable failure is now Central Repository/FEP initialization, not a Wserv executive call.
+
+Repository:
+0x10272618 = KUidFepFrameworkRepository
+
+Authoritative Symbian source:
+- SymbianSource/oss.FCL.sf.mw.classicui/lafagnosticuifoundation/cone/inc/coedefkeys.h
+- SymbianSource/oss.FCL.sf.mw.classicui/commonuisupport/uikon/srvsrc/eiksrv.cpp
+- SymbianSource/oss.FCL.sf.mw.inputmethods/fep/frontendprocessor/source/FEPBCONFIG.CPP
+- SymbianSource/oss.FCL.sf.os.persistentdata/persistentstorage/centralrepository/common/inc/operations.h
+
+Eiksrv's CEikServAppUiServer::ConstructL() is expected to:
+1. open repository 0x10272618;
+2. StartTransaction(EConcurrentReadWriteTransaction);
+3. write default FEP state and key data;
+4. Set ERepositoryKey_DefaultFepId;
+5. CommitTransaction.
+
+The first write after StartTransaction is the default OnState key:
+0x1002 = ERepositoryKey_DefaultOnState.
+
+Current EKA2L1 Central Repository behavior is incomplete:
+- start_transaction() logs "TransactionStart stubbed" and completes KErrNone but does not activate a transaction;
+- cancel_transaction() is also stubbed;
+- get_entry(key, write-mode) creates a transaction-local entry only when is_active() is true;
+- with the transaction never activated, Set on an absent key returns KErrNotFound;
+- cen_rep_transaction_commit exists in the protocol enum but has no implemented handler in the current Central Repository service.
+
+The B28 device trace correlates this directly:
+- repo 0x10272618 opens;
+- "TransactionStart stubbed";
+- the immediately following EikAppUiServerThread path leaves with -1;
+- stack contains centralrepository.dll and eiksrv.dll;
+- TransactionCancel is then stubbed;
+- eiksrvs later self-kills with reason -1.
+The sequence repeats on restart.
+
+AknCapServer also shows earlier/repeated Leave -1 paths through centralrepository.dll + cone.dll, consistent with the same FEP/CONE Central Repository state not being initialized.
+
+Symbian's real Central Repository SetSettingL semantics create a setting when it is absent, while preserving type/meta/access-policy rules. A narrow B29 should therefore repair generic transaction/Set semantics rather than hardcode repository 0x10272618 or its keys.
+
+## New SVC observation: 0x2D
+
+A later SVCMISS appears:
+svc=0x2D pc=0x80297DC4 lr=0x802A1E8B r0=0xFFFF8001 r1=0x000000FA r2=0x00000004 r3=0x008008D4
+
+Symbian kernel execs.txt maps EPOC slow executive 0x2D to:
+ThreadSetProcessPriority(thread_handle, TProcessPriority)
+
+0xFA = 250 = EPriorityBackground.
+
+This SVCMISS occurs after the first AknCap/eiksrvs Central Repository failures. It is therefore an observed compatibility gap, but it is not the first causal blocker in this trace and must not be chosen as B29 merely because it is newly visible.
+
+The previously missing Wserv calls remain:
+- 0x50 = WsRegisterThread
+- 0x48 = CaptureEventHook
+- 0x4A = RequestEvent
+
+B28 proves they are not fatal to Wserv in this device trace. Keep them unpatched until a future trace ties one to a concrete failure.
+
+## B29 decision rule
+
+Preferred investigation target:
+CENREP/FEP transaction compatibility.
+
+A correct B29 should be generic and TDD-driven:
+- activate transaction state and retain transaction mode;
+- make Set-on-missing match Symbian semantics;
+- implement CommitTransaction coherently so staged changes become repository state and are persisted/notified correctly;
+- make CancelTransaction discard staged changes and clear transaction state;
+- preserve B20 ResetAll and every B21-B28 invariant;
+- add diagnostics around repo 0x10272618 / keys 0x1001, 0x1002, 0x1004 and 0x1008.
+
+Do not hardcode FEP values, suppress leaves, or implement unrelated SVCs in the same milestone.
+
+## Milestone result
+
+B28: WSERVLIBTYPE1 — DEVICE-VALIDATED.
+
+It fixes the B27 Window Server initialization blocker. The active blocker has moved later into Central Repository/FEP/UIKON initialization.
