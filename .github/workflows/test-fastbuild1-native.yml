@@ -1,0 +1,33 @@
+name: FASTBUILD1 Native TDD
+
+"on":
+  push:
+    branches:
+      - nativeboot2-fastbuild1-design
+    paths:
+      - test_fastbuild1_manifest.py
+      - test_fastbuild1_workflows.py
+      - ci/**
+      - .github/workflows/build-ios-nativeboot2-current-fast.yml
+      - .github/workflows/seed-ios-nativeboot2-fastbuild1-bootstrap.yml
+      - .github/workflows/test-fastbuild1-native.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run FASTBUILD1 unit/static tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v test_fastbuild1_manifest.py
+          if [ -f test_fastbuild1_workflows.py ]; then
+            python3 -m unittest -v test_fastbuild1_workflows.py
+          fi
+          if [ -f ci/fastbuild1_manifest.py ]; then
+            python3 ci/fastbuild1_manifest.py validate .
+          fi
