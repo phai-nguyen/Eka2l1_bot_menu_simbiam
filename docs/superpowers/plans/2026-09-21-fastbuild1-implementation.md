@@ -23,7 +23,7 @@
 
 1. Missing or evicted bootstrap: the fast workflow must fall back to the default-branch B19 cache and reconstruct B28.
 2. sccache backend I/O failure: SCCACHE_IGNORE_SERVER_IO_ERROR=1 must preserve normal compilation.
-3. Stale bootstrap: run the B28 contract before any post-bootstrap apply step.
+3. Stale/incompatible bootstrap: run the B28 contract before any post-bootstrap apply step; capture Xcode/Clang/CMake identities in audits, and bump the immutable bootstrap key version whenever runner image, Xcode/toolchain, generator/configuration, dependency revision, architecture/deployment target, bootstrap milestone, or build flags change.
 4. Future manifest row references a missing file: manifest validation must fail before CMake.
 5. Probe contamination: probe mode may change only the transient upstream svc.cpp and must publish no IPA.
 
@@ -214,7 +214,7 @@ python3 ci/fastbuild1_manifest.py validate "$GITHUB_WORKSPACE"
 python3 ci/fastbuild1_manifest.py apply "$GITHUB_WORKSPACE" "$UPSTREAM"
 python3 ci/fastbuild1_manifest.py regress "$GITHUB_WORKSPACE" "$UPSTREAM"
 ~~~
-7. Reconfigure the existing build directory:
+7. Export SCCACHE_BASEDIRS="$UPSTREAM" and reconfigure the existing build directory:
 ~~~bash
 "$CMAKE_BIN" -S "$UPSTREAM" -B "$UPSTREAM/build-ios-device" \
   -DCMAKE_C_COMPILER_LAUNCHER=sccache \
@@ -267,8 +267,9 @@ ci: add FASTBUILD1 development workflow
 - Manual-only workflow.
 - Consumes B19 cache.
 - Produces stable B28 key eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1.
-- Produces FASTBUILD1-BOOTSTRAP-AUDIT.txt.
+- Produces FASTBUILD1-BOOTSTRAP-AUDIT.txt including xcodebuild -version, clang --version, and CMake --version.
 - Does not package an IPA.
+- The cache key is immutable. Refreshing the bootstrap requires intentionally bumping the terminal version component (for example v1 to v2) after one of the invalidation conditions in the spec changes.
 
 - [ ] **Step 1: Confirm the remaining RED**
 
@@ -339,7 +340,7 @@ ci: add FASTBUILD1 B28 bootstrap seeder
 
 **Files:** no committed runtime files. Evidence comes from GitHub Actions runs and artifacts.
 
-**Produces:** seed run ID, hot run ID, probe run ID, post-probe hot run ID, timing metrics, sccache stats, IPA SHA-256.
+**Produces:** seed run ID, hot run ID, first probe run ID, identical probe-retry run ID, post-probe hot run ID, timing metrics, sccache stats, IPA SHA-256.
 
 - [ ] **Step 1: Pre-branch verification**
 
@@ -397,6 +398,8 @@ gh run watch <PROBE_RUN_ID> --exit-status
 
 Expected: success; audit says probe=1; sccache stats exist; IPA artifact is absent.
 
+Immediately run the identical probe a second time with probe_svc_change=true. Expected: success again, no IPA, and sccache statistics show cache reuse for the repeated compile workload. Record both probe run IDs and both stats in the history snapshot.
+
 - [ ] **Step 6: Post-probe normal build**
 
 Run the hot workflow again with probe_svc_change=false.
@@ -419,7 +422,7 @@ Any workflow/helper failure must first be pinned by a failing Task 1 or Task 2 t
 
 Record concrete values only:
 - B28 baseline run 35606704683 and ~197 seconds;
-- seed/hot/probe/post-probe run IDs and conclusions;
+- seed/hot/first-probe/probe-retry/post-probe run IDs and conclusions;
 - bootstrap key and source;
 - each timing field;
 - sccache hits/misses;
@@ -434,7 +437,7 @@ Do not commit placeholders.
 - [ ] **Step 2: Promotion rule**
 
 Promote only if:
-- seed, hot, probe, and post-probe runs all succeed;
+- seed, hot, first-probe, identical probe-retry, and post-probe runs all succeed;
 - B20-B28 pass;
 - B28 workflow pin is unchanged;
 - probe publishes no IPA;
@@ -492,7 +495,8 @@ docs: record FASTBUILD1 benchmark and rollout
 [ ] compile/link PASS
 [ ] normal IPA + SHA produced
 [ ] probe changes only transient svc.cpp
-[ ] probe publishes no IPA
+[ ] first probe publishes no IPA
+[ ] identical probe retry publishes no IPA and demonstrates sccache reuse
 [ ] post-probe normal IPA succeeds
 [ ] hot total <=150 seconds for promotion
 [ ] CURRENT.md status matches measured evidence
