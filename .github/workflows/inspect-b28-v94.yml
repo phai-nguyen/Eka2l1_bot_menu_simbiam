@@ -1,0 +1,52 @@
+name: INSPECT B28 EPOC94 TABLE
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b28-wservlibtype1
+    paths:
+      - .github/workflows/inspect-b28-v94.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - name: Restore B19 baseline
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+        fail-on-cache-miss: true
+    - name: Recreate B27 and inspect SVC tables
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        echo '=== TABLE DECLARATIONS ==='
+        grep -n 'svc_register_funcs_' "$SVC" || true
+        echo '=== V94 CONTEXT ==='
+        python3 - "$SVC" <<'PY'
+        import sys
+        from pathlib import Path
+        s=Path(sys.argv[1]).read_text(encoding="utf-8")
+        p=s.find("svc_register_funcs_v94")
+        print("v94_pos",p)
+        if p>=0:
+            start=max(0,s.rfind("\n",0,p)-200)
+            end=min(len(s),p+7000)
+            print(s[start:end])
+        PY
