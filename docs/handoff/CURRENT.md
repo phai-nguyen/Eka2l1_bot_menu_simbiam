@@ -2,12 +2,13 @@
 
 Updated: 2026-09-21
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
-Active branch: nativeboot2-b27-wservpanic13trace1
-Device-tested code HEAD: b1b1ed38a5481a73b20df252ee1048929f8aad6b
+Active branch: nativeboot2-b28-wservlibtype1
+Latest build-tested code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
+Latest device-tested milestone: B27
 
 ## Objective
 
-Boot Nokia 5800 RM-356 firmware as faithfully as possible inside EKA2L1 on iOS, preserving firmware SYSSTART ownership and applying narrowly scoped compatibility fixes only after device evidence.
+Boot Nokia 5800 RM-356 firmware as faithfully as possible inside EKA2L1 on iOS, preserving firmware SYSSTART ownership and adding narrowly scoped compatibility fixes only after device evidence.
 
 Primary device-test environment:
 - iPhone 12 Pro Max
@@ -17,34 +18,44 @@ Primary device-test environment:
 
 ## Current baseline
 
-B27 = NATIVEBOOT2-B27-WSERVPANIC13TRACE1
+B28 = NATIVEBOOT2-B28-WSERVLIBTYPE1
 
 Branch:
-nativeboot2-b27-wservpanic13trace1
+nativeboot2-b28-wservlibtype1
 
 Build workflow:
-.github/workflows/build-ios-nativeboot2-b27-wservpanic13trace1-nojava-manic3.yml
+.github/workflows/build-ios-nativeboot2-b28-wservlibtype1-nojava-manic3.yml
 
 Apply script:
-apply_nativeboot2_b27_wservpanic13trace1.py
+apply_nativeboot2_b28_wservlibtype1.py
 
 Contract:
-test_nativeboot2_b27_wservpanic13trace1.py
+test_nativeboot2_b28_wservlibtype1.py
 
 Successful build run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35600785179
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35606704683
+
+Run ID:
+35606704683
+
+Build code HEAD:
+773752a4475dce019e8ae4342f2ab7d0b2abc060
 
 Unsigned IPA:
-EKA2L1-NATIVEBOOT2-B27-WSERVPANIC13TRACE1-NOJAVA-MANIC3-unsigned.ipa
+EKA2L1-NATIVEBOOT2-B28-WSERVLIBTYPE1-NOJAVA-MANIC3-unsigned.ipa
 
 IPA SHA-256:
-37dd617b50a383b1a473da04df46c162ff878d1cb9d9897f9dc565420206d67f
+8fd1ef35863a8b8deb175650259052977d15c0e66dc578a415e95050ebfbc81b
 
-IPA artifact ID:
-10639335895
+IPA artifact:
+- ID: 10642526382
+- ZIP digest: sha256:3d92f5b4ba6812ba44e4a3a6516750bbd08e35418197e6f988e2a808f4afd145
+- expires: 2026-10-05
 
-Audit artifact ID:
-10639365871
+Audit artifact:
+- ID: 10642476357
+- ZIP digest: sha256:7bb7db13282a9e1fb4a83c914079cbb7cfb6c276e81d633ebf7606ae7c32359f
+- expires: 2026-10-05
 
 ## Validated milestones
 
@@ -52,17 +63,17 @@ Audit artifact ID:
 
 DEVICE-VALIDATED.
 
-B25 fixed the canonical native/HLE FBS global chunk collision.
+B25 fixed the native/HLE FBS canonical global chunk-name collision.
 
-Runtime markers remain healthy:
+Healthy runtime markers:
 - [NBOOT2][FBS_SHARED_HEAP_HANDOFF]
 - shared_guest_owned=true
 - shared_renamed=true
 - large_guest_owned=true
 - large_renamed=true
-- [NBOOT2][FBS_SHARED_HEAP_READY] success
+- [NBOOT2][FBS_SHARED_HEAP_READY]
 
-The old AknCapServer crash:
+The old AknCapServer failure:
 - PC = 0x000000F0
 - r0 = 0x40201598
 - KERN-EXEC 3
@@ -75,151 +86,158 @@ Firmware reaches the NOKIA splash.
 
 DEVICE-VALIDATED.
 
-The UIKit UICollectionView crash when choosing Exit Emulator is fixed.
+The host-side UIKit UICollectionView crash when choosing Exit Emulator is fixed.
 
-Latest B27 device logs still show the safe exit/restart path:
+Validated exit sequence:
 - shutdown_done
 - normal_restart_begin
 - normal_restart_done has_device=1
 
-Do not modify the B26 exit choreography unless new evidence requires it.
+Preserve the B26 exit choreography.
 
 ### B27 — WSERVPANIC13TRACE1
 
 DEVICE-TESTED diagnostic milestone.
 
-B27 captured the exact native Window Server failure.
+B27 localized the current Nokia boot blocker.
 
-Immediately before Wserv dies:
-
+Observed ordering:
 1. !Windowserver registration succeeds.
 2. B25 FBS shared-heap handoff succeeds.
-3. V5 SVCMISS 0x48 occurs.
-4. V5 SVCMISS 0x4A occurs.
+3. SVCMISS 0x48.
+4. SVCMISS 0x4A.
 5. EKDATA.DLL loads:
    - UID3 = 0x100039E0
    - runtime code = 0x807ABDF8
-6. V5 SVCMISS 0x63 occurs:
+6. SVCMISS 0x63:
    - pc = 0x80297F64
    - lr = 0x802A1CFD
    - r0 = 0x400F0007
-7. Leave starts immediately afterward.
-8. Wserv reports:
-   EWsPanicFailedToInitialise
+7. Symbian leave begins/traps immediately afterward.
+8. Wserv reports EWsPanicFailedToInitialise.
 9. Wserv self-panics:
    - category = WSERV-INTERNAL
    - reason = 13
+10. NearlyIdleKickBack then panics Domino 13 downstream.
 
-B27 panic context:
+B27 Wserv panic:
 - PC = 0x80298584
 - LR = 0x802A3A39
 - SP = 0x00503C70
-- PC/LR resolve into euser.dll
 
-ewsrv stack candidates:
-- ewsrv.exe + 0x1D4C8
-- ewsrv.exe + 0x159B2
-- ewsrv.exe + 0x1D938
-- ewsrv.exe + 0x159FC
-
-NearlyIdleKickBack then panics with Domino 13. Treat Domino 13 as downstream of Wserv unless new evidence reverses ordering.
-
-## Exact meaning of WSERV-INTERNAL 13
+## Source meaning of WSERV-INTERNAL 13
 
 Public Symbian Window Server source defines:
 EWsPanicFailedToInitialise = 13
 
-In non-NGA WSTOP.CPP, E32Main traps CWsTop::RunServerL(); if that returns a leave/error, it panics with EWsPanicFailedToInitialise.
+WSTOP.CPP traps CWsTop::RunServerL(); if it leaves/errors, E32Main panics with EWsPanicFailedToInitialise.
 
-Therefore the active blocker is now localized:
-CWsTop::RunServerL / InitStaticsL leaves during native Window Server initialization.
+Thus B27 proves Wserv is leaving during RunServerL / InitStaticsL rather than failing in the old FBS crash path.
 
-Reference source:
+Reference:
 - SymbianSource/oss.FCL.sf.os.graphics
 - commit ff133bc50e6158bfb08cc093b0f0055321dcde99
 - windowing/windowserver/nonnga/SERVER/WSTOP.CPP
 - windowing/windowserver/SERVER/openwfc/panics.h
 
-## Identification of missing SVC 0x63
+## B28 — WSERVLIBTYPE1
 
-This is the strongest B27 result.
+BUILD-VALIDATED, NOT YET DEVICE-VALIDATED.
 
-Symbian executive source declares:
-Exec::LibraryType(TInt, TUidType&) -> EExecLibraryType
+B28 implements only EPOC 9.4 SVC 0x63 as the EKA2 LibraryType executive.
 
-The EKA2L1 frozen EPOC 9.4 table has:
-- ProcessType at SVC 0x64
-- no SVC registration at 0x63
+External Symbian source confirms:
+- RLibrary::Type() creates a TUidType and calls Exec::LibraryType(iHandle, u).
+- Exec::LibraryType(TInt, TUidType&) dispatches EExecLibraryType.
 
-The corresponding executive ordering places LibraryType directly before ProcessType.
-
-Runtime independently confirms the interpretation:
-- EKDATA.DLL loads successfully.
-- immediately after load, SVC 0x63 is called.
-- r0 = 0x400F0007 is handle-shaped and is consistent with an RLibrary handle.
-- EKA2L1 does not dispatch the call.
-- a Symbian leave begins immediately afterward.
-- RunServerL then emerges with an error and Wserv converts it to EWsPanicFailedToInitialise.
-
-Primary root-cause candidate for the next patch:
-missing EPOC 9.4 LibraryType executive ABI/semantics at SVC 0x63.
-
-## Other missing Wserv executive calls
-
-B27 also exposes:
-- SVC 0x50 during Wserv E32Main startup. Runtime/source ordering strongly identifies this as WsRegisterThread.
-- SVC 0x48 and 0x4A during InitStaticsL. They align with Window Server event-hook executive calls in the corresponding Symbian executive sequence.
-
-These remain real compatibility gaps.
-
-However, do NOT batch-fix them in the next build unless required.
-
-The narrow causal sequence currently observed is:
-EKDATA.DLL load
--> SVCMISS 0x63
--> leave
--> EWsPanicFailedToInitialise
--> WSERV-INTERNAL 13
--> Domino 13 downstream
-
-## B28 proposed target
-
-Name:
-NATIVEBOOT2-B28-WSERVLIBTYPE1
-
-Scope:
-Implement the missing EPOC 9.4 LibraryType executive call at SVC 0x63 only.
-
-Required behavior:
-- ABI: LibraryType(handle, TUidType&)
-- resolve the RLibrary/kernel library handle
-- return UID1/UID2/UID3 of its loaded codeseg/library
-- preserve error/invalid-handle behavior consistent with Symbian/EKA2L1 conventions
-- add:
+B28 implementation:
+- ABI:
+  LibraryType(handle, TUidType&)
+- resolves kernel::library from the guest handle
+- reads lib->get_codeseg()->get_uids()
+- writes UID1 / UID2 / UID3 into the guest output
+- adds runtime marker:
   [NBOOT2][WSERV_LIBRARY_TYPE]
-  handle=...
-  uid1=...
-  uid2=...
-  uid3=...
-- no Wserv panic suppression
-- no fake success
-- no changes to 0x48/0x4A/0x50 in the same patch
-- preserve B20-B27 regression chain
+- registers:
+  BRIDGE_REGISTER(0x63, library_type)
+- preserves:
+  BRIDGE_REGISTER(0x64, process_type)
 
-B28 success criteria on device:
+B28 deliberately does NOT implement:
+- SVC 0x48
+- SVC 0x4A
+- SVC 0x50
+
+and does not suppress Wserv panic behavior.
+
+### TDD evidence
+
+Focused RED run:
+35605582017
+
+Expected failure:
+NATIVEBOOT2-B28-WSERVLIBTYPE1-TEST: FAIL: missing in svc.cpp:
+BRIDGE_FUNC(void, library_type, kernel::handle h, eka2l1::ptr<epoc::uid_type> type_ptr)
+
+GREEN/build run:
+35606704683
+
+PASS:
+- B20
+- B21
+- B22
+- B23
+- B24
+- B25
+- B26
+- B27
+- B28
+- iOS compile/link
+- NOJAVA
+- MANIC3
+
+## Required B28 device test
+
+On the next device log, check in this order:
+
 1. EKDATA.DLL still loads.
-2. SVCMISS 0x63 disappears.
-3. [NBOOT2][WSERV_LIBRARY_TYPE] confirms the library UID type.
-4. EWsPanicFailedToInitialise either disappears or moves to a later, newly observable cause.
-5. Boot progresses beyond current NOKIA-splash blocker if 0x63 was the final initialization failure.
+2. SVCMISS 0x63 is absent.
+3. Marker appears:
+   [NBOOT2][WSERV_LIBRARY_TYPE]
+4. Record:
+   - handle
+   - valid
+   - output_mapped
+   - uid1
+   - uid2
+   - uid3
+5. For the observed EKDATA call, UID3 should correspond to 0x100039E0 if r0=0x400F0007 is indeed that just-loaded RLibrary handle.
+6. Check whether:
+   - EWsPanicFailedToInitialise disappears;
+   - WSERV-INTERNAL 13 disappears;
+   - Domino 13 disappears downstream;
+   - boot advances beyond the NOKIA splash.
+7. If Wserv still fails, identify the first newly exposed call after LibraryType. Do not immediately fix 0x48/0x4A/0x50 without fresh ordering evidence.
+8. Test Thoát Emulator once to preserve B26 validation.
+
+## Other Wserv gaps still under observation
+
+B27 also saw:
+- 0x50 during early Wserv startup, strongly consistent with WsRegisterThread.
+- 0x48 and 0x4A during InitStaticsL, consistent with Window Server event-hook executive calls.
+
+These remain candidates only.
+
+Current decision rule:
+B28 first. Let the device log establish the next causal blocker.
 
 ## Preserved invariants
 
 Keep:
-- firmware SYSSTART boot ownership
+- firmware SYSSTART as startup owner
 - native fbserv startup/rendezvous
 - B25 FBS shared-heap handoff
-- B24 vtable diagnostics
+- B24 CBitmapFont/vtable diagnostics
 - B23 TFontSpec v2 ABI
 - B22 default typeface
 - B21 font aliases
@@ -227,16 +245,17 @@ Keep:
 - B19 SA language ABI
 - EMUHUB1
 - B26 safe Exit Emulator path
-- B27 Wserv diagnostic markers
+- B27 Wserv panic diagnostics
+- B28 narrow LibraryType implementation
 - NOJAVA
 - MANIC3
 
 Do not reintroduce:
-- host-driven SysStart/Menu startup ownership
+- host-driven SysStart/Menu launch ownership
 - native fbserv suppression
 - native FBS heap adoption
 - Wserv panic suppression
-- speculative multi-SVC fixes
+- speculative multi-SVC batches
 
 ## Milestone history
 
@@ -248,17 +267,19 @@ Do not reintroduce:
 - B24: FBSVTABLEABI1
 - B25: FBSSHAREDHEAP1 — device validated
 - B26: IOSLIBRARYEXIT1 — device validated
-- B27: WSERVPANIC13TRACE1 — device trace isolated RunServerL initialization failure and SVC 0x63
+- B27: WSERVPANIC13TRACE1 — device trace isolated SVC 0x63 -> leave -> WSERV-INTERNAL 13
+- B28: WSERVLIBTYPE1 — build validated, awaiting device test
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
 - docs/handoff/history/B26-IOSLIBRARYEXIT1.md
 - docs/handoff/history/B27-WSERVPANIC13TRACE1.md
+- docs/handoff/history/B28-WSERVLIBTYPE1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Continue from B27. B25/B26 are device-validated. B27 shows EKDATA.DLL -> missing EPOC94 SVC 0x63 LibraryType -> leave -> EWsPanicFailedToInitialise. Validate and implement the narrow B28 WSERVLIBTYPE1 fix before touching other Wserv SVCs."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Continue from B28 WSERVLIBTYPE1. B28 build is successful but not device-validated. Analyze the first device log around [NBOOT2][WSERV_LIBRARY_TYPE], SVCMISS 0x63, and Wserv WSERV-INTERNAL 13 before deciding B29."
 
 This file is authoritative unless newer committed device evidence supersedes it.
