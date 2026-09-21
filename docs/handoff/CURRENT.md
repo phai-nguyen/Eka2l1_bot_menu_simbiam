@@ -6,7 +6,7 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B28 WSERVLIBTYPE1
 Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
-Latest device-tested milestone: B27
+Latest device-tested milestone: B28
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -151,7 +151,7 @@ Development rule from now on:
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
 5. Do not return to sibling milestone branches as the primary development/cache path.
 
-FASTBUILD1 does not change the current guest-side blocker. B28 is still the functional baseline awaiting device validation.
+FASTBUILD1 does not change guest behavior. B28 is now device-validated for its narrow LibraryType/Wserv purpose. The active blocker has moved later into Central Repository/FEP/UIKON startup.
 
 ## Validated milestones
 
@@ -238,7 +238,7 @@ Reference:
 
 ## B28 — WSERVLIBTYPE1
 
-BUILD-VALIDATED, NOT YET DEVICE-VALIDATED.
+DEVICE-VALIDATED FOR THE LIBRARYTYPE/WSERV BLOCKER.
 
 B28 implements only EPOC 9.4 SVC 0x63 as the EKA2 LibraryType executive.
 
@@ -292,29 +292,70 @@ PASS:
 - NOJAVA
 - MANIC3
 
-## Required B28 device test
+## B28 device result
 
-On the next device log, check in this order:
+The 2026-09-21 B28 device log validates the narrow fix.
 
-1. EKDATA.DLL still loads.
-2. SVCMISS 0x63 is absent.
-3. Marker appears:
-   [NBOOT2][WSERV_LIBRARY_TYPE]
-4. Record:
-   - handle
-   - valid
-   - output_mapped
-   - uid1
-   - uid2
-   - uid3
-5. For the observed EKDATA call, UID3 should correspond to 0x100039E0 if r0=0x400F0007 is indeed that just-loaded RLibrary handle.
-6. Check whether:
-   - EWsPanicFailedToInitialise disappears;
-   - WSERV-INTERNAL 13 disappears;
-   - Domino 13 disappears downstream;
-   - boot advances beyond the NOKIA splash.
-7. If Wserv still fails, identify the first newly exposed call after LibraryType. Do not immediately fix 0x48/0x4A/0x50 without fresh ordering evidence.
-8. Test Thoát Emulator once to preserve B26 validation.
+Observed:
+- EKDATA.DLL still loads, UID3=0x100039E0.
+- [NBOOT2][WSERV_LIBRARY_TYPE] appears:
+  handle=0x400F0007 valid=1 output_mapped=1 uid1=0x10000079 uid2=0x1000008D uid3=0x100039E0
+- SVCMISS 0x63 is absent.
+- WSERV-INTERNAL 13 is absent.
+- Domino 13 is absent.
+- a later Wserv Leave -5 is trapped rather than fatal.
+- startup continues into StarterServer, tzserver, cntsrv and higher UI/application services.
+- B26 Exit Emulator remains healthy: shutdown_done -> normal_restart_begin -> normal_restart_done has_device=1.
+
+Conclusion:
+B28 removed the B27 causal chain. Wserv is no longer the active boot blocker.
+
+Do not claim full Nokia UI boot from this log alone; the next failure is later in UIKON/AknCap/Eiksrv startup.
+
+## Active blocker after B28 — Central Repository / FEP
+
+The strongest new causal chain is repository 0x10272618, the FEP framework Central Repository.
+
+Symbian source identifies:
+- KUidFepFrameworkRepository = 0x10272618
+- default FEP keys under 0x1000:
+  - 0x1001 DefaultFepId
+  - 0x1002 DefaultOnState
+  - 0x1004 DefaultOnKeyData
+  - 0x1008 DefaultOffKeyData
+
+Eiksrv CEikServAppUiServer::ConstructL() opens this repository, starts an EConcurrentReadWriteTransaction, writes the default FEP state/ID/key data, then commits.
+
+Current EKA2L1 Central Repository implementation is incompatible with that path:
+- TransactionStart is stubbed and does not call set_active(true).
+- TransactionCancel is stubbed.
+- Set write mode returns KErrNotFound for absent keys unless a transaction is actually active.
+- cen_rep_transaction_commit exists in the opcode enum but is not handled/implemented.
+- Symbian's actual SetSettingL creates a missing setting and applies fallback metadata/access policy.
+
+The B28 log correlates this directly:
+- repo 0x10272618 opens;
+- TransactionStart stubbed;
+- immediate eiksrvs Leave -1 with centralrepository.dll + eiksrv.dll on stack;
+- TransactionCancel stubbed;
+- eiksrvs later self-kills reason -1;
+- the sequence repeats on restart.
+AknCapServer also has Leave -1 paths through centralrepository.dll + cone.dll.
+
+Therefore the preferred B29 direction is a generic Central Repository transaction/Set fix, not a repo/key hardcode.
+
+## New missing executive observed after the UI failure
+
+SVCMISS 0x2D appears later:
+- r0=0xFFFF8001
+- r1=0x000000FA
+
+Symbian execs.txt maps 0x2D to:
+ThreadSetProcessPriority(thread_handle, TProcessPriority)
+
+0xFA = 250 = EPriorityBackground.
+
+Because this occurs after the first Central Repository/AknCap/Eiksrv failures, it is not the first causal blocker. Keep it as an observed compatibility gap rather than patching it speculatively.
 
 ## Other Wserv gaps still under observation
 
@@ -325,7 +366,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B28 first. Let the device log establish the next causal blocker.
+B28 is validated. Investigate/fix Central Repository FEP transaction semantics first. Do not batch 0x2D, 0x48, 0x4A, or 0x50 into the same milestone without new causal evidence.
 
 ## Preserved invariants
 
@@ -364,7 +405,7 @@ Do not reintroduce:
 - B25: FBSSHAREDHEAP1 — device validated
 - B26: IOSLIBRARYEXIT1 — device validated
 - B27: WSERVPANIC13TRACE1 — device trace isolated SVC 0x63 -> leave -> WSERV-INTERNAL 13
-- B28: WSERVLIBTYPE1 — build validated, awaiting device test
+- B28: WSERVLIBTYPE1 — device validated; removes missing LibraryType -> WSERV-INTERNAL 13 / Domino 13 blocker
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -376,6 +417,6 @@ Snapshots:
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted; B28 WSERVLIBTYPE1 remains the latest immutable functional milestone and is not device-validated. Analyze the first B28 device log around [NBOOT2][WSERV_LIBRARY_TYPE], SVCMISS 0x63, and Wserv WSERV-INTERNAL 13 before deciding B29. Any B29 work should land on nativeboot2-current first, then be snapshotted after validation."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 WSERVLIBTYPE1 is device-validated and removed the SVC 0x63 -> WSERV-INTERNAL 13 / Domino 13 blocker. The next evidence-backed blocker is Central Repository/FEP startup on repo 0x10272618: TransactionStart is stubbed, the first FEP Set path leaves -1, and CommitTransaction is unimplemented. Investigate a narrow generic B29 CENREP transaction/Set fix first; do not speculatively batch SVC 0x2D/0x48/0x4A/0x50."
 
 This file is authoritative unless newer committed device evidence supersedes it.
