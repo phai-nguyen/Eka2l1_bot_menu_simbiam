@@ -3,11 +3,10 @@
 
 Diagnostic-only instrumentation for rooted RLibrary loads. It must distinguish:
 - loader request path;
-- per-drive rooted candidate existence;
+- direct rooted-no-drive VFS existence behavior in the B28 bootstrap;
 - file open;
-- ROM/E32 classification;
+- ROM/E32 branch classification;
 - parser failure;
-- ROFS staging failure;
 - image->codeseg result;
 - first missing E32 dependency;
 - final loader success/failure.
@@ -67,15 +66,15 @@ def main() -> None:
     # lib_manager path/format/parser/staging/codeseg boundaries.
     for needle in (
         "[NBOOT2][LDR_ROOT_BEGIN]",
-        "[NBOOT2][LDR_ROOT_CANDIDATE]",
+        "[NBOOT2][LDR_ROOT_DIRECT]",
         "[NBOOT2][LDR_ROOT_MISS]",
         "[NBOOT2][LDR_OPEN_FAIL]",
         "[NBOOT2][LDR_FORMAT]",
         "[NBOOT2][LDR_PARSE_FAIL]",
-        "[NBOOT2][LDR_STAGE_FAIL]",
         "[NBOOT2][LDR_CODESEG_RESULT]",
         "[NBOOT2][LDR_DEP_FAIL]",
         "exists=",
+        "has_drive=",
         "is_e32=",
         "is_rom=",
         "in_rom=",
@@ -94,7 +93,8 @@ def main() -> None:
 
     # Original loader decisions must remain present.
     for needle in (
-        "if (io_->exist(candidate))",
+        "if (!io_->exist(lib_path))",
+        "if (f->is_in_rom())",
         "loader::parse_romimg",
         "loader::parse_e32img",
         "return load_as_romimg(*romimg, lib_path, is_driver_lib);",
