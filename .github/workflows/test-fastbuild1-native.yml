@@ -4,6 +4,7 @@ name: FASTBUILD1 Native TDD
   push:
     branches:
       - nativeboot2-fastbuild1-design
+      - nativeboot2-current
     paths:
       - test_fastbuild1_manifest.py
       - test_fastbuild1_workflows.py
