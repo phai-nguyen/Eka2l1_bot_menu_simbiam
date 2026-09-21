@@ -65,7 +65,7 @@ jobs:
           python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
           echo "FASTBUILD_BOOTSTRAP_SOURCE=B28_CACHE" >> "$GITHUB_ENV"
         else
-          test "${ { steps.b19_cache.outputs.cache-hit }}" = "true"
+          test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
           echo "FASTBUILD_BOOTSTRAP_SOURCE=B19_FALLBACK" >> "$GITHUB_ENV"
           python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
           python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
