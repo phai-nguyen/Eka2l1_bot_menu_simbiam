@@ -329,7 +329,7 @@ def main() -> None:
         "font_store::set_font_name_alias",
         "font_store::resolve_font_name_alias",
         "resolve_font_name_alias(requested_name)",
-        "find_exact_name",
+        "aliased_name",
         "common::compare_ignore_case",
     ):
         if needle not in sc:
