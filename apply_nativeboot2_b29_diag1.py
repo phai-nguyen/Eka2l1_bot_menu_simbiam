@@ -20,6 +20,21 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
         fail(f"{label}: expected one anchor, found {count}")
     return text.replace(old,new,1)
 
+def replace_in_region(text: str, region_start: str, region_end: str,
+                      old: str, new: str, label: str) -> str:
+    si=text.find(region_start)
+    if si < 0:
+        fail(f"{label}: region start missing")
+    ei=text.find(region_end, si+len(region_start))
+    if ei < 0:
+        fail(f"{label}: region end missing")
+    region=text[si:ei]
+    count=region.count(old)
+    if count != 1:
+        fail(f"{label}: expected one anchor in region, found {count}")
+    region=region.replace(old,new,1)
+    return text[:si]+region+text[ei:]
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_nativeboot2_b29_diag1.py <upstream-root>")
@@ -110,11 +125,11 @@ def main() -> None:
 
     # Three typed Set cases: missing input, type mismatch, and write-lock.
     typed=[
-        ("integer","std::uint32_t"),
-        ("real","double"),
-        ("string","std::string"),
+        ("integer", "        case cen_rep_set_int: {", "        case cen_rep_set_real: {"),
+        ("real", "        case cen_rep_set_real: {", "        case cen_rep_set_string: {"),
+        ("string", "        case cen_rep_set_string: {", "        default:"),
     ]
-    for enum_name,_ in typed:
+    for enum_name,region_start,region_end in typed:
         old="""            if (!data.has_value()) {
                 ctx->complete(epoc::error_argument);
                 return;
@@ -130,7 +145,8 @@ def main() -> None:
                 return;
             }}
 """
-        rp=replace_once(rp,old,new,f"{enum_name} missing-data diagnostics")
+        rp=replace_in_region(rp,region_start,region_end,old,new,
+            f"{enum_name} missing-data diagnostics")
 
         old=f"""            if (existing && (existing->data.etype != central_repo_entry_type::{enum_name})
                 && (existing->data.etype != central_repo_entry_type::none)) {{
@@ -149,7 +165,8 @@ def main() -> None:
                 return;
             }}
 """
-        rp=replace_once(rp,old,new,f"{enum_name} type diagnostics")
+        rp=replace_in_region(rp,region_start,region_end,old,new,
+            f"{enum_name} type diagnostics")
 
         old="""            if (!entry) {
                 ctx->complete(epoc::error_locked);
@@ -166,7 +183,8 @@ def main() -> None:
                 return;
             }}
 """
-        rp=replace_once(rp,old,new,f"{enum_name} lock diagnostics")
+        rp=replace_in_region(rp,region_start,region_end,old,new,
+            f"{enum_name} lock diagnostics")
 
     old="""        if (created) {
             LOG_WARN(SERVICE_CENREP,
