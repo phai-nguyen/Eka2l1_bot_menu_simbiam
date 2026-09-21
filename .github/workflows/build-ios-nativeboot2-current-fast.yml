@@ -129,6 +129,8 @@ jobs:
         test -x "$BIN"
         strings "$BIN" > "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_LIBRARY_TYPE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][LDR_ROOT_RESOLVED]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][LDR_ROOT_EXHAUSTED]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
