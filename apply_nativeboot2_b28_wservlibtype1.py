@@ -113,7 +113,7 @@ def main()->None:
     # The same local sequence can exist in another ABI table after earlier
     # project patches. Scope the edit explicitly to EPOC 9.4.
     v94_start=s.find("const eka2l1::hle::func_map svc_register_funcs_v94")
-    v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v91_diff",v94_start)
+    v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v93",v94_start)
     if v94_start<0 or v94_end<0:
         fail("cannot isolate EPOC94 SVC table")
     v94=s[v94_start:v94_end]
