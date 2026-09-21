@@ -6,7 +6,7 @@ Functional baseline: B29 CENREPTX1 — DEVICE-VALIDATED
 Immutable B29 branch: nativeboot2-b29-cenreptx1
 Immutable B29 functional commit: 7bceb18a337b0977f0f2f68ea0232748dd848392
 Diagnostic build-tested code commit: 9aa612714878541ec4b3f7481516bba00b6d52a4
-Status: BUILD-VALIDATED, DEVICE LOG REQUIRED
+Status: DEVICE-OBSERVED; ROOTED-NO-DRIVE PATH RESOLUTION CONFIRMED CAUSAL
 
 ## Purpose
 
@@ -190,34 +190,103 @@ Audit artifact:
 Post-build verification:
 the packaged EKA2L1 Mach-O contains all ten LOADERDIAG1 marker strings.
 
-## Required device interpretation
+## Device result
 
-For the first failing Eiksrv library load, capture the complete sequence around:
-- LDR_LIB_REQUEST / LDR_LIB_RESULT
-- LDR_ROOT_BEGIN
-- LDR_ROOT_DIRECT
-- LDR_ROOT_MISS
-- LDR_OPEN_FAIL
-- LDR_FORMAT
-- LDR_PARSE_FAIL
-- LDR_CODESEG_RESULT
-- LDR_DEP_FAIL
+The supplied LOADERDIAG1 device logs resolve the decision matrix unambiguously.
 
-Decision matrix:
-- ROOT_DIRECT exists=0 + ROOT_MISS:
-  the current rooted-no-drive VFS lookup is the blocker.
-- exists=1 + PARSE_FAIL:
-  parser/image-format path is the blocker.
-- exists=1 + CODESEG_RESULT success=0 + DEP_FAIL:
-  dependency resolution is the blocker.
-- exists=1 + CODESEG_RESULT success=0 without DEP_FAIL:
-  inspect codeseg/image construction next.
-- LIB_RESULT success=1:
-  the failure moved beyond library loading; follow the first later divergence.
+Observed in EKA2L1_TakeThis:
+- LDR_LIB_REQUEST: 5
+- LDR_ROOT_BEGIN: 5
+- LDR_ROOT_DIRECT: 5
+- LDR_ROOT_MISS: 5
+- LDR_LIB_RESULT failure: 5
+- LDR_OPEN_FAIL: 0
+- LDR_FORMAT: 0
+- LDR_PARSE_FAIL: 0
+- LDR_CODESEG_RESULT: 0
+- LDR_DEP_FAIL: 0
 
-Do not implement the newer upstream rooted-path search, dependency workarounds, or SVC 0x2D/0x48/0x4A/0x50 until the device log establishes which branch is causal.
+All five repeated failing Eiksrv loads have the same sequence:
+
+[NBOOT2][LDR_LIB_REQUEST]
+process=eiksrvs[10003a4a]0001
+request_path=\sys\bin\EiksrvUi.dll
+rooted_no_drive=1
+
+[NBOOT2][LDR_ROOT_BEGIN]
+request=\sys\bin\EiksrvUi.dll
+rooted=1
+has_drive=0
+
+[NBOOT2][LDR_ROOT_DIRECT]
+request=\sys\bin\EiksrvUi.dll
+path=\sys\bin\EiksrvUi.dll
+has_drive=0
+exists=0
+
+[NBOOT2][LDR_ROOT_MISS]
+reason=direct_vfs_miss
+
+[NBOOT2][LDR_LIB_RESULT]
+success=0
+completion=-1
+
+Immediately afterward:
+EikAppUiServerThread leaves -1.
+
+The earlier B29 CenRep fix remains healthy in the same trace:
+- CEN_TX_COMMIT_RESULT for repo 0x10272618 occurs before every library load attempt.
+- CEN_SET_FAIL count = 0.
+- CEN_TX_COMMIT_FAIL count = 0.
+- B28 WSERV_LIBRARY_TYPE remains present.
+- WSERV-INTERNAL 13 and Domino 13 remain absent.
+
+No parser or dependency stage is reached. Therefore parser/image-format handling and dependency resolution are not the current causal blocker.
+
+## Root-cause confirmation against references
+
+Current upstream EKA2L1 contains an explicit fix for this exact class of bug.
+
+Upstream commit:
+437b29006bd8a0186f4070c9445f43e98e5c7435
+
+Its commit description states:
+"A drive-less absolute path never resolved. Symbian writes an image's path without a drive letter (\sys\bin\foo.dll) and its loader searches the drive list for it. Both of the library manager's entry points opened such a path verbatim instead, so the image was simply not found."
+
+Current upstream lib_manager::load() now detects:
+- rooted path
+- empty drive/root name
+
+and tries mounted-drive candidates by prefixing each drive before calling the existing load path.
+
+S60 5th Edition RLibrary documentation also defines drive-search behavior for DLL loading and confirms that the loader, not the caller, is responsible for resolving drive candidates in the supported path forms.
+
+This matches the device trace exactly:
+the historical B28 bootstrap opens \sys\bin\EiksrvUi.dll verbatim, while the real Symbian path is drive-relative and must be resolved to a mounted drive such as Z:.
+
+## B30 decision
+
+The next functional milestone is now evidence-backed:
+
+B30 candidate:
+ROOTEDLIBPATH1
+
+Scope:
+- backport only the rooted-no-drive drive-resolution behavior into lib_manager::load();
+- reuse the existing load_depend_on_drive() path;
+- preserve existing full-path and non-rooted search behavior;
+- preserve B29/DIAG1/LOADERDIAG1 diagnostics for the first B30 device test;
+- do not batch the newer upstream ROM/E32 classification fix, relocation fixes, dependency changes, or SVC 0x2D/0x48/0x4A/0x50.
+
+The first B30 device test should prove:
+1. LDR_ROOT_DIRECT/MISS no longer terminates the request.
+2. A drive-qualified candidate is found and reaches LDR_FORMAT / parser / codeseg stages.
+3. Ideally LDR_LIB_RESULT success=1 for EiksrvUi.dll.
+4. If load then fails later, use the existing LOADERDIAG1 markers to identify the next exact boundary.
 
 ## Milestone rule
 
-B29-LOADERDIAG1 is diagnostic instrumentation only.
-It is not B30 and is not an immutable functional milestone.
+B29-LOADERDIAG1 remains diagnostic instrumentation only.
+It is not an immutable functional milestone.
+
+Its purpose is complete: it proved rooted-no-drive path resolution is the next causal bug.
