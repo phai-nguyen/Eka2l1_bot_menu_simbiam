@@ -109,9 +109,16 @@ def main()->None:
         BRIDGE_REGISTER(0x63, library_type),
         BRIDGE_REGISTER(0x64, process_type),
 '''
-    # Restrict replacement to the EPOC94 table. The exact anchor is unique in
-    # the current B27 source; fail rather than silently touching another ABI.
-    s=replace_once(s,old_reg,new_reg,"register EPOC94 SVC 0x63 LibraryType")
+
+    # The same local sequence can exist in another ABI table after earlier
+    # project patches. Scope the edit explicitly to EPOC 9.4.
+    v94_start=s.find("const eka2l1::hle::func_map svc_register_funcs_v94")
+    v94_end=s.find("const eka2l1::hle::func_map svc_register_funcs_v91_diff",v94_start)
+    if v94_start<0 or v94_end<0:
+        fail("cannot isolate EPOC94 SVC table")
+    v94=s[v94_start:v94_end]
+    v94=replace_once(v94,old_reg,new_reg,"register EPOC94 SVC 0x63 LibraryType")
+    s=s[:v94_start]+v94+s[v94_end:]
 
     svc.write_text(s,encoding="utf-8")
 
