@@ -110,8 +110,9 @@ def main() -> None:
         fail("seek_the_open_font missing")
     seek_end = sc.find("open_font_info *font_store::", seek_start + 10)
     seek_block = sc[seek_start:] if seek_end < 0 else sc[seek_start:seek_end]
-    need(seek_block, "resolve_font_name_alias", "seek_the_open_font")
-    need(seek_block, "wanted_name", "seek_the_open_font")
+    need(seek_block, "resolve_font_name_alias(requested_name)", "seek_the_open_font")
+    need(seek_block, "aliased_name", "seek_the_open_font")
+    need(seek_block, "my_name", "seek_the_open_font")
 
     # No synthetic-only implementation: the IPC handler must call into font_store.
     need(block, "persistent_font_store.set_font_name_alias", "B21 FBS IPC block")

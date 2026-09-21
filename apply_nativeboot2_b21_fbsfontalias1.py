@@ -191,78 +191,25 @@ def main() -> None:
     if "// NATIVEBOOT2-B21 FBSFONTALIAS1:" not in sc:
         sc = replace_once(sc, seek_anchor, alias_impl + seek_anchor, "font alias implementation")
 
-    old_seek_head = """    open_font_info *font_store::seek_the_open_font(epoc::font_spec_base &spec) {
-        const std::u16string wanted_name = spec.tf.name.to_std_string(nullptr);
-        const std::uint32_t style = static_cast<epoc::font_spec_v1 &>(spec).style.flags;
+    # The cached B19/B20 baseline uses the older one-pass font matcher.
+    # Preserve its scoring algorithm: first give the requested face name its
+    # existing exact-match chance, then (only when that fails) substitute a
+    # configured alias target for the existing exact/scoring pass.
+    legacy_name_anchor = "        const std::u16string my_name = spec.tf.name.to_std_string(nullptr);\n"
+    legacy_name_new = """        const std::u16string requested_name = spec.tf.name.to_std_string(nullptr);
 
-        if (!wanted_name.empty()) {
-            const bool want_italic = (style & epoc::font_style_base::italic);
-            const bool want_bold = (style & epoc::font_style_base::bold);
-
-            // Full face name, then family name. Both also require the slant and
-            // the weight to be the ones asked for, so "Nokia Sans S60" in the
-            // regular does not answer a request for the bold.
-            for (const bool by_family : { false, true }) {
-                for (auto &info : open_font_store) {
-                    const std::u16string candidate_name = by_family
-                        ? info.face_attrib.fam_name.to_std_string(nullptr)
-                        : info.face_attrib.name.to_std_string(nullptr);
-
-                    if ((common::compare_ignore_case(candidate_name, wanted_name) == 0)
-                        && (static_cast<bool>(info.face_attrib.style & epoc::open_font_face_attrib::italic) == want_italic)
-                        && (static_cast<bool>(info.face_attrib.style & epoc::open_font_face_attrib::bold) == want_bold)) {
-                        return &info;
-                    }
-                }
+        // Symbian tries the requested name before consulting the alias table.
+        for (auto &info : open_font_store) {
+            if (info.face_attrib.name.to_std_string(nullptr) == requested_name) {
+                return &info;
             }
         }
 
-"""
-    new_seek_head = """    open_font_info *font_store::seek_the_open_font(epoc::font_spec_base &spec) {
-        const std::u16string requested_name = spec.tf.name.to_std_string(nullptr);
-        const std::uint32_t style = static_cast<epoc::font_spec_v1 &>(spec).style.flags;
-
-        if (!requested_name.empty()) {
-            const bool want_italic = (style & epoc::font_style_base::italic);
-            const bool want_bold = (style & epoc::font_style_base::bold);
-
-            const auto find_exact_name = [&](const std::u16string &wanted_name) -> open_font_info * {
-                // Full face name, then family name. Both also require the slant
-                // and weight requested by the guest.
-                for (const bool by_family : { false, true }) {
-                    for (auto &info : open_font_store) {
-                        const std::u16string candidate_name = by_family
-                            ? info.face_attrib.fam_name.to_std_string(nullptr)
-                            : info.face_attrib.name.to_std_string(nullptr);
-
-                        if ((common::compare_ignore_case(candidate_name, wanted_name) == 0)
-                            && (static_cast<bool>(info.face_attrib.style & epoc::open_font_face_attrib::italic) == want_italic)
-                            && (static_cast<bool>(info.face_attrib.style & epoc::open_font_face_attrib::bold) == want_bold)) {
-                            return &info;
-                        }
-                    }
-                }
-
-                return nullptr;
-            };
-
-            // S60 semantics: first try the requested name itself. Only if that
-            // is absent, retry using its configured alias target.
-            if (open_font_info *direct = find_exact_name(requested_name)) {
-                return direct;
-            }
-
-            const std::optional<std::u16string> wanted_name = resolve_font_name_alias(requested_name);
-            if (wanted_name.has_value()) {
-                if (open_font_info *aliased = find_exact_name(*wanted_name)) {
-                    return aliased;
-                }
-            }
-        }
-
+        const std::optional<std::u16string> aliased_name = resolve_font_name_alias(requested_name);
+        const std::u16string my_name = aliased_name.has_value() ? *aliased_name : requested_name;
 """
     if "resolve_font_name_alias(requested_name)" not in sc:
-        sc = replace_once(sc, old_seek_head, new_seek_head, "alias-aware exact font lookup")
+        sc = replace_once(sc, legacy_name_anchor, legacy_name_new, "alias-aware legacy font lookup")
     store_cpp.write_text(sc, encoding="utf-8")
 
     fc = fbs_cpp.read_text(encoding="utf-8")

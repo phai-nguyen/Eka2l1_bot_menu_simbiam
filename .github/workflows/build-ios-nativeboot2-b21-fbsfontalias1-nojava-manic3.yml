@@ -1,5 +1,5 @@
 name: Build EKA2L1 NATIVEBOOT2 B21 FBSFONTALIAS1 NOJAVA MANIC3 IPA
-# rerun after B21 font_store API anchor correction
+# B21 targets the legacy font matcher restored by the B19 cache
 
 "on":
   workflow_dispatch:
@@ -75,22 +75,6 @@ jobs:
         python3 "$B20_PATCHER" "$UPSTREAM"
         python3 "$B20_TESTER" "$UPSTREAM"
 
-        echo '=== B21 BASELINE seek_the_open_font() ==='
-        python3 - "$STORECPP" <<'PY'
-        import sys
-        from pathlib import Path
-        text = Path(sys.argv[1]).read_text(encoding="utf-8")
-        start = text.find("open_font_info *font_store::seek_the_open_font")
-        if start < 0:
-            print("seek_the_open_font: NOT FOUND")
-        else:
-            nxt = text.find("\n    open_font_info *font_store::", start + 20)
-            if nxt < 0:
-                nxt = min(len(text), start + 12000)
-            print(text[start:nxt])
-        PY
-        echo '=== END B21 BASELINE seek_the_open_font() ==='
-
         python3 "$B21_PATCHER" "$UPSTREAM"
 
         # GREEN: the B21 contract that failed on B20 must pass now.
@@ -107,7 +91,7 @@ jobs:
         grep -Fq 'font_store::set_font_name_alias' "$STORECPP"
         grep -Fq 'font_store::resolve_font_name_alias' "$STORECPP"
         grep -Fq 'resolve_font_name_alias(requested_name)' "$STORECPP"
-        grep -Fq 'find_exact_name' "$STORECPP"
+        grep -Fq 'aliased_name' "$STORECPP"
 
         grep -Fq '[NBOOT2][CEN_RESET_ALL_DONE]' "$REPOCPP"
         grep -Fq '[NBOOT2][SA_LANG_ABI]' "$SA"
