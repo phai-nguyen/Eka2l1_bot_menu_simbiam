@@ -134,7 +134,7 @@ IPA:
 - artifact: 10645149495
 - audit artifact: 10645164448
 
-This is 126 seconds faster than the ~197-second B28 baseline and comfortably below the 150-second promotion gate.
+This run established the hot incremental behavior. Its original `total_seconds=71` was measured with the pre-final-review timer scope (start after checkout; audit before IPA upload), so it is retained as historical evidence but is not the final promotion timing metric.
 
 ## One-file compiler-cache proof
 
@@ -221,6 +221,72 @@ Static/TDD verification on the same clean HEAD:
 - FASTBUILD1 manifest: VALID
 - B28 workflow blob pin: PASS
 
+## Final review corrections
+
+A whole-branch self-review found two Important CI-evidence issues after the first promotion snapshot:
+
+1. The permanent `probe_svc_change` path still appended only an unused `#define`. Because sccache keys C/C++ work from preprocessed source, that can legitimately resolve to the baseline object's cache key and is weaker than a real changed-preprocessor-output probe.
+2. `total_seconds` started after checkout and was written before IPA artifact upload, so it did not cover the full primary deliverable path.
+
+TDD RED:
+- run: 35617848036
+- code HEAD: 9aec70c2dbe8d0be6c5d31da204dced49cfb558e
+- expected failures: exactly 2
+  - permanent workflow missing `static_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");`
+  - `Mark FASTBUILD start` ordered after checkout / audit ordered before IPA upload
+
+Minimal fix:
+- implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
+- permanent probe now appends the macro plus compile-time-only `static_assert`
+- FASTBUILD start timestamp is captured before checkout
+- `Write FASTBUILD audit` runs after `Upload IPA`; with `if: always()`, probe runs still create audit after the intentionally skipped IPA step
+
+GREEN static/TDD:
+- run: 35618944698
+- conclusion: SUCCESS
+- manifest tests: 4/4 PASS
+- workflow contract tests: 9/9 PASS
+- manifest: VALID
+
+Corrected-scope normal hot build:
+- run: 35618944742
+- conclusion: SUCCESS
+- code HEAD: 9381a02b131102ac6f1088ae077411d27f753132
+- bootstrap source: B28_CACHE
+- B20-B28: PASS
+- compile requests: 0
+- cache errors: 0
+- bootstrap_restore_seconds: 36
+- patch_regression_seconds: 0
+- cmake_build_seconds: 1
+- package_seconds: 2
+- total_seconds: 63
+- NOJAVA: PRESERVED
+- MANIC3: PRESERVED
+- IPA SHA-256: b289101c866bfa2a86e8046605d08299833b4dcdd0ea98e69425d78a7f93ff8d
+- IPA artifact: 10647737754
+- IPA artifact ZIP digest: sha256:572666f0e0fbbf8f824aa3febd211188da67859316431d015b494b1121653809
+- audit artifact: 10647383101
+- audit ZIP digest: sha256:933d3407fbb27c8009559bbb9d7a191c3ac48f2eb8aecb573e6b2eafca345a02
+
+Final permanent-equivalent probe verification:
+- run: 35619278590
+- conclusion: SUCCESS
+- B20-B28: PASS
+- probe: 1
+- strong `static_assert` probe present
+- compile requests: 1
+- cache hits: 1
+- cache misses: 0
+- hit rate: 100%
+- IPA artifact: ABSENT
+- audit artifact: 10647023252
+- audit ZIP digest: sha256:f841bab9236770ce4aa3af311aaa11e27dda5d408b106cd97e185dcb6402558d
+
+The connector still does not expose workflow_dispatch, so that final probe used a temporary push-triggered clone of the corrected permanent workflow with the probe forced on. The temporary workflow was deleted after success.
+
+The final promotion timing is therefore `total_seconds=63` from run 35618944742, measured from before checkout through completion of the IPA upload step.
+
 ## Promotion decision
 
 Promotion gate: PASS.
@@ -236,7 +302,7 @@ Evidence:
 - B20-B28 pass throughout;
 - NOJAVA and MANIC3 are preserved;
 - B28 milestone workflow blob remains 44d1c8aaa7ff5f0ff97271396b8bf771ad125b54;
-- hot totals of 71 s, 56 s, and 69 s are all below the 150-second promotion threshold.
+- final corrected-scope hot total is 63 s, below the 150-second promotion threshold.
 
 FASTBUILD1 status:
 PROMOTED
