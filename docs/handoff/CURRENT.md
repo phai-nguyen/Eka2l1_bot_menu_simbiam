@@ -1,14 +1,14 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-21
+Updated: 2026-09-22
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
-Latest immutable functional milestone: B28 WSERVLIBTYPE1
-Latest immutable functional code HEAD: 773752a4475dce019e8ae4342f2ab7d0b2abc060
-Latest development build: B29 CENREPTX1 + DIAG1 — BUILD-VALIDATED
-Latest B29-DIAG1 build-tested project HEAD: f2916297aad315c656c5800f88a7c62d1ce4816a
-Latest device-tested milestone: B28
+Latest immutable functional milestone: B29 CENREPTX1
+Latest immutable functional code HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
+Latest development build: B29 CENREPTX1 + DIAG1 + LOADERDIAG1 — BUILD-VALIDATED
+Latest LOADERDIAG1 build-tested code commit: 9aa612714878541ec4b3f7481516bba00b6d52a4
+Latest device-tested milestone: B29
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -23,83 +23,90 @@ Primary device-test environment:
 
 ## Current baseline
 
-Active development candidate:
+Latest device-validated functional milestone:
 B29 = NATIVEBOOT2-B29-CENREPTX1
 
+Immutable B29 branch:
+nativeboot2-b29-cenreptx1
+
+Immutable B29 functional commit:
+7bceb18a337b0977f0f2f68ea0232748dd848392
+
+Active diagnostic candidate:
+B29-LOADERDIAG1
+
 Status:
-BUILD-VALIDATED, NOT YET DEVICE-VALIDATED
+BUILD-VALIDATED, DEVICE LOG REQUIRED
 
 Active development branch:
 nativeboot2-current
 
-Stable immutable fallback milestone:
-B28 WSERVLIBTYPE1 on nativeboot2-b28-wservlibtype1
-
 FASTBUILD workflow:
 .github/workflows/build-ios-nativeboot2-current-fast.yml
 
-B29 apply script:
-apply_nativeboot2_b29_cenreptx1.py
+LOADERDIAG1 apply script:
+apply_nativeboot2_b29_loaderdiag1.py
 
-B29 contract:
-test_nativeboot2_b29_cenreptx1.py
+LOADERDIAG1 contract:
+test_nativeboot2_b29_loaderdiag1.py
 
-B29 GREEN build run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35623561823
+GREEN run:
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35662229010
 
 Run ID:
-35623561823
+35662229010
 
 Job ID:
-106412254328
+106539879024
 
-Functional B29 build-tested project HEAD:
-7bceb18a337b0977f0f2f68ea0232748dd848392
-
-Latest diagnostic build-tested project HEAD:
-f2916297aad315c656c5800f88a7c62d1ce4816a
+Build-tested code commit:
+9aa612714878541ec4b3f7481516bba00b6d52a4
 
 Unsigned IPA to device-test:
 EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa
 
 IPA SHA-256:
-b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc
+b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c
 
 IPA artifact:
-- ID: 10652337447
-- ZIP digest: sha256:6f0cac8dfd94d4c3079b10bebe7d192dde6651f17d3491ed6017d6122344153a
+- ID: 10668485125
+- ZIP digest: sha256:850219186c73d92e0153c31f7d2b28110cf41eb7dc7e6d9c69f1081431142d1a
 - expires: 2026-10-05
 
 Audit artifact:
-- ID: 10652602353
-- ZIP digest: sha256:90505db5ff05ae1444ad5e7e3edbc72aa17e7284d22e3a108d730edac3cc3b85
+- ID: 10668055503
+- ZIP digest: sha256:5cc3328e8728a5fc064eebbf95cef289eac4c9a8e56874fda9a01878e7ce6b8e
 - expires: 2026-10-05
 
-B29 RED evidence:
-- project HEAD: 14a558b2dba4ad0ae4adcbbb86b367e8d60e0db2
-- run: 35623202762
-- expected failure: missing cen_rep_transaction_commit registration
-- B20-B28 passed before the intended B29 failure
-
-B29 GREEN evidence:
-- B29 apply PASS
-- B29 contract PASS
-- B20-B28 regression chain PASS
-- iOS compile/link PASS
-- binary invariants PASS
-- IPA packaging/upload PASS
+FASTBUILD1 for this build:
+- bootstrap_source=B28_CACHE
+- bootstrap restore: 29 s
+- patch/regression: 2 s
+- CMake build: 71 s
+- package: 2 s
+- total: 137 s
+- sccache: 9/11 hits = 81.82%
+- actual compilations: 2
 - NOJAVA preserved
 - MANIC3 preserved
 
+Post-build verification:
+- B29 CENREPTX1 PASS
+- B29-DIAG1 PASS
+- B29-LOADERDIAG1 PASS
+- B20-B28 regression chain PASS
+- iOS compile/link PASS
+- packaged Mach-O contains all ten LOADERDIAG1 markers
+
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED for B29 device validation and normal B30+ development.
+FASTBUILD1 is PROMOTED for B29 loader diagnostics and normal B30+ development.
 
 Active development branch:
 nativeboot2-current
 
 Latest immutable functional milestone:
-nativeboot2-b28-wservlibtype1
+nativeboot2-b29-cenreptx1
 
 Stable bootstrap:
 - milestone: B28 WSERVLIBTYPE1
@@ -179,7 +186,7 @@ Development rule from now on:
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
 5. Do not return to sibling milestone branches as the primary development/cache path.
 
-FASTBUILD1 does not change guest behavior. B28 remains the latest device-validated immutable milestone. B29 CENREPTX1 is now build-validated on nativeboot2-current and targets the Central Repository/FEP/UIKON blocker; device evidence is still required before promotion to an immutable B29 milestone.
+FASTBUILD1 does not change guest behavior. B29 CENREPTX1 is now the latest device-validated immutable milestone. The active diagnostic target is the later Eiksrv library-load failure exposed after B29's successful FEP transaction.
 
 ## Validated milestones
 
@@ -374,7 +381,13 @@ Therefore the preferred B29 direction is a generic Central Repository transactio
 
 ## B29 — CENREPTX1
 
-BUILD-VALIDATED, NOT YET DEVICE-VALIDATED.
+DEVICE-VALIDATED FOR THE CENTRAL REPOSITORY/FEP BLOCKER.
+
+Functional commit:
+7bceb18a337b0977f0f2f68ea0232748dd848392
+
+Immutable branch:
+nativeboot2-b29-cenreptx1
 
 B29 implements the narrow generic Central Repository compatibility required by the B28 Eiksrv/FEP trace:
 - registers/routes cen_rep_transaction_commit;
@@ -383,72 +396,102 @@ B29 implements the narrow generic Central Repository compatibility required by t
 - makes Set create a missing key with repository default metadata;
 - Commit installs staged changes, persists once, then notifies;
 - Cancel discards staged changes;
-- fixes transaction-mode decoding so active bits do not contaminate the mode;
-- adds [NBOOT2][CEN_TX_START], [NBOOT2][CEN_SET_CREATE], [NBOOT2][CEN_TX_COMMIT], [NBOOT2][CEN_TX_CANCEL].
+- fixes transaction-mode decoding so active bits do not contaminate the mode.
 
 B29 does not hardcode repository 0x10272618 or FEP key values and does not modify SVC 0x2D/0x48/0x4A/0x50.
 
-TDD RED:
-- run 35623202762
-- expected B29 contract failure
-- B20-B28 PASS first
+Device evidence from both B29 and B29-DIAG1:
+- repo 0x10272618 starts transaction mode=2 successfully;
+- all four FEP settings complete without CEN_SET_FAIL;
+- commit reports changed=4, key_info=4, completion=0;
+- no transaction cancel follows that successful transaction;
+- keys created in the earlier B29 run are present in the later DIAG1 run, confirming persistence;
+- B28 Wserv remains healthy: no SVCMISS 0x63, WSERV-INTERNAL 13, or Domino 13.
 
-GREEN:
-- run 35623561823
-- job 106412254328
-- B29 PASS
-- B20-B28 PASS
-- iOS compile/link PASS
-- binary invariants PASS
-- IPA SHA-256 25c6846ced19f435523570c2e586fd18031f4c7f05e94e89a50e8f2bace63b70
+Conclusion:
+the Central Repository/FEP blocker is removed.
 
-Required device decision:
-Use the B29-DIAG1 IPA above. Confirm repo 0x10272618 now shows the detailed transaction path and determine the first divergence before promoting B29 or choosing B30.
+### Failure exposed after B29
 
-### B29-DIAG1 — diagnostics only
+Both device logs then converge on:
+1. FEP transaction commits successfully.
+2. Fepswitch.exe returns KErrNotFound.
+3. Symbian eiksrv.cpp treats Fepswitch KErrNotFound as optional and continues.
+4. Eiksrv attempts RLibrary::Load for its UI-specific DLL.
+5. EKA2L1 library loading returns KErrNotFound.
+6. EikAppUiServerThread leaves -1 and eiksrvs later exits.
 
-BUILD-VALIDATED.
+Symbian source confirms the load follows the FEP/Fepswitch sequence and propagates the RLibrary load error with User::LeaveIfError.
 
-DIAG1 does not alter B29 semantics. It adds:
-- [NBOOT2][CEN_SET_BEGIN]
-- [NBOOT2][CEN_SET_RESULT]
-- [NBOOT2][CEN_SET_FAIL]
-- [NBOOT2][CEN_TX_COMMIT_BEGIN]
-- [NBOOT2][CEN_TX_COMMIT_KEY]
-- [NBOOT2][CEN_TX_COMMIT_RESULT]
-- [NBOOT2][CEN_TX_COMMIT_FAIL]
+### B29-DIAG1 result
 
-Existing CEN_TX_START / CEN_SET_CREATE / CEN_TX_COMMIT / CEN_TX_CANCEL markers remain.
+DEVICE-OBSERVED.
 
-RED:
-- run 35626098291
-- expected failure: CEN_SET_BEGIN absent
-
-First GREEN attempt:
-- run 35626322869
-- patcher stopped before compile because a common Set anchor occurred in int/real/string cases
-- root cause fixed by scoping replacements to each Set case
-
-Final GREEN:
-- run 35626484148
-- job 106421997929
-- project HEAD f2916297aad315c656c5800f88a7c62d1ce4816a
-- B29 + DIAG1 PASS
-- B20-B28 PASS
-- compile/link PASS
-- binary contains all DIAG1 marker strings
-- sccache 8/9 hits (88.89%)
-- total_seconds=142
-- IPA SHA-256 b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc
-
-For repo 0x10272618, inspect:
-CEN_TX_START -> CEN_SET_BEGIN -> CEN_SET_RESULT/CEN_SET_FAIL -> CEN_SET_CREATE when applicable -> CEN_TX_COMMIT_BEGIN -> CEN_TX_COMMIT_KEY -> CEN_TX_COMMIT_RESULT/CEN_TX_COMMIT_FAIL -> CEN_TX_CANCEL if rollback occurs.
-
-Important diagnostic question:
-record existing=0/1 and existing_type/requested_type for the FEP keys. SymbianSource operations.h explicitly permits internal SetSettingL to create a missing setting; higher-level SDK prose also distinguishes public Create(). Do not change B29 semantics again until the device trace shows which path this firmware actually exercises.
+DIAG1 proved:
+- no Set/type/descriptor failure occurs in the FEP transaction;
+- Commit succeeds;
+- the failure is later than CenRep.
 
 Full snapshot:
 docs/handoff/history/B29-DIAG1.md
+
+## B29-LOADERDIAG1 — diagnostics only
+
+BUILD-VALIDATED, DEVICE LOG REQUIRED.
+
+Important source discovery:
+the exact B28 FASTBUILD bootstrap differs from newer upstream EKA2L1. In the cached lib_manager::load(), drive iteration occurs only for non-rooted requests. A rooted path without a drive falls through to a direct io_->exist(lib_path) lookup; there is no A:..Z: fallback branch and no ROFS staging step in this loader path.
+
+LOADERDIAG1 deliberately preserves this behavior and only instruments it.
+
+Markers:
+- [NBOOT2][LDR_LIB_REQUEST]
+- [NBOOT2][LDR_LIB_RESULT]
+- [NBOOT2][LDR_ROOT_BEGIN]
+- [NBOOT2][LDR_ROOT_DIRECT]
+- [NBOOT2][LDR_ROOT_MISS]
+- [NBOOT2][LDR_OPEN_FAIL]
+- [NBOOT2][LDR_FORMAT]
+- [NBOOT2][LDR_PARSE_FAIL]
+- [NBOOT2][LDR_CODESEG_RESULT]
+- [NBOOT2][LDR_DEP_FAIL]
+
+TDD RED:
+- run 35661287453
+- expected failure: LDR_LIB_REQUEST absent
+- B20-B29/DIAG1 passed before the intended failure
+
+Two patcher-only GREEN failures:
+- 35661492473: stale exact load() entry anchor
+- 35661698478: assumed newer upstream format/parse block
+Neither reached compile.
+
+Systematic one-time baseline inspection:
+- run 35661849022
+- restored exact B28 cache
+- proved the actual rooted-path behavior
+- temporary inspection workflow removed after use
+
+Final GREEN:
+- run 35662229010
+- job 106539879024
+- build-tested code commit 9aa612714878541ec4b3f7481516bba00b6d52a4
+- B29 + DIAG1 + LOADERDIAG1 PASS
+- B20-B28 PASS
+- compile/link PASS
+- binary invariants PASS
+- IPA SHA-256 b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c
+
+Device decision matrix:
+- ROOT_DIRECT exists=0 + ROOT_MISS => rooted-no-drive direct VFS lookup is causal.
+- exists=1 + PARSE_FAIL => image parser path is causal.
+- exists=1 + CODESEG_RESULT success=0 + DEP_FAIL => dependency resolution is causal.
+- LIB_RESULT success=1 => failure has moved beyond library loading.
+
+Do not implement newer rooted-path search behavior or patch SVC 0x2D/0x48/0x4A/0x50 until this device trace establishes the causal branch.
+
+Full snapshot:
+docs/handoff/history/B29-LOADERDIAG1.md
 
 ## New missing executive observed after the UI failure
 
@@ -472,7 +515,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B29 is build-validated. Device-test B29 first and use the first new divergence after CEN_TX_START/CEN_SET_CREATE/CEN_TX_COMMIT to choose B30. Do not batch 0x2D, 0x48, 0x4A, or 0x50 without new causal evidence.
+B29 is device-validated. Device-test B29-LOADERDIAG1 and use the first LDR_* failure boundary to decide B30. Do not implement rooted-path fallback or batch SVC 0x2D/0x48/0x4A/0x50 without that causal evidence.
 
 ## Preserved invariants
 
@@ -513,8 +556,9 @@ Do not reintroduce:
 - B26: IOSLIBRARYEXIT1 — device validated
 - B27: WSERVPANIC13TRACE1 — device trace isolated SVC 0x63 -> leave -> WSERV-INTERNAL 13
 - B28: WSERVLIBTYPE1 — device validated; removes missing LibraryType -> WSERV-INTERNAL 13 / Domino 13 blocker
-- B29: CENREPTX1 — build validated on nativeboot2-current; awaiting device validation
-- B29-DIAG1: diagnostic-only logging build validated; use this IPA for the next device test
+- B29: CENREPTX1 — device validated; immutable branch nativeboot2-b29-cenreptx1
+- B29-DIAG1: device-observed; proves CenRep/FEP success and localizes the next failure to library loading
+- B29-LOADERDIAG1: diagnostic-only build validated; use this IPA for the next device test
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -523,11 +567,12 @@ Snapshots:
 - docs/handoff/history/B28-WSERVLIBTYPE1.md
 - docs/handoff/history/B29-CENREPTX1.md
 - docs/handoff/history/B29-DIAG1.md
+- docs/handoff/history/B29-LOADERDIAG1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B28 is the latest device-validated immutable milestone. B29 CENREPTX1 plus B29-DIAG1 is build-validated at project HEAD f2916297aad315c656c5800f88a7c62d1ce4816a, run 35626484148. Device-test IPA SHA b61edcd7721de3298818bd483debd8f186f6eb796aac57e4956e458f6f5996dc and analyze repo 0x10272618 using CEN_TX_START, CEN_SET_BEGIN/RESULT/FAIL, CEN_SET_CREATE, CEN_TX_COMMIT_BEGIN/KEY/RESULT/FAIL, CEN_TX_CANCEL, eiksrvs Leave -1, AknCapServer progress, and preserved B28 Wserv markers before deciding B30."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 is the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392 on branch nativeboot2-b29-cenreptx1. B29-LOADERDIAG1 is build-validated at code commit 9aa612714878541ec4b3f7481516bba00b6d52a4, run 35662229010, IPA SHA b748c0e009721b37f24e89003fc1a2a0a8e64e158379a633ece78b0e94576d7c. Device-test that IPA and analyze LDR_LIB_REQUEST/RESULT, LDR_ROOT_BEGIN/DIRECT/MISS, LDR_OPEN_FAIL, LDR_FORMAT/PARSE_FAIL, LDR_CODESEG_RESULT and LDR_DEP_FAIL around the first eiksrvs UI-library load before deciding B30. Do not patch rooted-path fallback or SVC 0x2D/0x48/0x4A/0x50 without the new causal ordering."
 
 This file is authoritative unless newer committed device evidence supersedes it.
