@@ -2,7 +2,7 @@
 
 Updated: 2026-09-22
 
-Status: BUILD-VALIDATED; DEVICE TEST REQUIRED.
+Status: DEVICE-OBSERVED; signal deferral works, causal failure remains.
 
 ## Baseline
 
@@ -113,3 +113,28 @@ The same guest PC/LR and ws32 ordinal-206 path recur. This materially reduces th
 
 Snapshot:
 - docs/handoff/history/B36-DEVICE2-IP8PLUS-IOS15.md
+
+
+## Device result — B37
+
+B37 works exactly as designed at the IPC signaling boundary:
+- WSERV_BATCH_DEFER_BEGIN = 604
+- WSERV_BATCH_SIGNAL = 604
+- SetNonFading signaled_before=0 on 17/17 calls
+- SetNonFading signaled_after=0 on 17/17 calls
+- the batch then signals once with signaled_after=1
+
+However the causal failure is unchanged:
+- EikAppUiServerThread Leave(-3) = 16
+- EIKFAULT_AV = 16
+- KERN-EXEC 3 = 16
+- invalid WindowServer handle reports = 58
+
+The first Leave occurs before the later batch that actually dispatches opcode 0x5D SetNonFading. Symbian source also shows SetNonFading only writes opcode/data into the WindowServer client buffer. Therefore the ws32 SetNonFading frame is a localization clue, not the immediate server-side KErrCancel origin.
+
+B37 is not promoted as a causal/device-validated functional milestone.
+
+Preferred B38: diagnostic-only trace of the command/result immediately preceding Leave(-3), plus exact euser PC/LR export/code resolution.
+
+Snapshot:
+- docs/handoff/history/B37-DEVICE1.md
