@@ -5,6 +5,7 @@ apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
 apply_nativeboot2_b30_rootedlibpath1.py|test_nativeboot2_b30_rootedlibpath1.py
 apply_nativeboot2_b31_schedreadymm1.py|test_nativeboot2_b31_schedreadymm1.py
+apply_nativeboot2_b32_eiksrvfaultdiag1.py|test_nativeboot2_b32_eiksrvfaultdiag1.py
 
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
