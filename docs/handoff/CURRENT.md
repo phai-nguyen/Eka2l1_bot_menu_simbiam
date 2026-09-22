@@ -1098,3 +1098,80 @@ Snapshot:
 - docs/handoff/history/B38-DEVICE1.md
 
 Do not implement a behavioral B39 fix until B39 diagnostic evidence resolves the post-Leave AV and AvkonFep null state.
+
+
+## Latest override — B39 EIKPOSTLEAVEAV1
+
+This section supersedes the B38 DEVICE1 resume target above.
+
+B39 EIKPOSTLEAVEAV1 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**. It is diagnostic-only.
+
+B38 established that CreateWindow succeeds, stock AvkonFep intentionally raises KErrCancel because a nested state field is null, the Leave is caught successfully, and the fatal boundary moves to a later euser null write at address 0x10.
+
+B39 adds two read-only evidence channels.
+
+At the KErrCancel boundary:
+- `[NBOOT2][EIKFEP_STATE]`
+- uses the B38-proven User::Leave frame layout: saved caller r4 at SP+8, saved caller LR at SP+12;
+- mapping-checks and logs caller_r4 -> [r4+0x10] -> [[r4+0x10]+0x24].
+
+At the later access violation:
+- `[NBOOT2][EIKPOSTLEAVE_AV_FRAME]`
+- `[NBOOT2][EIKPOSTLEAVE_AV_CODE16]`
+- `[NBOOT2][EIKPOSTLEAVE_AV_STACK]`
+- resolves PC/LR against loaded codesegs, reports nearest export ordinal/address/delta, dumps bounded code windows and up to 24 stack words.
+
+TDD:
+- canonical RED commit `f382cd9cdd3f39d9f41ec46a714c830897e0739f`
+- RED run 35747370629 / job 106812318986
+- expected failure: missing `[NBOOT2][EIKFEP_STATE]`
+- canonical GREEN code HEAD `7f845581ba32dd59fc5229ee24fa5979ef7cc81e`
+- GREEN run 35748481719 / job 106816104243
+- workflow conclusion: success
+- apply/tests/regressions/compile/link/binary invariants/package/upload: PASS
+- compilation failures: 0
+- NOJAVA / MANIC3 preserved
+
+IPA:
+- artifact ID 10703293386
+- artifact ZIP digest `sha256:d87cccf761bb2fcf9f6faebf25f5c852cbb060fd10abbb659aa1421e4b02ab46`
+- unsigned IPA SHA-256 `94322fffc3f90e367e32081c2e52cdbdcfec32f47a8fff797447b4e897a85509`
+- size 19,950,168 bytes
+
+FASTBUILD audit:
+- B28_CACHE
+- bootstrap 35 s
+- patch/regression 2 s
+- CMake build 74 s
+- package 3 s
+- total 139 s
+- sccache hit rate 99.33%
+
+Preserve:
+- stock Nokia avkonfep.dll
+- firmware SYSSTART ownership
+- native fbserv
+- B26/B34 Exit Emulator choreography
+- B36 implicit WindowServer handle carry
+- B37 batch signal deferral
+- Leave/TRAP semantics and KErrCancel
+- EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill / 0xDF leave_start / 0xE0 leave_end
+- NOJAVA / MANIC3
+
+Public/Exa research did not provide an exact Nokia 5800 euser symbol map reliable enough to name +0xAD7C / +0xD9AD, so B39 runtime resolution is intentionally used instead of offset guessing.
+
+### Resume from here
+
+Sign/install B39 and boot the same Nokia 5800 path. Allow the repeated eiksrvs failure path to occur, then use **Thoát Emulator** normally. Do not manually swipe the app away unless it actually hangs.
+
+Collect:
+- EKA2L1.log
+- EKA2L1_Persistent.log
+- EKA2L1_TakeThis.log
+
+First analysis must correlate `EIKFEP_STATE` across all Leave(-3) cycles and resolve the later `EIKPOSTLEAVE_AV_FRAME/CODE16/STACK` evidence. Determine whether the post-catch AV is fallout from the same missing AvkonFep state or a separate compatibility defect.
+
+Do not implement behavioral B40 until B39 device evidence identifies the missing state/function.
+
+Snapshot:
+- `docs/handoff/history/B39-EIKPOSTLEAVEAV1.md`
