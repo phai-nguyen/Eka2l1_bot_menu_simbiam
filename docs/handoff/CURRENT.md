@@ -3,7 +3,7 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: b43e59696d313da97c8845a1a20e78d9b6c762d7
+Latest FASTBUILD1 CI implementation commit: c57838dbbe9f8b0d66fe5c5b79505eafa7b10da3
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
@@ -11,6 +11,7 @@ Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
+B42 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — diagnostic-only SAServer 0x2000000A HWRM ABI probe
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1507,3 +1508,107 @@ EPOC94 mappings, NOJAVA and MANIC3.
 
 Full device snapshot:
 - `docs/handoff/history/B41-DEVICE1.md`
+
+
+## Latest override — B42 SAHWRMABI1
+
+B41 remains the latest **DEVICE-VALIDATED immutable functional milestone**.
+
+B42 SAHWRMABI1 is now **BUILD-VALIDATED; DEVICE TEST REQUIRED** and is
+diagnostic-only.
+
+B41 device evidence exposed the next earlier startup boundary:
+
+- HWRMServer loads Nokia `lightsadaptation.dll`;
+- SAServer receives raw function `0x2000000A`;
+- the old generic dispatcher logs it as unimplemented and leaves the request
+  outstanding;
+- about 30 seconds later SYSSTART begins HWRM failure recovery.
+
+Targeted Exa research did not locate a reliable public Nokia/Symbian definition
+of the proprietary response ABI for raw function `0x2000000A`. B42 therefore
+does not synthesize a response.
+
+B42 registers only the exact raw function and emits:
+
+- `[NBOOT2][SA_HWRM_ABI]`
+
+The marker captures raw/logical/transport function fields, IPC flag, caller
+process/thread/session, all four raw arguments, argument types, descriptor
+sizes/maxima, descriptor presence and up to 32 bytes per descriptor.
+
+Diagnostic semantic guard:
+
+- no descriptor writes;
+- no descriptor resize;
+- no `ctx.complete(...)`;
+- no B15 pending-event completion;
+- returns with the request still outstanding, preserving the historical
+  unknown-IPC behavior.
+
+TDD/build:
+
+- RED test-file commit: `b7ac73c07cacb7ba70c17394f936a37c48af733d`
+- RED manifest commit: `51eda041a207e9fb7216ffafe412921da545a700`
+- RED run/job: `35798200345 / 106982294325`
+- expected RED: missing `[NBOOT2][SA_HWRM_ABI]`
+- B29-B41 apply/tests before RED: PASS
+- B20-B28 regressions before RED: PASS
+- B42 code HEAD: `c57838dbbe9f8b0d66fe5c5b79505eafa7b10da3`
+- GREEN run/job: `35798478420 / 106983166866`
+- manifest validation: PASS
+- B29-B42 apply/tests: PASS
+- regressions: PASS
+- iOS compile/link: PASS
+- Mach-O B42 invariant: PASS
+- IPA package/upload: PASS
+- compile requests 149 / hits 148 / misses 1 / failures 0
+- NOJAVA / MANIC3 preserved
+
+Unsigned IPA SHA-256:
+
+`d75133e979e6bbea0ed28dbbb9c4b94f246f7ce8afbb991c2333d8349e7d74c7`
+
+IPA artifact:
+
+- ID: `10724414948`
+- ZIP digest:
+  `sha256:f111831f2719446addd6fc844f83362d2801b5faac5eecaf1059ba36f45da736`
+- expires: 2026-10-06
+
+Audit artifact:
+
+- ID: `10724499913`
+- digest:
+  `sha256:1d165a183533dca7d95f361a8ba790e6f7282330ccdbe7484af79b2725f88366`
+
+Preserve B40 Loader PDD, B41 MessageWin wipeout guard, B34 exit choreography,
+B36 handle carry, B37 batch deferral, stock AvkonFep, firmware SYSSTART
+ownership, Leave/TRAP semantics, EPOC94 mappings, NOJAVA and MANIC3.
+
+### Resume from here
+
+Sign/install B42 and boot the same Nokia 5800 RM-356 path. B42 is not expected
+to fix HWRM; the approximately 30-second HWRM timeout may remain by design.
+
+Collect:
+
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+
+First checks:
+
+1. `[NBOOT2][SA_HWRM_ABI]` appears for raw `0x2000000A`.
+2. Caller process/thread/session identifies the HWRM/light-adaptation path.
+3. Slot types/sizes/maxima and descriptor previews reveal the real request ABI.
+4. The old generic `Unimplemented IPC call: 0x2000000a for server: SAServer`
+   is replaced by the B42 marker.
+5. B40 `EUART1 result=0` remains intact.
+6. B41 Exit Emulator remains healthy.
+
+Use B42 device evidence to decide whether B43 can implement a narrow response.
+Do not promote B42 to an immutable functional milestone.
+
+Full snapshot:
+- `docs/handoff/history/B42-SAHWRMABI1.md`
