@@ -1192,8 +1192,59 @@ Rules:
 
 Current persistence checkpoint:
 - active branch: `nativeboot2-current`
-- active build: B39 EIKPOSTLEAVEAV1
-- status: BUILD-VALIDATED; DEVICE TEST REQUIRED
-- GREEN HEAD: `7f845581ba32dd59fc5229ee24fa5979ef7cc81e`
-- GREEN run/job: `35748481719 / 106816104243`
-- next gate: analyze B39 device logs before any behavioral B40.
+- latest device-observed build: B39 EIKPOSTLEAVEAV1
+- status: DEVICE-OBSERVED; ROOT CAUSE IDENTIFIED
+- B39 GREEN HEAD: `7f845581ba32dd59fc5229ee24fa5979ef7cc81e`
+- B39 GREEN run/job: `35748481719 / 106816104243`
+- device snapshot: `docs/handoff/history/B39-DEVICE1.md`
+- preferred next candidate: B40 LOADERPDD1, narrowly port upstream Loader::LoadPhysicalDevice behavior from `0987745cc0bde96511fce2a4bfefcfd8fbced3dc`
+- next gate: TDD/implement B40 without changing generic unknown-IPC, FEP/Leave, WindowServer, scheduler, SVC mappings, or iOS shutdown behavior.
+
+
+## Latest override — B39 DEVICE1
+
+This section supersedes the earlier B39 device-test-required target.
+
+B39 EIKPOSTLEAVEAV1 is now **DEVICE-OBSERVED; ROOT CAUSE IDENTIFIED**.
+
+B39 diagnostic evidence resolves the repeated post-Leave euser write AV:
+- PC `euser.dll +0xAD7C`, nearest export ordinal 1290 = `CServer2::DoConnect(RMessage2 const&)`;
+- the faulting instruction is `STR r4,[r0,#0x10]` with `r0=0`;
+- SymbianSource `CServer2::DoConnectL` calls `NewSessionL()` and then dereferences the returned session;
+- `CEikServAppUiServer::NewSessionL()` returns NULL only when `EikServAppUiSessionFactory()` is absent.
+
+The first canonical eiksrvs instance exposes the earlier causal boundary:
+- EiksrvUi.dll loads;
+- ViewServer starts and parent continues;
+- `c32root.dll` loads;
+- immediately afterward B39 logs `Unimplemented IPC call: 0x4 for server: !Loader`;
+- that first eiksrvs instance never completes System GUI construction / session-factory installation.
+
+Symbian `CEikServAppUiBase::InitializeL()` proves the exact next call after `StartC32()` is `User::LoadPhysicalDevice("EUART1")`. EKA2L1 loader opcode 4 is `ELoadPhysicalDevice`.
+
+B39's old B28-cache dispatcher logs unknown IPC at warning level and drops the message without completion. Upstream EKA2L1 commit `9f28c76fe0f54f43a39319da5f4042c853505807` documents and fixes that generic historical behavior. The more specific upstream commit `0987745cc0bde96511fce2a4bfefcfd8fbced3dc` adds `Loader::LoadPhysicalDevice`, registers opcode 4, and completes it with `KErrNone` because the physical device is represented by HLE.
+
+Root-cause chain:
+
+`StartC32 -> LoadPhysicalDevice(EUART1) -> !Loader opcode 4 missing -> synchronous IPC dropped -> canonical eiksrvs stalls before SetEikServAppUiSessionFactory -> later/duplicate eiksrvs has factory NULL -> NewSessionL returns NULL -> CServer2::DoConnectL NULL dereference -> KERN-EXEC 3`.
+
+The stable AvkonFep nested NULL / Leave(-3) state is therefore downstream of an already incomplete System GUI startup and is not selected as the first behavioral target.
+
+Preferred next candidate:
+**B40 LOADERPDD1**.
+
+B40 must be narrow:
+- port only upstream `Loader::LoadPhysicalDevice` behavior from `0987745cc0bde96511fce2a4bfefcfd8fbced3dc`;
+- register `ELoadPhysicalDevice` / opcode 4;
+- validate the PDD descriptor;
+- return `KErrNone` for the HLE-backed PDD;
+- add a narrow runtime marker proving `EUART1` entry/completion.
+
+Do not bundle the generic unknown-IPC completion change from `9f28c76f` into B40. Do not alter stock AvkonFep, Leave/TRAP/KErrCancel, CServer2 NULL handling, Eik session-factory behavior, WindowServer, scheduler, SVC mappings, B36/B37 semantics, loader library resolution, or B34 Exit Emulator choreography.
+
+B39 host/iOS result remains healthy: Exit Emulator reaches `os_join_done`, `shutdown_done`, and `normal_restart_done has_device=1`; no iOS-specific root cause is selected.
+
+Full device/root-cause snapshot:
+- `docs/handoff/history/B39-DEVICE1.md`
+
+No B40 behavioral code was applied while producing this snapshot.
