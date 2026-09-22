@@ -6,8 +6,8 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B31 SCHEDREADYMM1
 Latest immutable functional code HEAD: 6ccdd5c1b9101124981315322af5002dac057edc
-Latest development state: B31 SCHEDREADYMM1 — DEVICE-VALIDATED FOR HOST SCHEDULER CRASH
-Latest B31 build/device-tested code commit: 6ccdd5c1b9101124981315322af5002dac057edc
+Latest development build: B32 EIKSRVFAULTDIAG1 — BUILD-VALIDATED, DEVICE TEST REQUIRED
+Latest B32 build-tested code commit: ca849738f8c1dd16949e687982904963c4bd8f6d
 Latest device-tested milestone: B31
 FASTBUILD1 status: PROMOTED
 
@@ -35,11 +35,11 @@ Immutable B31 functional commit:
 Previous immutable milestone:
 B30 ROOTEDLIBPATH1 at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
 
-Active investigation candidate:
-B32 EIKSRVFAULTDIAG1 — DIAGNOSTICS ONLY, NOT IMPLEMENTED
+Active diagnostic candidate:
+B32 EIKSRVFAULTDIAG1
 
 Status:
-B31 DEVICE-VALIDATED; NEW GUEST EIKSRV FAULT BOUNDARY LOCALIZED
+BUILD-VALIDATED, DEVICE TEST REQUIRED
 
 Active development branch:
 nativeboot2-current
@@ -47,57 +47,107 @@ nativeboot2-current
 FASTBUILD workflow:
 .github/workflows/build-ios-nativeboot2-current-fast.yml
 
-B31 apply script:
-apply_nativeboot2_b31_schedreadymm1.py
+B32 apply script:
+apply_nativeboot2_b32_eiksrvfaultdiag1.py
 
-B31 contract:
-test_nativeboot2_b31_schedreadymm1.py
+B32 contract:
+test_nativeboot2_b32_eiksrvfaultdiag1.py
 
-Authoritative B31 GREEN run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35679378076
+Authoritative B32 GREEN run:
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35681361472
 
 Run ID:
-35679378076
+35681361472
 
 Job ID:
-106592773474
+106598810379
 
-Build/device-tested code commit:
-6ccdd5c1b9101124981315322af5002dac057edc
+Build-tested code commit:
+ca849738f8c1dd16949e687982904963c4bd8f6d
 
-B31 IPA SHA-256:
-adff1b39cf24ebf05abd2a3a01d01f14e68fc60106a79deab2e960574b4f5063
+B32 IPA SHA-256:
+9ef6e0f9b421cb20ed08c1ad03b1ebbe1c9274ba73b11a7977e78131a796e593
 
-B31 device evidence:
-- B30 EiksrvUi rooted path still resolves successfully from Z:\sys\bin.
-- akncapserver still reaches the B30 Domino -33 teardown boundary.
-- [NBOOT2][SCHED_STALE_READY_DROP] fires exactly once for akncapserver with owner_present=true and mem_model_present=false.
-- the B30 native switch_context EXC_BAD_ACCESS does not recur.
-- the native-phone session continues for more than 100 seconds after the marker.
-- user exit follows the B26 clean bridge sequence through shutdown_done -> normal_restart_begin.
-- after the marker, 16 eiksrvs processes are spawned and 16 EikAppUiServerThread instances terminate KERN-EXEC 3.
-- first fault family: 11 writes to 0x10 at euser.dll +0xAD7C.
-- second fault family: 5 reads from 0x4 at cone.dll +0x13CE.
-- SVCMISS 0xE3 and 0x2D remain observed but are not yet proven causal.
+IPA artifact:
+- ID: 10675243561
+- size: 19,878,553 bytes
+- ZIP digest: sha256:e9f66f94d4f2d4258c4b4d9c0c748a43df5d199b050cb9f7871f58e55916e8e1
+- expires: 2026-10-06
 
-Full B31 build snapshot:
-docs/handoff/history/B31-SCHEDREADYMM1.md
+Audit artifact:
+- ID: 10674879017
+- ZIP digest: sha256:da4633ec8c258d32d51cb678c7913b19af194062a25340de4948159a27f3a999
+- expires: 2026-10-06
+
+FASTBUILD1:
+- bootstrap_source=B28_CACHE
+- bootstrap restore: 40 s
+- patch/regression: 1 s
+- CMake build: 35 s
+- package: 2 s
+- total: 107 s
+- sccache: 13/14 hits = 92.86%
+- actual compilations: 1
+- compilation failures: 0
+- NOJAVA preserved
+- MANIC3 preserved
+
+Post-build verification:
+- B29 CENREPTX1 PASS
+- B29-DIAG1 PASS
+- B29-LOADERDIAG1 PASS
+- B30 ROOTEDLIBPATH1 PASS
+- B31 SCHEDREADYMM1 PASS
+- B32 EIKSRVFAULTDIAG1 PASS
+- B20-B28 regression chain PASS
+- iOS compile/link PASS
+- packaged Mach-O contains [NBOOT2][EIKFAULT_SVCMISS]
+- packaged Mach-O contains [NBOOT2][EIKFAULT_LEAVE]
+- packaged Mach-O contains [NBOOT2][EIKFAULT_AV]
+- package/upload PASS
+
+TDD RED:
+- run 35681056539
+- job 106597890491
+- B29/B30/B31 reconstruction PASS
+- expected failure: missing [NBOOT2][EIKFAULT_SVCMISS] on the B31 baseline
+- temporary RED workflow removed after proof
+
+B32 is diagnostic-only:
+- missing-SVC path logs process/thread + CPU context but keeps existing return-false behavior;
+- Leave -3 logs trap/frames/stack but preserves leave depth and trap semantics;
+- guest access violation logs process/thread + CPU context but preserves KERN-EXEC behavior;
+- no SVC 0x2D implementation;
+- no SVC 0xE3 remap/implementation;
+- no GetModuleNameFromAddress backport;
+- no exception suppression.
+
+B31 device evidence remains authoritative:
+- B30 EiksrvUi rooted load succeeds;
+- [NBOOT2][SCHED_STALE_READY_DROP] fires once for stale akncapserver;
+- old native switch_context EXC_BAD_ACCESS does not recur;
+- after that marker, 16 eiksrvs spawns pair with 16 EikAppUiServerThread KERN-EXEC 3 faults;
+- fault family 1: 11 writes to 0x10 at euser.dll +0xAD7C;
+- fault family 2: 5 reads from 0x4 at cone.dll +0x13CE.
 
 Full B31 device snapshot:
 docs/handoff/history/B31-DEVICE1.md
 
-Next rule:
-Do not make SVC 0xE3 or 0x2D the next functional patch solely from presence in the trace. First use B32 EIKSRVFAULTDIAG1 to correlate the repeated EikAppUiServerThread faults with immediately preceding process/thread executive or IPC context. Executive numbering for GetModuleNameFromAddress differs across upstream Symbian version tables, so reconcile the exact EPOC 9.4 project table before any backport.
+Full B32 build snapshot:
+docs/handoff/history/B32-EIKSRVFAULTDIAG1.md
+
+Device-test rule:
+Run B32 long enough to capture several EikAppUiServerThread fault cycles, then exit through B26 and analyze EIKFAULT_AV together with the immediately preceding EIKFAULT_LEAVE / EIKFAULT_LEAVE_FRAME / EIKFAULT_LEAVE_STACK and EIKFAULT_SVCMISS markers from the same process/thread. Only that correlation may select the next functional fix.
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 is now the latest device-validated immutable milestone. The post-B30 host scheduler crash is removed. The active boundary is repeated guest EikAppUiServerThread KERN-EXEC 3, and B32 should be diagnostic-only until its immediate cause is correlated.
+FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 EIKSRVFAULTDIAG1 is the build-validated diagnostic device-test candidate for the repeated guest EikAppUiServerThread KERN-EXEC 3 boundary.
 
 Active development branch:
 nativeboot2-current
 
 Latest immutable functional milestone:
-nativeboot2-b30-rootedlibpath1
+nativeboot2-b31-schedreadymm1
 
 Stable bootstrap:
 - milestone: B28 WSERVLIBTYPE1
@@ -519,7 +569,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B31 SCHEDREADYMM1 is device-validated for the B30 host scheduler crash. The next high-signal boundary is repeated EikAppUiServerThread KERN-EXEC 3: 16 eiksrvs spawns after the B31 marker correlate with 16 guest access violations. Do not select SVC 0xE3 or 0x2D as a functional fix yet. Preferred B32 is EIKSRVFAULTDIAG1, diagnostics only, to record enough process/thread/executive/IPC context immediately before each access violation to establish the causal guest operation. Preserve all B20-B31 behavior.
+B32 EIKSRVFAULTDIAG1 is build-validated and must be device-tested before any new functional compatibility patch. For each EikAppUiServerThread [NBOOT2][EIKFAULT_AV], correlate the immediately preceding [NBOOT2][EIKFAULT_LEAVE] / frame / stack markers and nearby [NBOOT2][EIKFAULT_SVCMISS] records from the same process/thread. Do not implement SVC 0x2D or 0xE3 merely because they appear in the global trace. Preserve all B20-B31 functional behavior; B32 itself is diagnostics only.
 
 
 
@@ -610,6 +660,7 @@ Do not reintroduce:
 - B29-LOADERDIAG1: device-observed; proves rooted-no-drive direct VFS miss is causal and selects B30 ROOTEDLIBPATH1
 - B30: ROOTEDLIBPATH1 — device validated for loader blocker at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; immutable branch nativeboot2-b30-rootedlibpath1; later host scheduler crash exposed
 - B31: SCHEDREADYMM1 — device validated for the B30 host scheduler crash at 6ccdd5c1b9101124981315322af5002dac057edc; immutable branch nativeboot2-b31-schedreadymm1; next boundary is repeated EikAppUiServerThread KERN-EXEC 3
+- B32: EIKSRVFAULTDIAG1 — diagnostic-only build validated at ca849738f8c1dd16949e687982904963c4bd8f6d; device trace pending
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -623,11 +674,12 @@ Snapshots:
 - docs/handoff/history/B30-DEVICE1.md
 - docs/handoff/history/B31-SCHEDREADYMM1.md
 - docs/handoff/history/B31-DEVICE1.md
+- docs/handoff/history/B32-EIKSRVFAULTDIAG1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B31 SCHEDREADYMM1 is the latest device-validated immutable milestone at commit 6ccdd5c1b9101124981315322af5002dac057edc and branch nativeboot2-b31-schedreadymm1. B31 keeps B30 EiksrvUi rooted loading healthy and catches exactly one stale akncapserver ready entry with [NBOOT2][SCHED_STALE_READY_DROP] owner_present=true mem_model_present=false. The old native thread_scheduler::switch_context EXC_BAD_ACCESS no longer recurs; the session survives more than 100 seconds after the marker and exits cleanly through B26. The new repeated guest boundary is 16 eiksrvs spawns after the marker paired with 16 EikAppUiServerThread KERN-EXEC 3 access violations: 11 writes to 0x10 at euser.dll +0xAD7C and 5 reads from 0x4 at cone.dll +0x13CE. SVCMISS 0xE3 and 0x2D remain observed but not proven causal. Preferred next milestone is B32 EIKSRVFAULTDIAG1 diagnostics only; correlate process/thread executive or IPC context immediately before the EikAppUiServerThread fault before implementing another compatibility fix. Preserve B20-B31, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B31 SCHEDREADYMM1 is the latest device-validated immutable functional milestone at commit 6ccdd5c1b9101124981315322af5002dac057edc and branch nativeboot2-b31-schedreadymm1. B31 keeps B30 EiksrvUi rooted loading healthy, catches exactly one stale akncapserver ready entry, and removes the old native thread_scheduler::switch_context EXC_BAD_ACCESS. The next repeated guest boundary is 16 eiksrvs/EikAppUiServerThread KERN-EXEC 3 faults. B32 EIKSRVFAULTDIAG1 is a diagnostic-only build validated at commit ca849738f8c1dd16949e687982904963c4bd8f6d, run 35681361472, job 106598810379, IPA SHA 9ef6e0f9b421cb20ed08c1ad03b1ebbe1c9274ba73b11a7977e78131a796e593, artifact 10675243561. B32 adds [NBOOT2][EIKFAULT_SVCMISS], [NBOOT2][EIKFAULT_LEAVE]/FRAME/STACK and [NBOOT2][EIKFAULT_AV] without changing SVC, leave, or exception behavior. Device-test B32 and correlate each EikAppUiServerThread AV with the immediately preceding same-process/thread leave and SVC markers. Do not implement SVC 0x2D or 0xE3 until that trace proves causality. Preserve B20-B31, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
 
 This file is authoritative unless newer committed device evidence supersedes it.
