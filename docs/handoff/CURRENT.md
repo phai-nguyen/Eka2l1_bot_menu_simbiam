@@ -1007,3 +1007,42 @@ Snapshot:
 - docs/handoff/history/B37-DEVICE1.md
 
 Do not implement a behavioral B38 fix until the new diagnostic identifies the real KErrCancel origin.
+
+
+## Latest override — B38 EIKCANCELTRACE2
+
+This section supersedes the B37 resume target above.
+
+B37 is DEVICE-OBSERVED: request-signal deferral works exactly as designed but does not remove the 16 repeated EikAppUiServerThread Leave(-3) failures. Ordering proves SetNonFading dispatch occurs after the Leave boundary and is no longer treated as the immediate causal handler.
+
+B38 EIKCANCELTRACE2 is now BUILD-VALIDATED and awaiting device logs.
+
+TDD:
+- RED commit 02773c6cae716fa10959182e721e1c5b1b8558e4
+- RED run 35742603226 / job 106795931691
+- intended missing B38 diagnostic-state failure
+- GREEN code commit 3c2e02ad7dbc29db244973db761f28810afe8e99
+- GREEN run 35743121880 / job 106797710973
+- apply/regression/compile/binary/package/upload PASS
+- compilation failures 0
+- NOJAVA / MANIC3 preserved
+
+B38 adds diagnostic-only:
+- [NBOOT2][WSERV_BATCH_CMD]
+- [NBOOT2][WSERV_BATCH_RESULT]
+- [NBOOT2][EIKDIRECT_FRAME]
+- [NBOOT2][EIKDIRECT_CODE16]
+- diagnostic mirror nboot2_b38_last_completion_result
+
+B38 does not change WindowServer dispatch, completion values, B37 signaling timing, FEP, Leave/trap, SVCs, scheduler, loader, or B34 exit behavior.
+
+IPA SHA-256:
+20da39a745f1fab9f0dc8519ff8177c7deda20dd86e8b1432a4b5ceb28a27d93
+
+Artifact ID:
+10699954176
+
+Next action: device-test B38 and send EKA2L1.log, EKA2L1_Persistent.log, and EKA2L1_TakeThis.log. Correlate the batch immediately preceding Leave(-3), then resolve direct euser PC/LR before choosing any B39 behavioral change.
+
+Snapshot:
+- docs/handoff/history/B38-EIKCANCELTRACE2.md
