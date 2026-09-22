@@ -6,9 +6,9 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B31 SCHEDREADYMM1
 Latest immutable functional code HEAD: 6ccdd5c1b9101124981315322af5002dac057edc
-Latest development build: B32 EIKSRVFAULTDIAG1 — BUILD-VALIDATED, DEVICE TEST REQUIRED
-Latest B32 build-tested code commit: ca849738f8c1dd16949e687982904963c4bd8f6d
-Latest device-tested milestone: B31
+Latest development build: B33 EIKCANCELORIGIN1 — BUILD-VALIDATED, DEVICE TEST REQUIRED
+Latest B33 build-tested code commit: 4db183b7a8f522f93057bfae22933f19c770156b
+Latest device-tested milestone: B32 diagnostics / B31 functional
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -32,11 +32,23 @@ nativeboot2-b31-schedreadymm1
 Immutable B31 functional commit:
 6ccdd5c1b9101124981315322af5002dac057edc
 
-Previous immutable milestone:
-B30 ROOTEDLIBPATH1 at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
+Latest device-observed diagnostic milestone:
+B32 = EIKSRVFAULTDIAG1
+
+B32 device result:
+- B30 rooted EiksrvUi load remains healthy;
+- B31 stale-ready scheduler guard remains healthy;
+- no native host switch_context crash;
+- all 16 EikAppUiServerThread Leave(-3) events share the same AknFep stack signature;
+- first repeated causal family is AknFep -> User::Leave(KErrCancel) -> euser null write at 0x10 -> KERN-EXEC 3;
+- SVC 0xE3 is owned by SYSSTART, not eiksrvs;
+- the one eiksrvs SVC 0x2D occurs ~32 seconds before the first access violation and is not selected as causal.
+
+Full B32 device snapshot:
+docs/handoff/history/B32-DEVICE1.md
 
 Active diagnostic candidate:
-B32 EIKSRVFAULTDIAG1
+B33 EIKCANCELORIGIN1
 
 Status:
 BUILD-VALIDATED, DEVICE TEST REQUIRED
@@ -47,101 +59,85 @@ nativeboot2-current
 FASTBUILD workflow:
 .github/workflows/build-ios-nativeboot2-current-fast.yml
 
-B32 apply script:
-apply_nativeboot2_b32_eiksrvfaultdiag1.py
+B33 apply script:
+apply_nativeboot2_b33_eikcancelorigin1.py
 
-B32 contract:
-test_nativeboot2_b32_eiksrvfaultdiag1.py
+B33 contract:
+test_nativeboot2_b33_eikcancelorigin1.py
 
-Authoritative B32 GREEN run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35681361472
+Authoritative B33 GREEN run:
+https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35684075913
 
 Run ID:
-35681361472
+35684075913
 
 Job ID:
-106598810379
+106607071205
 
 Build-tested code commit:
-ca849738f8c1dd16949e687982904963c4bd8f6d
+4db183b7a8f522f93057bfae22933f19c770156b
 
-B32 IPA SHA-256:
-9ef6e0f9b421cb20ed08c1ad03b1ebbe1c9274ba73b11a7977e78131a796e593
+B33 IPA SHA-256:
+c8dd7468aa1d843bbe43cc0cd9f1965e82a15227faf98ca336a85e3d50ada2c8
 
 IPA artifact:
-- ID: 10675243561
-- size: 19,878,553 bytes
-- ZIP digest: sha256:e9f66f94d4f2d4258c4b4d9c0c748a43df5d199b050cb9f7871f58e55916e8e1
+- ID: 10675733488
+- ZIP digest: sha256:89dca7b9d1a1ef2935ef4c5dae5e81e8b4ceb5806b0c4ab71aec798c4ee0535a
 - expires: 2026-10-06
 
 Audit artifact:
-- ID: 10674879017
-- ZIP digest: sha256:da4633ec8c258d32d51cb678c7913b19af194062a25340de4948159a27f3a999
+- ID: 10675908156
+- ZIP digest: sha256:4b0597d5d250dee67b2369f2a4a3d6215b42fad46c0cf6de6224e3767ca46111
 - expires: 2026-10-06
 
 FASTBUILD1:
 - bootstrap_source=B28_CACHE
-- bootstrap restore: 40 s
+- bootstrap restore: 37 s
 - patch/regression: 1 s
-- CMake build: 35 s
-- package: 2 s
-- total: 107 s
-- sccache: 13/14 hits = 92.86%
-- actual compilations: 1
+- CMake build: 51 s
+- package: 3 s
+- total: 119 s
+- sccache: 13/16 hits = 81.25%
+- actual compilations: 3
 - compilation failures: 0
 - NOJAVA preserved
 - MANIC3 preserved
 
 Post-build verification:
-- B29 CENREPTX1 PASS
-- B29-DIAG1 PASS
-- B29-LOADERDIAG1 PASS
-- B30 ROOTEDLIBPATH1 PASS
-- B31 SCHEDREADYMM1 PASS
-- B32 EIKSRVFAULTDIAG1 PASS
-- B20-B28 regression chain PASS
+- FASTBUILD1 manifest VALID
+- B33 EIKCANCELORIGIN1 PASS
+- full regression chain PASS
 - iOS compile/link PASS
-- packaged Mach-O contains [NBOOT2][EIKFAULT_SVCMISS]
-- packaged Mach-O contains [NBOOT2][EIKFAULT_LEAVE]
-- packaged Mach-O contains [NBOOT2][EIKFAULT_AV]
+- packaged Mach-O contains [NBOOT2][EIKCANCEL_LLE]
+- packaged Mach-O contains [NBOOT2][EIKCANCEL_HLE]
+- packaged Mach-O contains [NBOOT2][EIKCANCEL_NOTIFY]
 - package/upload PASS
 
 TDD RED:
-- run 35681056539
-- job 106597890491
-- B29/B30/B31 reconstruction PASS
-- expected failure: missing [NBOOT2][EIKFAULT_SVCMISS] on the B31 baseline
-- temporary RED workflow removed after proof
+- run 35683752870
+- expected failure on B32 baseline
+- temporary B33 RED workflow removed after proof
 
-B32 is diagnostic-only:
-- missing-SVC path logs process/thread + CPU context but keeps existing return-false behavior;
-- Leave -3 logs trap/frames/stack but preserves leave depth and trap semantics;
-- guest access violation logs process/thread + CPU context but preserves KERN-EXEC behavior;
-- no SVC 0x2D implementation;
-- no SVC 0xE3 remap/implementation;
-- no GetModuleNameFromAddress backport;
-- no exception suppression.
+B33 is diagnostic-only:
+- traces KErrCancel through native/LLE message completion;
+- traces KErrCancel through HLE ipc_context completion;
+- traces KErrCancel through generic notify_info completion;
+- completion values unchanged;
+- request signaling unchanged;
+- message lifetime unchanged;
+- leave behavior unchanged;
+- FEP behavior unchanged;
+- no SVC 0x2D or 0xE3 implementation.
 
-B31 device evidence remains authoritative:
-- B30 EiksrvUi rooted load succeeds;
-- [NBOOT2][SCHED_STALE_READY_DROP] fires once for stale akncapserver;
-- old native switch_context EXC_BAD_ACCESS does not recur;
-- after that marker, 16 eiksrvs spawns pair with 16 EikAppUiServerThread KERN-EXEC 3 faults;
-- fault family 1: 11 writes to 0x10 at euser.dll +0xAD7C;
-- fault family 2: 5 reads from 0x4 at cone.dll +0x13CE.
-
-Full B31 device snapshot:
-docs/handoff/history/B31-DEVICE1.md
-
-Full B32 build snapshot:
-docs/handoff/history/B32-EIKSRVFAULTDIAG1.md
+Full B33 build snapshot:
+docs/handoff/history/B33-EIKCANCELORIGIN1.md
 
 Device-test rule:
-Run B32 long enough to capture several EikAppUiServerThread fault cycles, then exit through B26 and analyze EIKFAULT_AV together with the immediately preceding EIKFAULT_LEAVE / EIKFAULT_LEAVE_FRAME / EIKFAULT_LEAVE_STACK and EIKFAULT_SVCMISS markers from the same process/thread. Only that correlation may select the next functional fix.
+Run B33 until multiple AknFep / EikAppUiServerThread Leave(-3) cycles occur, then exit through B26 and correlate each B32 EIKFAULT_LEAVE with the immediately preceding B33 EIKCANCEL_LLE / EIKCANCEL_HLE / EIKCANCEL_NOTIFY marker from the same request/client context. Only that correlation may select the next functional compatibility fix.
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 EIKSRVFAULTDIAG1 is the build-validated diagnostic device-test candidate for the repeated guest EikAppUiServerThread KERN-EXEC 3 boundary.
+FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 diagnostics localized the first guest causal family to AknFep -> Leave(KErrCancel) -> euser null write -> KERN-EXEC 3. B33 EIKCANCELORIGIN1 is the current build-validated diagnostic device-test candidate.
 
 Active development branch:
 nativeboot2-current
@@ -569,7 +565,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B32 EIKSRVFAULTDIAG1 is build-validated and must be device-tested before any new functional compatibility patch. For each EikAppUiServerThread [NBOOT2][EIKFAULT_AV], correlate the immediately preceding [NBOOT2][EIKFAULT_LEAVE] / frame / stack markers and nearby [NBOOT2][EIKFAULT_SVCMISS] records from the same process/thread. Do not implement SVC 0x2D or 0xE3 merely because they appear in the global trace. Preserve all B20-B31 functional behavior; B32 itself is diagnostics only.
+B32 device evidence has already localized the first repeated guest failure to AknFep initialization -> User::Leave(KErrCancel/-3) -> euser null write at 0x10 -> EikAppUiServerThread KERN-EXEC 3. B33 EIKCANCELORIGIN1 is build-validated and must now be device-tested to identify which completion/notification path delivers the -3. Correlate EIKCANCEL_LLE / EIKCANCEL_HLE / EIKCANCEL_NOTIFY with the immediately following B32 EIKFAULT_LEAVE from the same request/client context. Do not implement SVC 0x2D/0xE3 or alter FEP/leave/completion behavior until that trace proves causality.
 
 
 
@@ -660,7 +656,8 @@ Do not reintroduce:
 - B29-LOADERDIAG1: device-observed; proves rooted-no-drive direct VFS miss is causal and selects B30 ROOTEDLIBPATH1
 - B30: ROOTEDLIBPATH1 — device validated for loader blocker at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; immutable branch nativeboot2-b30-rootedlibpath1; later host scheduler crash exposed
 - B31: SCHEDREADYMM1 — device validated for the B30 host scheduler crash at 6ccdd5c1b9101124981315322af5002dac057edc; immutable branch nativeboot2-b31-schedreadymm1; next boundary is repeated EikAppUiServerThread KERN-EXEC 3
-- B32: EIKSRVFAULTDIAG1 — diagnostic-only build validated at ca849738f8c1dd16949e687982904963c4bd8f6d; device trace pending
+- B32: EIKSRVFAULTDIAG1 — device-observed; localized AknFep -> Leave(-3) -> euser null write -> KERN-EXEC 3 and ruled out SVC 0xE3/0x2D as immediate causal targets
+- B33: EIKCANCELORIGIN1 — diagnostic-only build validated at 4db183b7a8f522f93057bfae22933f19c770156b; device trace pending
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -675,11 +672,13 @@ Snapshots:
 - docs/handoff/history/B31-SCHEDREADYMM1.md
 - docs/handoff/history/B31-DEVICE1.md
 - docs/handoff/history/B32-EIKSRVFAULTDIAG1.md
+- docs/handoff/history/B32-DEVICE1.md
+- docs/handoff/history/B33-EIKCANCELORIGIN1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B31 SCHEDREADYMM1 is the latest device-validated immutable functional milestone at commit 6ccdd5c1b9101124981315322af5002dac057edc and branch nativeboot2-b31-schedreadymm1. B31 keeps B30 EiksrvUi rooted loading healthy, catches exactly one stale akncapserver ready entry, and removes the old native thread_scheduler::switch_context EXC_BAD_ACCESS. The next repeated guest boundary is 16 eiksrvs/EikAppUiServerThread KERN-EXEC 3 faults. B32 EIKSRVFAULTDIAG1 is a diagnostic-only build validated at commit ca849738f8c1dd16949e687982904963c4bd8f6d, run 35681361472, job 106598810379, IPA SHA 9ef6e0f9b421cb20ed08c1ad03b1ebbe1c9274ba73b11a7977e78131a796e593, artifact 10675243561. B32 adds [NBOOT2][EIKFAULT_SVCMISS], [NBOOT2][EIKFAULT_LEAVE]/FRAME/STACK and [NBOOT2][EIKFAULT_AV] without changing SVC, leave, or exception behavior. Device-test B32 and correlate each EikAppUiServerThread AV with the immediately preceding same-process/thread leave and SVC markers. Do not implement SVC 0x2D or 0xE3 until that trace proves causality. Preserve B20-B31, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone at 6ccdd5c1b9101124981315322af5002dac057edc / nativeboot2-b31-schedreadymm1. B32 EIKSRVFAULTDIAG1 device evidence localized the first repeated guest failure to AknFep initialization -> User::Leave(KErrCancel/-3) -> euser null write at 0x10 -> EikAppUiServerThread KERN-EXEC 3, while ruling out SVC 0xE3 and the isolated eiksrvs 0x2D as immediate causal targets. B33 EIKCANCELORIGIN1 is build-validated at commit 4db183b7a8f522f93057bfae22933f19c770156b, run 35684075913, job 106607071205, IPA SHA c8dd7468aa1d843bbe43cc0cd9f1965e82a15227faf98ca336a85e3d50ada2c8, artifact 10675733488. B33 is diagnostic-only and adds EIKCANCEL_LLE/HLE/NOTIFY markers for KErrCancel completion provenance without changing completion, signaling, message lifetime, leave, FEP, SVC or exception behavior. Device-test B33 and correlate each B32 EIKFAULT_LEAVE(-3) with the immediately preceding B33 cancellation-origin marker before selecting any functional fix. Preserve B20-B32, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
 
 This file is authoritative unless newer committed device evidence supersedes it.
