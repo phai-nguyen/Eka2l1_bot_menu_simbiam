@@ -86,16 +86,25 @@ The video matches the trace:
 - Exit Emulator is selected;
 - the menu closes;
 - the NOKIA screen remains stuck;
-- the app later returns to the iOS home screen.
+- the user then manually swipes out to the iOS Home Screen.
+
+Important correction:
+the transition to the Home Screen was user-initiated. B33 did not spontaneously
+crash or eject itself to the Home Screen.
 
 ## iOS watchdog report
 
 Crash report timestamp:
 `2026-09-22 11:12:22 +0700`
 
-This is not a segmentation fault.
+This is not a segmentation fault and it is not evidence that the Exit Emulator
+action itself crashed to the Home Screen.
 
-Termination:
+The report was produced after the user manually swiped the already-hung app to
+the Home Screen. While transitioning the hung app to background, iOS observed
+that its lifecycle work could not complete and later terminated the process.
+
+Termination recorded in that secondary state:
 - `EXC_CRASH`
 - `SIGKILL`
 - FRONTBOARD
