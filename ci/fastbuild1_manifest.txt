@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B41 WSERVMESSAGEWINEXIT1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B42 SAHWRMABI1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -16,6 +16,7 @@ apply_nativeboot2_b38_eikcanceltrace2.py|test_nativeboot2_b38_eikcanceltrace2.py
 apply_nativeboot2_b39_eikpostleaveav1.py|test_nativeboot2_b39_eikpostleaveav1.py
 apply_nativeboot2_b40_loaderpdd1.py|test_nativeboot2_b40_loaderpdd1.py
 apply_nativeboot2_b41_wservmessagewinexit1.py|test_nativeboot2_b41_wservmessagewinexit1.py
+apply_nativeboot2_b42_sahwrmabi1.py|test_nativeboot2_b42_sahwrmabi1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
@@ -26,4 +27,3 @@ test_nativeboot2_b25_fbssharedheap1.py
 test_nativeboot2_b26_ioslibraryexit1.py
 test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
-test_nativeboot2_b42_sahwrmabi1.py
