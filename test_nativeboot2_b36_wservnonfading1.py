@@ -15,7 +15,7 @@ import re
 import sys
 from pathlib import Path
 
-MARK="NATIVEBOOT2-B36-WSERVNONFADING1-TEST"
+MARK="NATIVEBOOT2-B36-WSERVNONFADING1-TEST"\n# RED rerun: manifest now includes this contract.
 
 def fail(msg: str) -> None:
     raise SystemExit(f"{MARK}: FAIL: {msg}")
