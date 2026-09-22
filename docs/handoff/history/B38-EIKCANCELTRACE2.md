@@ -1,7 +1,7 @@
 # NATIVEBOOT2 B38 — EIKCANCELTRACE2
 
 Updated: 2026-09-22
-Status: BUILD-VALIDATED; DEVICE TEST REQUIRED.
+Status: DEVICE-OBSERVED; diagnostic target completed, causal state narrowed further.
 
 ## Why B38 exists
 
@@ -128,3 +128,27 @@ Primary analysis:
 6. confirm B34 Exit Emulator remains healthy.
 
 Do not implement a behavioral B39 until B38 device evidence identifies the actual KErrCancel origin.
+
+
+## Device result — B38 DEVICE1
+
+B38 device logs complete the intended diagnostics.
+
+Decisive results:
+- all 16 EikAppUiServerThread Leave(-3) events are immediately preceded by a one-command WindowServer batch with opcode 0x16;
+- SymbianSource identifies opcode 0x16 as EWsClOpCreateWindow;
+- all 16 CreateWindow calls complete successfully with positive handle 0x00060006, so CreateWindow is not the KErrCancel source;
+- direct euser LR resolves to ordinal 649 = User::Leave(int);
+- avkonfep.dll +0xF104 is proven to be the direct caller return address of User::Leave, because it is the saved LR in the User::Leave frame;
+- code immediately before +0xF104 loads a nested field, compares it with zero, forms -3, and calls User::Leave when the field is null;
+- LeaveEnd / "Leave trapped by trap handler." is observed before the later fatal fault, so KErrCancel is successfully caught;
+- SetNonFading occurs downstream in post-catch WindowServer processing and is not the producer of -3;
+- the immediate fatal boundary is now euser.dll +0xAD7C, write address 0x10, with LR euser.dll +0xD9AD and r0/r1 zero.
+
+B38 does not justify changing SVC 0xDF or suppressing KErrCancel. SymbianSource LeaveStart/LeaveEnd semantics match the observed firmware C++-exception Leave variant.
+
+Preferred B39 is diagnostic-only EIKPOSTLEAVEAV1:
+resolve the post-catch AV PC/LR/code/stack and safely dereference the AvkonFep caller state around saved caller r4 +0x10 -> +0x24.
+
+Detailed snapshot:
+- docs/handoff/history/B38-DEVICE1.md
