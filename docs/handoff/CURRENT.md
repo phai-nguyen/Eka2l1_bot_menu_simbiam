@@ -1193,12 +1193,15 @@ Rules:
 Current persistence checkpoint:
 - active branch: `nativeboot2-current`
 - latest device-observed build: B39 EIKPOSTLEAVEAV1
-- status: DEVICE-OBSERVED; ROOT CAUSE IDENTIFIED
-- B39 GREEN HEAD: `7f845581ba32dd59fc5229ee24fa5979ef7cc81e`
-- B39 GREEN run/job: `35748481719 / 106816104243`
-- device snapshot: `docs/handoff/history/B39-DEVICE1.md`
-- preferred next candidate: B40 LOADERPDD1, narrowly port upstream Loader::LoadPhysicalDevice behavior from `0987745cc0bde96511fce2a4bfefcfd8fbced3dc`
-- next gate: TDD/implement B40 without changing generic unknown-IPC, FEP/Leave, WindowServer, scheduler, SVC mappings, or iOS shutdown behavior.
+- latest build-validated candidate: B40 LOADERPDD1
+- B40 status: BUILD-VALIDATED; DEVICE TEST REQUIRED
+- B40 code HEAD: `adde620f6c2b57bec69268b32a889035e0a3eb51`
+- B40 GREEN run/job: `35765468574 / 106873756994`
+- B40 IPA SHA-256: `782d03a38bd3f87c0b0394b5d8753ec8599f8d8ef23b6d7168f3dc92faf3b5f6`
+- B40 IPA artifact: `10711662557`
+- B40 snapshot: `docs/handoff/history/B40-LOADERPDD1.md`
+- B39 root-cause snapshot remains: `docs/handoff/history/B39-DEVICE1.md`
+- next gate: device-test B40 and verify `[NBOOT2][LOADER_PDD] phase=enter/complete name=EUART1 result=0`, then determine whether canonical eiksrvs reaches healthy System GUI/session-factory initialization.
 
 
 ## Latest override — B39 DEVICE1
@@ -1248,3 +1251,99 @@ Full device/root-cause snapshot:
 - `docs/handoff/history/B39-DEVICE1.md`
 
 No B40 behavioral code was applied while producing this snapshot.
+
+
+## Latest override — B40 LOADERPDD1
+
+This section supersedes the B39 DEVICE1 next-candidate target above.
+
+B40 LOADERPDD1 is now **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+B39 proved the first causal startup break is the canonical eiksrvs synchronous
+call to `User::LoadPhysicalDevice("EUART1")`, which maps to
+`!Loader` opcode 4 / `ELoadPhysicalDevice`. The B28-cache Loader had no
+handler, so the historical generic dispatcher logged and dropped the request,
+wedging eiksrvs before System GUI session-factory installation.
+
+B40 narrowly ports upstream EKA2L1 commit
+`0987745cc0bde96511fce2a4bfefcfd8fbced3dc`:
+
+- adds `Loader::LoadPhysicalDevice`;
+- registers opcode 4 / `ELoadPhysicalDevice`;
+- validates descriptor argument 1;
+- invalid descriptor -> `KErrArgument`;
+- valid HLE-backed PDD -> `KErrNone`;
+- adds `[NBOOT2][LOADER_PDD]` entry/completion evidence.
+
+B40 deliberately does **not** import generic unknown-IPC completion commit
+`9f28c76fe0f54f43a39319da5f4042c853505807`. Generic unknown IPC semantics
+remain at the B39 baseline.
+
+TDD / build evidence:
+
+- canonical RED commit: `b17881d811da6f8ba63af165073d3994c84be745`
+- RED run/job: `35764848484 / 106871644557`
+- expected RED: missing `[NBOOT2][LOADER_PDD]`
+- first GREEN attempt `af9f5bbb23b74174c1c3655b3c9f5383ccf353a2` stopped before compile on an over-specific apply-script registration anchor; no IPA produced
+- final B40 code HEAD: `adde620f6c2b57bec69268b32a889035e0a3eb51`
+- final GREEN run/job: `35765468574 / 106873756994`
+- B29-B40 apply/tests: PASS
+- full regressions: PASS
+- iOS compile/link: PASS
+- binary invariants including `[NBOOT2][LOADER_PDD]`: PASS
+- IPA package/upload: PASS
+- compile requests 149 / hits 147 / misses 2 / compilation failures 0
+- NOJAVA / MANIC3 preserved
+
+IPA:
+
+- artifact ID: `10711662557`
+- artifact ZIP digest: `sha256:ce9f6e97866cee9ff3ffd41255f3cc4db1b7ce1a6bd8b3f8d15e7864c6eaf378`
+- unsigned IPA SHA-256: `782d03a38bd3f87c0b0394b5d8753ec8599f8d8ef23b6d7168f3dc92faf3b5f6`
+- expires: 2026-10-06
+
+Audit artifact:
+
+- ID: `10711767320`
+- digest: `sha256:2e03559f71c68a3ddad7c2a2eba02e65f63d71b5d3530b92a97453b398ca9cbd`
+
+Preserve:
+
+- stock Nokia `avkonfep.dll`;
+- firmware SYSSTART ownership;
+- native fbserv;
+- B26/B34 Exit Emulator choreography;
+- B36 implicit WindowServer handle carry;
+- B37 batch signal deferral;
+- B38/B39 diagnostics;
+- Leave/TRAP and KErrCancel semantics;
+- loader rooted-library behavior;
+- EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill / 0xDF leave_start / 0xE0 leave_end;
+- NOJAVA / MANIC3.
+
+### Resume from here
+
+Sign/install the B40 IPA and boot the same Nokia 5800 RM-356 path. Allow startup
+to proceed through the former eiksrvs/Loader boundary, then use **Thoát Emulator**
+normally.
+
+Collect:
+
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+
+First checks:
+
+1. `[NBOOT2][LOADER_PDD] phase=enter name=EUART1`.
+2. `[NBOOT2][LOADER_PDD] phase=complete name=EUART1 result=0`.
+3. canonical eiksrvs proceeds beyond the former opcode-4 stall.
+4. healthy `!EikAppUiServer` / session-factory initialization appears, or a later blocker is localized.
+5. the repeated B39 CServer2 NULL-session AV family disappears or moves later.
+6. B34 Exit Emulator remains healthy.
+
+Do not promote B40 to an immutable functional milestone until device evidence
+validates it.
+
+Full snapshot:
+- `docs/handoff/history/B40-LOADERPDD1.md`
