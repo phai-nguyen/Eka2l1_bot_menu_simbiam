@@ -118,8 +118,9 @@ def main() -> None:
 
     # 2) HLE ipc_context completion. Do not alter the existing request-status
     # write or its one-shot signal guard.
+    # The B28 bootstrap legitimately carries older IPC diagnostics in this
+    # function body. Anchor only on the stable signature, as MENUUI6 FIX1 does.
     hle_anchor='''        void ipc_context::complete(int res) {
-            if (msg->request_sts) {
 '''
     hle_new='''        void ipc_context::complete(int res) {
             // B33 EIKCANCELORIGIN1: diagnostic-only HLE completion provenance.
@@ -153,7 +154,6 @@ def main() -> None:
                     nboot2_b33_current_thr ? nboot2_b33_current_thr->name() : "<none>");
             }
 
-            if (msg->request_sts) {
 '''
     cx=replace_once(cx,hle_anchor,hle_new,"HLE completion diagnostics")
     if "#include <common/log.h>" not in cx:
