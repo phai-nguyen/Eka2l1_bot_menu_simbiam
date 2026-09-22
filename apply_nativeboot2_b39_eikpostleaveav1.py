@@ -177,10 +177,11 @@ def main() -> None:
 
     av_anchor='''            LOG_ERROR(KERNEL, "Access violation {} address 0x{:X} in thread {}", (exception_type == arm::exception_type_access_violation_read) ? "reading" : "writing", exception_data, crr_thread()->name());
 '''
-    av_diag=r'''            // B39 EIKPOSTLEAVEAV1: diagnostic-only symbol/code/stack
-            // context for the access violation that follows a caught Leave.
-            kernel::process *nboot2_b39_pr = crr_process();
-            if (core && nboot2_b39_pr) {
+    av_diag=r'''            {
+                // B39 EIKPOSTLEAVEAV1: diagnostic-only symbol/code/stack
+                // context for the access violation that follows a caught Leave.
+                kernel::process *nboot2_b39_pr = crr_process();
+                if (core && nboot2_b39_pr) {
                 auto nboot2_b39_find_codeseg =
                     [&](const std::uint32_t candidate) -> codeseg_ptr {
                     for (const auto &seg_obj : get_codeseg_list()) {
@@ -332,6 +333,8 @@ def main() -> None:
                             i, slot_addr, value);
                     }
                 }
+            }
+
             }
 
 ''' + av_anchor
