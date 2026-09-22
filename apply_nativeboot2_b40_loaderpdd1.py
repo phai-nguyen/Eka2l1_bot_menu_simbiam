@@ -152,16 +152,11 @@ def main() -> None:
 '''
     s=replace_once(s,func_old,func_new,"B40 LoadPhysicalDevice handler")
 
-    reg_old='''        REGISTER_IPC(loader_server, load_locale, ELoadLocale, "Loader::LoadLocale");
-        REGISTER_IPC(loader_server, load_logical_device, ELoadLogicalDevice, "Loader::LoadLogicalDevice");
-    }
-}
+    # Insert immediately after the already-existing logical-device registration.
+    # Do not depend on which later Loader IPC registrations exist in the B28 cache.
+    reg_old='''        REGISTER_IPC(loader_server, load_logical_device, ELoadLogicalDevice, "Loader::LoadLogicalDevice");
 '''
-    reg_new='''        REGISTER_IPC(loader_server, load_locale, ELoadLocale, "Loader::LoadLocale");
-        REGISTER_IPC(loader_server, load_logical_device, ELoadLogicalDevice, "Loader::LoadLogicalDevice");
-        REGISTER_IPC(loader_server, load_physical_device, ELoadPhysicalDevice, "Loader::LoadPhysicalDevice");
-    }
-}
+    reg_new=reg_old+'''        REGISTER_IPC(loader_server, load_physical_device, ELoadPhysicalDevice, "Loader::LoadPhysicalDevice");
 '''
     s=replace_once(s,reg_old,reg_new,"B40 opcode-4 registration")
 
