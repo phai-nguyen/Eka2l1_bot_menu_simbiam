@@ -185,8 +185,10 @@ def main() -> None:
     if "const std::lock_guard<std::mutex> guard(focus_callback_mutex);" not in sc:
         fail("B34 dedicated focus mutex behavior lost")
 
-    # No target-specific workaround belongs in B35.
-    combined=(sv+"\n"+ke+"\n"+sc+"\n"+sh).lower()
+    # No target-specific workaround belongs in B35. Check only the
+    # diagnostic replacement block: earlier NativeBoot milestones legitimately
+    # contain device-family text in unrelated code.
+    b35_block=new.lower()
     for forbidden in (
         "avkonfep_general.dll",
         "rm-356",
@@ -197,7 +199,7 @@ def main() -> None:
         "0x101f877c",
         "0x10282df0",
     ):
-        if forbidden in combined:
+        if forbidden in b35_block:
             fail(f"target-specific behavior detected: {forbidden}")
 
     # EPOC94 ABI invariant.
