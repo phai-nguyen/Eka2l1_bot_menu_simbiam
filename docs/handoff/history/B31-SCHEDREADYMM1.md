@@ -1,7 +1,7 @@
 # B31 SCHEDREADYMM1
 
 Date: 2026-09-22
-Status: BUILD-VALIDATED, DEVICE TEST REQUIRED
+Status: DEVICE-VALIDATED FOR THE B30 HOST SCHEDULER CRASH
 Active development branch: nativeboot2-current
 
 ## Purpose
@@ -186,3 +186,29 @@ first blocker.
 If the same switch_context crash occurs without the marker, the B31 hypothesis is
 not sufficient and the scheduler data flow must be instrumented further rather than
 batching unrelated upstream lifetime fixes.
+
+
+## Device validation result
+
+DEVICE-VALIDATED on Nokia 5800 RM-356 / iPhone 12 Pro Max / iOS 18.7.
+
+The B30 rooted library fix remains healthy:
+`LDR_ROOT_RESOLVED ... Z:\\sys\\bin\\EiksrvUi.dll success=1`.
+
+At the former B30 crash boundary, B31 emits exactly one:
+`[NBOOT2][SCHED_STALE_READY_DROP] thread=akncapserver owner_present=true mem_model_present=false`.
+
+The host no longer crashes in `thread_scheduler::switch_context()`. The session continues for more than 100 seconds after that marker and later completes the existing B26 clean exit sequence through:
+`shutdown_done -> normal_restart_begin`.
+
+The next repeated guest-side boundary is 16 `EikAppUiServerThread` KERN-EXEC 3 terminations after the B31 marker:
+- 11 writes to 0x10 at euser.dll +0xAD7C;
+- 5 reads from 0x4 at cone.dll +0x13CE.
+
+SVCMISS 0xE3 and 0x2D remain observed compatibility gaps but are not yet established as the cause of those faults.
+
+Full device evidence:
+`docs/handoff/history/B31-DEVICE1.md`.
+
+Next preferred milestone:
+`B32 EIKSRVFAULTDIAG1` — diagnostics only before selecting another functional fix.
