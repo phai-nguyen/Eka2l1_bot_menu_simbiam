@@ -1046,3 +1046,55 @@ Next action: device-test B38 and send EKA2L1.log, EKA2L1_Persistent.log, and EKA
 
 Snapshot:
 - docs/handoff/history/B38-EIKCANCELTRACE2.md
+
+
+## Latest override — B38 DEVICE1
+
+This section supersedes the earlier B38 device-test target.
+
+B38 EIKCANCELTRACE2 is DEVICE-OBSERVED and has completed its diagnostic purpose.
+
+All 16 repeated EikAppUiServerThread Leave(-3) events are preceded by a single WindowServer command:
+- opcode 0x16 = EWsClOpCreateWindow
+- command length 16
+- positive result 393222 = 0x00060006
+- CreateWindow therefore succeeds; it is not the source of KErrCancel.
+
+Direct Leave resolution:
+- PC euser.dll +0x2EF4 reaches SVC 0xDF LeaveStart path.
+- LR euser.dll +0x166E0 resolves to ordinal 649 = User::Leave(int).
+- B38 stack layout proves saved caller LR is avkonfep.dll +0xF104.
+- code before +0xF104 performs a nested state load via caller r4, compares it to zero, forms -3 and calls User::Leave when null.
+- saved caller r4 is stack index 2 = 0x00703A88 for the first observed cycle.
+
+The Leave itself is caught successfully:
+"Leave trapped by trap handler." / LeaveEnd occurs before the later WindowServer cleanup/configuration work. Source comparison with SymbianSource us_trp.cpp and scodeseg.cpp matches the __LEAVE_EQUALS_THROW__ LeaveStart/LeaveEnd model. Do not remap SVC 0xDF and do not suppress KErrCancel based on B38.
+
+The later 6-command WindowServer batch on handle 0x00060006 includes opcode 0x5D SetNonFading and completes KErrNone, confirming SetNonFading is downstream.
+
+The immediate fatal boundary is now:
+- EikAppUiServerThread write AV at address 0x00000010
+- PC 0x802A01C4 = euser.dll +0xAD7C
+- LR 0x802A2DF5 = euser.dll +0xD9AD
+- r0=0, r1=0
+
+Preferred next step: B39 EIKPOSTLEAVEAV1, diagnostic-only.
+B39 should resolve that AV PC/LR to nearest euser exports, dump bounded code/stack context, and safely log the AvkonFep nested state at caller_r4 -> [r4+0x10] -> [+0x24]. This should identify whether the null AvkonFep state or the post-catch cleanup path is the next functional target.
+
+Do not change:
+- stock avkonfep.dll / FEP
+- KErrCancel or Leave/TRAP
+- SVC 0xDF
+- B36 handle carry
+- B37 signal deferral
+- scheduler/loader
+- B34 Exit Emulator
+- EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill
+- NOJAVA / MANIC3
+
+B34 Exit Emulator remains healthy in B38: final os_join approximately 36 ms, shutdown_done and normal_restart_done reached.
+
+Snapshot:
+- docs/handoff/history/B38-DEVICE1.md
+
+Do not implement a behavioral B39 fix until B39 diagnostic evidence resolves the post-Leave AV and AvkonFep null state.
