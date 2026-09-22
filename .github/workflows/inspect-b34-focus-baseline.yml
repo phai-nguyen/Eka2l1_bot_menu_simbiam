@@ -45,3 +45,5 @@ jobs:
           grep -n -A25 -B8 'add_focus_change_callback' "$UP/src/emu/services/src/window/screen.cpp" || true
           echo "=== wingroup destructor ==="
           grep -n -A30 -B8 'window_group::~window_group' "$UP/src/emu/services/src/window/classes/wingroup.cpp" || true
+          echo "=== all screen_mutex users ==="
+          grep -R -n -B5 -A12 'screen_mutex' "$UP/src/emu/services/src/window" "$UP/src/emu/services/include/services/window" || true
