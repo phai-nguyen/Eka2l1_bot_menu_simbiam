@@ -6,12 +6,13 @@ Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
 Latest immutable functional milestone: B34 FOCUSMUTEXSPLIT1
 Latest immutable functional code HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
-Latest device-observed diagnostic build: B33 EIKCANCELORIGIN1
-Latest build-validated diagnostic candidate: B35 EIKLEAVECALLER1
+Latest device-observed diagnostic build: B35 EIKLEAVECALLER1
+Latest B35 device snapshot: docs/handoff/history/B35-DEVICE1.md
+Current B36 status: NO FUNCTIONAL CANDIDATE YET; SetNonFading completion hypothesis is already satisfied by B35 baseline
 Latest B35 authoritative GREEN HEAD: 71f5568e60d8823a39d4a1f29ff093034e3b99d9
 Latest device-validated functional milestone: B34 FOCUSMUTEXSPLIT1
 Latest B34 authoritative GREEN/device-tested HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
-Latest device-tested milestone: B34 functional
+Latest device-tested milestone: B35 diagnostic; B34 remains latest device-validated functional milestone
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -184,7 +185,7 @@ The B34 host Exit Emulator blocker is closed. Keep the unresolved guest AknFep L
 ## Active diagnostic candidate — B35 EIKLEAVECALLER1
 
 Status:
-BUILD-VALIDATED, DEVICE LOG REQUIRED
+DEVICE-OBSERVED; DIAGNOSTIC SUCCESS; B36 FUNCTIONAL FIX NOT YET SELECTED
 
 B35 keeps B34 unchanged and targets only the unresolved guest path:
 AknFep -> User::Leave(KErrCancel/-3) -> euser null write 0x10 -> KERN-EXEC 3.
@@ -269,8 +270,20 @@ Audit artifact:
 Full snapshot:
 docs/handoff/history/B35-EIKLEAVECALLER1.md
 
-Device-test rule:
-Install B35, boot through the same Nokia 5800 path, allow at least one eiksrvs/AknFep Leave(-3) cycle, then use Thoát Emulator normally. Send EKA2L1.log, EKA2L1_Persistent.log, and EKA2L1_TakeThis.log. B35 succeeds diagnostically if EIKCALLSITE/EIKCODE16 identify the stable ws32/avkonfep caller path. Do not select a B36 functional fix before that trace.
+B35 device result:
+- EIKCALLSITE/EIKCODE16 succeeded on device;
+- the stable ws32.dll + 0x370A frame resolves to nearest export ordinal 206 at 0x8065C74B, delta +0x8;
+- the code window is stable and contains 0x225D immediately before the following Thumb call pair, selecting ws32 IPC/service number 0x5D as the next narrow boundary to trace;
+- avkonfep.dll + 0xF104 / +0xF16E / +0x03D8 remain stable but do not resolve to a useful nearest export ordinal in the runtime export table;
+- B34/B26 Exit Emulator behavior remains healthy: os_join_begin -> os_join_done -> shutdown_done -> normal_restart_done has_device=1;
+- full device snapshot: docs/handoff/history/B35-DEVICE1.md.
+
+B36 correction:
+- test_nativeboot2_b36_wservnonfading1.py was introduced to test a SetNonFading completion hypothesis;
+- run 35728463388 / job 106747812846 passes that contract on the reconstructed B35 baseline without any B36 apply script;
+- apply_nativeboot2_b36_wservnonfading1.py does not exist;
+- therefore the IPA from run 35728463388 is NOT a functional B36 candidate and should not be device-tested as B36;
+- the next step is to trace the ws32 opcode/service 0x5D dispatch/completion path and identify where KErrCancel (-3) is introduced or propagated despite the existing set_non_fading completion.
 
 
 ## FASTBUILD1 — promoted development build path
@@ -703,7 +716,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B34 FOCUSMUTEXSPLIT1 is build-validated and must be device-tested before promotion. The host Exit Emulator root cause is no longer speculative: B33 teardown holds screen_mutex across objects.clear(), and focused window-group destruction reaches fire_focus_change_callbacks(), which B33 tries to lock on the same non-recursive screen_mutex. B34 ports only the upstream focus-callback mutex split, leaving screen_mutex teardown and all guest behavior unchanged. Device success requires Exit Emulator to proceed beyond os_join_begin and return to the normal EKA2L1 frontend without the user manually swiping the app away. Keep the separate AknFep Leave(-3) investigation unchanged until B34 exit behavior is validated.
+B34 FOCUSMUTEXSPLIT1 is DEVICE-VALIDATED and remains the latest immutable functional milestone. B35 EIKLEAVECALLER1 is DEVICE-OBSERVED and has completed its diagnostic purpose: the stable first ws32 frame resolves to ordinal 206 and service/opcode 0x5D. Do not promote run 35728463388 as B36 because it contains no B36 functional apply patch; its SetNonFading contract passes on the B35 baseline. The next functional or diagnostic B36 work must target the ws32 0x5D dispatch/completion boundary narrowly and prove the source of KErrCancel (-3) before changing guest behavior. Preserve stock Nokia FEP, B34 focus mutex split, B26 Exit Emulator choreography, and all B20-B35 invariants.
 
 
 
@@ -797,6 +810,7 @@ Do not reintroduce:
 - B32: EIKSRVFAULTDIAG1 — device-observed; localized AknFep -> Leave(-3) -> euser null write -> KERN-EXEC 3 and ruled out SVC 0xE3/0x2D as immediate causal targets
 - B33: EIKCANCELORIGIN1 — device-observed; LLE/HLE/notify probes do not identify the pre-Leave(-3) origin; Exit Emulator hang plus exact reconstructed source proved a same-thread screen_mutex self-deadlock during Wserv teardown
 - B34: FOCUSMUTEXSPLIT1 — DEVICE-VALIDATED; dedicated focus_callback_mutex removes the B33 same-thread screen_mutex teardown deadlock; immutable branch nativeboot2-b34-focusmutexsplit1
+- B35: EIKLEAVECALLER1 — DEVICE-OBSERVED; resolves stable ws32.dll+0x370A to export ordinal 206 and selects ws32 service/opcode 0x5D as the next narrow trace boundary; B34 exit remains healthy
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -816,11 +830,13 @@ Snapshots:
 - docs/handoff/history/B33-DEVICE1.md
 - docs/handoff/history/B34-FOCUSMUTEXSPLIT1.md
 - docs/handoff/history/B34-DEVICE1.md
+- docs/handoff/history/B35-EIKLEAVECALLER1.md
+- docs/handoff/history/B35-DEVICE1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B34 FOCUSMUTEXSPLIT1 remains the latest device-validated immutable functional milestone on branch nativeboot2-b34-focusmutexsplit1 at exact device-tested commit 24001e3306070fab2145bc1a4dd326a9fa83587d; its Exit Emulator fix is validated and must not be undone. The active diagnostic candidate is B35 EIKLEAVECALLER1, authoritative GREEN run 35700638503 / job 106657548399 / IPA-producing HEAD 71f5568e60d8823a39d4a1f29ff093034e3b99d9 / IPA SHA e4468751091b6abe03004297549a718075f49aa9c0ae965ed83436a2948831f1. B35 is diagnostic-only and preserves stock Nokia avkonfep.dll; do not restore EKA2L1 avkonfep_general.dll because MENUUI30 STOCKFEP1 and later MENUUI31-36 intentionally preserve the real Nokia touchscreen FEP/VKB. B34 device logs still show 16 identical eiksrvs/EikAppUiServerThread Leave(-3) events, with stable stack candidates ws32.dll+0x370A and avkonfep.dll+0xF104/+0xF16E/+0x03D8. B33 completion probes remain negative. B35 adds [NBOOT2][EIKCALLSITE] to resolve nearest running export ordinal/address and [NBOOT2][EIKCODE16] to dump bounded Thumb halfwords around each candidate. Device-test B35 and use those markers to identify the immediate guest caller/API before choosing any B36 functional fix. Preserve B20-B35, SYSSTART ownership, native fbserv, NOJAVA, MANIC3, and EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B34 FOCUSMUTEXSPLIT1 remains the latest device-validated immutable functional milestone on nativeboot2-b34-focusmutexsplit1 at 24001e3306070fab2145bc1a4dd326a9fa83587d and its Exit Emulator fix must not be undone. B35 EIKLEAVECALLER1 is now DEVICE-OBSERVED; see docs/handoff/history/B35-DEVICE1.md. The B35 trace repeatedly resolves ws32.dll+0x370A to nearest export ordinal 206 at 0x8065C74B with delta +0x8, and the code window contains 0x225D immediately before the following Thumb call pair, selecting ws32 service/opcode 0x5D as the next narrow boundary. Stock Nokia avkonfep.dll remains mandatory. Run 35728463388 at HEAD 8cde7e8cb06eb2404acc78277e6a6dc50b44b832 is NOT a functional B36: it only repairs/runs the B36 SetNonFading test harness, there is no apply_nativeboot2_b36_wservnonfading1.py, and the contract passes on the B35 baseline because set_non_fading already completes with KErrNone. Do not device-test that artifact as B36. Next trace the ws32 0x5D dispatch/completion path to identify where KErrCancel(-3) is introduced or propagated before selecting a B36 functional fix. Preserve B20-B35, SYSSTART ownership, native fbserv, stock Nokia FEP, NOJAVA, MANIC3, B34 focus mutex split, B26 exit choreography, and EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill."
 
 This file is authoritative unless newer committed device evidence supersedes it.
