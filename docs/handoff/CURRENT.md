@@ -286,6 +286,101 @@ B36 correction:
 - the next step is to trace the ws32 opcode/service 0x5D dispatch/completion path and identify where KErrCancel (-3) is introduced or propagated despite the existing set_non_fading completion.
 
 
+## Active functional candidate — B36 WSERVHANDLECARRY1
+
+Status:
+BUILD-VALIDATED, DEVICE TEST REQUIRED
+
+B36 fixes one generic WindowServer command-buffer protocol mismatch exposed by B35.
+
+Symbian protocol evidence:
+- RWsBuffer::DoWrite() sets EWsOpcodeHandle only when the destination handle differs from the previous command;
+- CWsClient::CommandBufL() retains the previous destination object when EWsOpcodeHandle is absent.
+
+B35/EKA2L1 mismatch:
+- parse_command_buffer() created a fresh ws_cmd for each command;
+- when bit 0x8000 was absent, obj_handle was not assigned from the previous command;
+- B35 device logs repeatedly showed invalid WindowServer object handles while EikAppUiServerThread initialized.
+
+B36 implementation:
+- value-initialize each ws_cmd;
+- maintain nboot2_b36_previous_handle per command buffer;
+- update it on explicit-handle commands;
+- reuse it on implicit-handle commands;
+- keep SetNonFading's existing context.complete(epoc::error_none) unchanged.
+
+B36 device markers:
+- [NBOOT2][WSERV_HANDLE_CARRY]
+- [NBOOT2][WSERV_NONFADING_ENTER]
+- [NBOOT2][WSERV_NONFADING_COMPLETE]
+
+Scope preserved:
+- stock Nokia avkonfep.dll / touchscreen VKB unchanged;
+- no avkonfep_general.dll restoration;
+- Leave/trap semantics unchanged;
+- B34 focus_callback_mutex split unchanged;
+- B26 iOS exit choreography unchanged;
+- SYSSTART ownership unchanged;
+- native fbserv unchanged;
+- EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill unchanged;
+- NOJAVA and MANIC3 preserved.
+
+TDD RED:
+- run: 35732727339
+- job: 106762102647
+- B20-B35 reconstruction PASS
+- expected failure:
+  NATIVEBOOT2-B36-WSERVHANDLECARRY1-TEST: FAIL: missing in command parser: std::uint32_t nboot2_b36_previous_handle = 0;
+
+Authoritative B36 GREEN:
+- run: 35732983672
+- job: 106762968487
+- IPA-producing HEAD: 1ec56f99a6c6e469d6a8e3905aebb3c3cdae6e8a
+- B20-B36 apply/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- all three B36 markers present in packaged Mach-O
+- IPA package/upload PASS
+- NOJAVA preserved
+- MANIC3 preserved
+
+B36 FASTBUILD1:
+- bootstrap_source=B28_CACHE
+- bootstrap restore: 51 s
+- patch/regression: 2 s
+- CMake build: 35 s
+- package: 3 s
+- total: 119 s
+- compile requests: 50
+- cache hits: 48
+- cache misses: 2
+- hit rate: 96%
+- actual compilations: 2
+- compilation failures: 0
+
+B36 IPA SHA-256:
+d24551d96d8fde57c514b4a745d62a4d413e039f8b79ab2059b6d5e4434728c6
+
+IPA artifact:
+- ID: 10696356734
+- ZIP digest: sha256:cd0b250769578c9ce823abf785a82ff7bd53640ee76eeecfc6f21dbde500cf27
+- expires: 2026-10-06
+
+Audit artifact:
+- ID: 10696541481
+- ZIP digest: sha256:3a08d01f1695df6d5e3105cdad5f175ec355693598c6b163f72de6d8e63f58ac
+- expires: 2026-10-06
+
+Full snapshot:
+docs/handoff/history/B36-WSERVHANDLECARRY1.md
+
+Device-test rule:
+Sign/install B36, boot the same Nokia 5800 path, let the startup run through the former AknFep/eiksrvs failure window, then use Thoát Emulator normally. Send EKA2L1.log, EKA2L1_Persistent.log and EKA2L1_TakeThis.log. The first acceptance question is whether invalid WindowServer object-handle events and the repeated Leave(-3) family disappear or move later. The B36 markers determine whether opcode 0x5D used an implicit handle and whether SetNonFading entered/completed with KErrNone.
+
+Do not snapshot B36 to an immutable functional branch until device evidence validates the change.
+
+
+
 ## FASTBUILD1 — promoted development build path
 
 FASTBUILD1 is PROMOTED. B34 FOCUSMUTEXSPLIT1 is now the latest device-validated immutable functional milestone and closes the independently proven host Exit Emulator screen_mutex self-deadlock. B32/B33 diagnostics still preserve the unresolved guest AknFep -> Leave(-3) -> euser null-write -> KERN-EXEC 3 investigation.
@@ -837,6 +932,7 @@ Snapshots:
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B34 FOCUSMUTEXSPLIT1 remains the latest device-validated immutable functional milestone on nativeboot2-b34-focusmutexsplit1 at 24001e3306070fab2145bc1a4dd326a9fa83587d and its Exit Emulator fix must not be undone. B35 EIKLEAVECALLER1 is now DEVICE-OBSERVED; see docs/handoff/history/B35-DEVICE1.md. The B35 trace repeatedly resolves ws32.dll+0x370A to nearest export ordinal 206 at 0x8065C74B with delta +0x8, and the code window contains 0x225D immediately before the following Thumb call pair, selecting ws32 service/opcode 0x5D as the next narrow boundary. Stock Nokia avkonfep.dll remains mandatory. Run 35728463388 at HEAD 8cde7e8cb06eb2404acc78277e6a6dc50b44b832 is NOT a functional B36: it only repairs/runs the B36 SetNonFading test harness, there is no apply_nativeboot2_b36_wservnonfading1.py, and the contract passes on the B35 baseline because set_non_fading already completes with KErrNone. Do not device-test that artifact as B36. Next trace the ws32 0x5D dispatch/completion path to identify where KErrCancel(-3) is introduced or propagated before selecting a B36 functional fix. Preserve B20-B35, SYSSTART ownership, native fbserv, stock Nokia FEP, NOJAVA, MANIC3, B34 focus mutex split, B26 exit choreography, and EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam on nativeboot2-current. B34 FOCUSMUTEXSPLIT1 remains the latest device-validated immutable functional milestone at 24001e3306070fab2145bc1a4dd326a9fa83587d and its Exit Emulator fix must not be undone. B35 EIKLEAVECALLER1 is device-observed: ws32.dll+0x370A resolves to EABI ordinal 206 = RWindowTreeNode::SetNonFading(TBool), opcode 0x5D is in the immediate path, and B35 repeatedly logs invalid WindowServer object handles while EikAppUiServerThread starts. Symbian source proves command-buffer handles are omitted when unchanged and the server must retain the previous destination object. The active candidate is B36 WSERVHANDLECARRY1, GREEN run 35732983672 / job 106762968487 / code HEAD 1ec56f99a6c6e469d6a8e3905aebb3c3cdae6e8a / IPA SHA d24551d96d8fde57c514b4a745d62a4d413e039f8b79ab2059b6d5e4434728c6. B36 value-initializes ws_cmd, carries the previous explicit handle into implicit-handle commands, and adds WSERV_HANDLE_CARRY / WSERV_NONFADING_ENTER / WSERV_NONFADING_COMPLETE markers without changing SetNonFading KErrNone completion. Device-test B36 before promotion or B37. Preserve stock Nokia avkonfep.dll, SYSSTART ownership, native fbserv, B26 exit choreography, B34 focus mutex split, NOJAVA, MANIC3, and EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill."
+
 
 This file is authoritative unless newer committed device evidence supersedes it.
