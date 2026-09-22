@@ -3,7 +3,7 @@
 Updated: 2026-09-22
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Development branch: nativeboot2-current
-Status: BUILD-VALIDATED, DEVICE TEST REQUIRED
+Status: DEVICE-OBSERVED ON TWO DEVICE/iOS ENVIRONMENTS
 Code HEAD: 1ec56f99a6c6e469d6a8e3905aebb3c3cdae6e8a
 
 ## Why B36 exists
@@ -153,3 +153,17 @@ Primary acceptance signals:
 - B34 Exit Emulator remains healthy.
 
 Do not create an immutable B36 functional branch until device evidence validates the fix.
+
+
+## Cross-device device evidence
+
+B36 has now been observed on:
+- iPhone 12 Pro Max / iOS 18.7
+- iPhone 8 Plus / iOS 15.6.1 installed through TrollStore
+
+The two runs reproduce the same principal signature: 17 handle-carry/SetNonFading observations, 16 EikAppUiServerThread Leave(-3), 16 access violations, 58 invalid handles, and signaled_before=1 on all 17 SetNonFading entries.
+
+The iPhone 8 Plus run therefore corroborates that the B36 failure is not specific to the newer iPhone/iOS environment. B37 WSERVBATCHCOMPLETE1 remains the active candidate.
+
+Detailed snapshot:
+- docs/handoff/history/B36-DEVICE2-IP8PLUS-IOS15.md
