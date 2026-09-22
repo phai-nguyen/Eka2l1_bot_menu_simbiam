@@ -1175,3 +1175,25 @@ Do not implement behavioral B40 until B39 device evidence identifies the missing
 
 Snapshot:
 - `docs/handoff/history/B39-EIKPOSTLEAVEAV1.md`
+
+
+## Project state persistence policy
+
+This repository is the durable source of truth for cross-chat/project continuation.
+
+Rules:
+- `docs/handoff/CURRENT.md` on `nativeboot2-current` is the authoritative hot state for the next session.
+- After every meaningful build result, device-test result, promoted/retired hypothesis, or newly identified blocker, update GitHub before relying on chat history.
+- Keep detailed milestone/device evidence under `docs/handoff/history/`; keep the latest resume boundary and next safe action in `CURRENT.md`.
+- Record exact branch/commit SHA, GitHub Actions run/job, artifact ID/SHA when applicable, validation status, preserved invariants, and explicit next action.
+- Before starting a new behavioral build, read the latest committed `CURRENT.md` and any newer device snapshot. GitHub state takes precedence over conversational recollection if they differ.
+- Never mark a diagnostic hypothesis as a functional milestone without device evidence.
+- Before moving to a new ChatGPT conversation because the current one is long or unstable, commit the latest meaningful project state to GitHub first.
+
+Current persistence checkpoint:
+- active branch: `nativeboot2-current`
+- active build: B39 EIKPOSTLEAVEAV1
+- status: BUILD-VALIDATED; DEVICE TEST REQUIRED
+- GREEN HEAD: `7f845581ba32dd59fc5229ee24fa5979ef7cc81e`
+- GREEN run/job: `35748481719 / 106816104243`
+- next gate: analyze B39 device logs before any behavioral B40.
