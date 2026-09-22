@@ -96,3 +96,20 @@ Primary checks:
 5. B34 Exit Emulator choreography must remain healthy.
 
 Do not promote B37 to an immutable device-validated branch until device evidence confirms the intended behavior.
+
+
+## Cross-device corroboration
+
+A second B36 device run on iPhone 8 Plus / iOS 15.6.1 via TrollStore reproduces the iPhone 12 Pro Max / iOS 18.7 signature almost exactly:
+- 17 WSERV_HANDLE_CARRY
+- 17 WSERV_NONFADING_ENTER
+- 17 WSERV_NONFADING_COMPLETE
+- signaled_before=1 for all 17 entries
+- 16 EikAppUiServerThread Leave(-3)
+- 16 access violations / KERN-EXEC terminations
+- 58 invalid WindowServer handles, split 29 x 0x14000000 and 29 x 0
+
+The same guest PC/LR and ws32 ordinal-206 path recur. This materially reduces the likelihood of an iOS-version/device-specific cause and strengthens B37's generic WindowServer batch-signal timing hypothesis.
+
+Snapshot:
+- docs/handoff/history/B36-DEVICE2-IP8PLUS-IOS15.md
