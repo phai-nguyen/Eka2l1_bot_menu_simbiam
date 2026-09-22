@@ -936,3 +936,45 @@ Use:
 
 
 This file is authoritative unless newer committed device evidence supersedes it.
+
+
+## Latest override — B37 WSERVBATCHCOMPLETE1
+
+This section supersedes the older B36 resume text above.
+
+B36 WSERVHANDLECARRY1 is now DEVICE-OBSERVED. Device logs confirm:
+- implicit WindowServer destination-handle carry is active;
+- `WSERV_HANDLE_CARRY`, `WSERV_NONFADING_ENTER`, and `WSERV_NONFADING_COMPLETE` each appear 17 times;
+- SetNonFading receives the effective carried handle and still completes `KErrNone`;
+- the failing path shows `signaled_before=1` on entry, while EikAppUiServerThread still produces 16 Leave(-3) events.
+
+The active candidate is now **B37 WSERVBATCHCOMPLETE1**.
+
+B37 changes only WindowServer command-buffer request-signal timing:
+- completion/result writes remain unchanged;
+- request signaling is deferred while a WindowServer batch executes;
+- the guest is signaled once after the whole command buffer completes;
+- all other HLE services keep the existing immediate-signal behavior.
+
+TDD:
+- RED run 35735338725 / job 106771025304: expected failure for missing `defer_request_signal`.
+- GREEN run 35735710861 / job 106772280995.
+- B37 code HEAD: `dabed3de3d543d1700eca8b3394fead2a40ef94a`.
+- IPA SHA-256: `80db395f1f6083c19b25a5b763fd04f43e9276001f3299a31bc3e54c19a5bf3d`.
+- compile/link, manifest apply, full regression, binary invariants, packaging and upload: PASS.
+- NOJAVA / MANIC3 preserved.
+
+New markers:
+- `[NBOOT2][WSERV_BATCH_DEFER_BEGIN]`
+- `[NBOOT2][WSERV_BATCH_SIGNAL]`
+
+B37 status: **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Do not create/promote B38 until B37 device logs are reviewed. Preserve stock Nokia `avkonfep.dll`, firmware SYSSTART ownership, native fbserv, B26 Exit Emulator choreography, B34 focus mutex split, B36 handle-carry semantics, and EPOC94 0xAA unmapped / 0xAB message_construct / 0xAC message_kill.
+
+Snapshot:
+- `docs/handoff/history/B37-WSERVBATCHCOMPLETE1.md`
+
+### Resume from here
+
+Read this latest override first. Install/sign the B37 IPA from GREEN run 35735710861, boot the same Nokia 5800 path as B36, use **Thoát Emulator** normally, and collect `EKA2L1.log`, `EKA2L1_Persistent.log`, and `EKA2L1_TakeThis.log`. The first checks are whether SetNonFading now enters with `signaled_before=0` during deferral, whether `WSERV_BATCH_SIGNAL` occurs once after the batch, and whether the repeated EikAppUiServerThread Leave(-3) chain is removed or changes ordering.
