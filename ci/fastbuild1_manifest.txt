@@ -26,3 +26,4 @@ test_nativeboot2_b25_fbssharedheap1.py
 test_nativeboot2_b26_ioslibraryexit1.py
 test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
+test_nativeboot2_b42_sahwrmabi1.py
