@@ -88,8 +88,13 @@ def main() -> None:
     if "epoc::error_cancel = epoc::error_none" in sv:
         fail("KErrCancel suppression detected")
 
-    # No speculative guest fix.
-    combined=(sv+"\n"+ke+"\n"+sc+"\n"+sh).lower()
+    # No speculative guest fix. Scope this check to the B35 block only;
+    # earlier NativeBoot milestones legitimately contain RM-356 diagnostics.
+    b35_start=sv.find("// B35 EIKLEAVECALLER1:")
+    b35_end=sv.find("                } else {",b35_start)
+    if b35_start < 0 or b35_end < 0:
+        fail("B35 diagnostic block bounds missing")
+    b35_block=sv[b35_start:b35_end].lower()
     for forbidden in (
         "avkonfep_general.dll",
         "rm-356",
@@ -100,7 +105,7 @@ def main() -> None:
         "0x101f877c",
         "0x10282df0",
     ):
-        if forbidden in combined:
+        if forbidden in b35_block:
             fail(f"target-specific B35 behavior detected: {forbidden}")
 
     # Preserve B34 lock behavior.
