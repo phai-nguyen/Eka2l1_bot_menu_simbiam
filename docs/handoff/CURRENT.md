@@ -1347,3 +1347,74 @@ validates it.
 
 Full snapshot:
 - `docs/handoff/history/B40-LOADERPDD1.md`
+
+
+## Latest override — B41 WSERVMESSAGEWINEXIT1
+
+B40 device evidence validated the Loader PDD fix:
+`[NBOOT2][LOADER_PDD] phase=enter name=EUART1` followed by
+`phase=complete name=EUART1 result=0`.
+
+A new host-side exit crash was then isolated when **Thoát Emulator** was
+selected. The iOS crash report is `EXC_BAD_ACCESS / SIGSEGV` at address
+`0x168` on the `Symbian OS thread`. The native stack is:
+
+`screen::need_update_visible_regions <- canvas_base::set_visible <-
+messagewin_anim_executor::~messagewin_anim_executor <- anim_dll::~anim_dll <-
+window_server_client::~window_server_client <- window_server::disconnect <-
+kernel_system::wipeout <- system_impl::~system_impl <- ios::os_thread`.
+
+The bridge exit log stops at `phase=os_join_begin`, proving the host OS thread
+dies during WindowServer/kernel wipeout before B34 can reach `os_join_done`.
+
+B41 is now **BUILD-VALIDATED; DEVICE TEST REQUIRED**. It is a narrow
+MessageWin-lifetime fix only: MessageWin captures a stable `kernel_system *`
+while its canvas is live and, if `wipeout_in_progress()` is true, skips the
+destructor's otherwise unnecessary `canvas_->set_visible(true)` call. Normal
+MessageWin destruction outside wipeout keeps the original visibility restore.
+
+B41 runtime marker:
+- `[NBOOT2][WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout`
+
+TDD/build:
+- canonical RED: `92dc4230524d52bb1ca6c42fa0c5077e460870c6`
+- RED run/job: `35793893027 / 106968553796`
+- implementation: `cfe2fd70f8630f718aab7780062000980273f5b5`
+- final GREEN HEAD: `b43e59696d313da97c8845a1a20e78d9b6c762d7`
+- GREEN run/job: `35794136142 / 106969339936`
+- B29-B41 apply/tests: PASS
+- full regressions: PASS
+- iOS compile/link: PASS
+- binary invariants: PASS
+- IPA package/upload: PASS
+- compile failures: 0
+- NOJAVA / MANIC3 preserved
+
+IPA:
+- artifact ID: `10723611386`
+- unsigned IPA SHA-256:
+  `0f6e4694af7cee6897fe0ebbe6b5e98c3374fa1cdb4f8118305b5b93cc7d172d`
+- artifact digest:
+  `sha256:d4069d008d0e8d615c8353c1b3236d2ea8aaa815f9d1db1836cafd103a1d2d15`
+
+Preserve all B40 boot behavior, B34 shutdown choreography, B36/B37 WindowServer
+semantics, B38/B39 diagnostics, Leave/TRAP behavior, EPOC94 mappings and
+NOJAVA/MANIC3.
+
+### Resume from here
+
+Install/sign B41, boot the same Nokia 5800 path, then use **Thoát Emulator**.
+
+Collect the usual three EKA2L1 logs. If iOS still crashes, also collect the new
+`.ips`.
+
+Acceptance:
+1. B40 Loader PDD still completes `EUART1 result=0`.
+2. During exit, B41 emits
+   `[NBOOT2][WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout` when relevant.
+3. B34 reaches `phase=os_join_done`, then graphics join,
+   `shutdown_threads_done` and `state_reset_done`.
+4. no host iOS `EXC_BAD_ACCESS` occurs.
+
+Full snapshot:
+- `docs/handoff/history/B41-WSERVMESSAGEWINEXIT1.md`
