@@ -978,3 +978,32 @@ Snapshot:
 ### Resume from here
 
 Read this latest override first. Install/sign the B37 IPA from GREEN run 35735710861, boot the same Nokia 5800 path as B36, use **Thoát Emulator** normally, and collect `EKA2L1.log`, `EKA2L1_Persistent.log`, and `EKA2L1_TakeThis.log`. The first checks are whether SetNonFading now enters with `signaled_before=0` during deferral, whether `WSERV_BATCH_SIGNAL` occurs once after the batch, and whether the repeated EikAppUiServerThread Leave(-3) chain is removed or changes ordering.
+
+
+## Latest override — B37 DEVICE1
+
+This section supersedes the earlier B37 device-test-required text.
+
+B37 WSERVBATCHCOMPLETE1 is DEVICE-OBSERVED. Its signaling change works exactly as intended:
+- 604 WindowServer batches enter deferral and 604 signal once at batch end;
+- all 17 SetNonFading calls now enter with signaled_before=0;
+- all 17 SetNonFading completions remain unsignaled inside the batch with signaled_after=0;
+- WSERV_BATCH_SIGNAL then reports signaled_after=1.
+
+But the repeated guest failure is unchanged:
+- 16 EikAppUiServerThread Leave(-3)
+- 16 access violations / KERN-EXEC 3
+- stable euser PC 0x8029833C (offset 0x2EF4)
+- stable euser LR 0x802ABB29 (offset 0x166E0)
+- 58 invalid WindowServer object-handle reports
+
+Ordering matters: the first Leave(-3) occurs before the later 6-command batch that dispatches opcode 0x5D SetNonFading. Symbian source shows RWindowTreeNode::SetNonFading only writes the opcode/data into RWsBuffer; such WindowServer calls are buffered and executed later. Therefore SetNonFading is no longer considered the immediate causal server handler.
+
+B37 is not promoted as a causal functional milestone.
+
+Preferred next step: B38 diagnostic only. Trace the exact WindowServer command opcode/object/completion surrounding the batch immediately before each eiksrvs Leave(-3), and resolve the stable euser PC/LR to nearest export ordinals/code windows. Do not change FEP behavior, completion values, Leave/trap semantics, SVCs, scheduler, loader, B36 handle carry, B37 signal deferral, or B34 exit choreography.
+
+Snapshot:
+- docs/handoff/history/B37-DEVICE1.md
+
+Do not implement a behavioral B38 fix until the new diagnostic identifies the real KErrCancel origin.
