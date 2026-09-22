@@ -7,6 +7,8 @@ Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f75
 Latest immutable functional milestone: B34 FOCUSMUTEXSPLIT1
 Latest immutable functional code HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
 Latest device-observed diagnostic build: B33 EIKCANCELORIGIN1
+Latest build-validated diagnostic candidate: B35 EIKLEAVECALLER1
+Latest B35 authoritative GREEN HEAD: 71f5568e60d8823a39d4a1f29ff093034e3b99d9
 Latest device-validated functional milestone: B34 FOCUSMUTEXSPLIT1
 Latest B34 authoritative GREEN/device-tested HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
 Latest device-tested milestone: B34 functional
@@ -177,6 +179,99 @@ PASSED. Full snapshot:
 docs/handoff/history/B34-DEVICE1.md
 
 The B34 host Exit Emulator blocker is closed. Keep the unresolved guest AknFep Leave(-3) investigation separate.
+
+
+## Active diagnostic candidate — B35 EIKLEAVECALLER1
+
+Status:
+BUILD-VALIDATED, DEVICE LOG REQUIRED
+
+B35 keeps B34 unchanged and targets only the unresolved guest path:
+AknFep -> User::Leave(KErrCancel/-3) -> euser null write 0x10 -> KERN-EXEC 3.
+
+B34 device logs show the same four code candidates on all 16 leaves:
+- ws32.dll + 0x370A
+- avkonfep.dll + 0xF104
+- avkonfep.dll + 0xF16E
+- avkonfep.dll + 0x03D8
+
+B35 does NOT restore EKA2L1 avkonfep_general.dll. NativeBoot intentionally inherits MENUUI30 STOCKFEP1/MENUUI36 so the real Nokia 5800 Avkon FEP and touchscreen keyboard remain the guest implementation.
+
+New B35 markers:
+- [NBOOT2][EIKCALLSITE]
+- [NBOOT2][EIKCODE16]
+
+EIKCALLSITE resolves each existing B32 code candidate against the exact running codeseg export table and logs:
+- module/base/offset
+- Thumb state
+- nearest export ordinal/address
+- delta from export to candidate
+
+EIKCODE16 dumps a bounded guest halfword window around each candidate return address so the Thumb call immediately preceding the return can be decoded.
+
+B35 is diagnostic-only:
+- Leave/trap behavior unchanged
+- IPC completion unchanged
+- stock FEP unchanged
+- WindowServer unchanged
+- CentralRepository/P&S unchanged
+- B34 focus mutex split unchanged
+- EPOC94 0xAA unmapped, 0xAB message_construct, 0xAC message_kill preserved
+
+TDD RED (re-proven after contract-scope correction):
+- run: 35700619104
+- job: 106657485855
+- B28 -> B34 reconstruction PASS
+- expected failure: missing [NBOOT2][EIKCALLSITE]
+
+Authoritative GREEN:
+- run: 35700638503
+- job: 106657548399
+- IPA-producing HEAD: 71f5568e60d8823a39d4a1f29ff093034e3b99d9
+- FASTBUILD1 manifest VALID
+- B35 apply PASS
+- B35 contract PASS
+- full regression chain PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- Mach-O contains [NBOOT2][EIKCALLSITE]
+- Mach-O contains [NBOOT2][EIKCODE16]
+- NOJAVA preserved
+- MANIC3 preserved
+
+B35 FASTBUILD1:
+- bootstrap_source=B28_CACHE
+- bootstrap restore: 30 s
+- patch/regression: 1 s
+- CMake build: 82 s
+- package: 4 s
+- total: 143 s
+- compile requests: 50
+- cache hits: 49
+- cache misses: 1
+- hit rate: 98%
+- actual compilations: 1
+- compilation failures: 0
+
+B35 IPA SHA-256:
+e4468751091b6abe03004297549a718075f49aa9c0ae965ed83436a2948831f1
+
+IPA artifact:
+- ID: 10681812270
+- ZIP digest: sha256:65076ba3eece660a97733adbee3221b8a36c625de38206a07ad30f2a8b04e510
+- expires: 2026-10-06
+
+Audit artifact:
+- ID: 10682081833
+- ZIP digest: sha256:08db656b6e72a5d88571d9a5b350fd4e02908ffe5e531d45df5745909371dce8
+- expires: 2026-10-06
+
+Full snapshot:
+docs/handoff/history/B35-EIKLEAVECALLER1.md
+
+Device-test rule:
+Install B35, boot through the same Nokia 5800 path, allow at least one eiksrvs/AknFep Leave(-3) cycle, then use Thoát Emulator normally. Send EKA2L1.log, EKA2L1_Persistent.log, and EKA2L1_TakeThis.log. B35 succeeds diagnostically if EIKCALLSITE/EIKCODE16 identify the stable ws32/avkonfep caller path. Do not select a B36 functional fix before that trace.
+
 
 ## FASTBUILD1 — promoted development build path
 
