@@ -1,7 +1,7 @@
 # B34 FOCUSMUTEXSPLIT1
 
 Date: 2026-09-22
-Status: BUILD-VALIDATED, DEVICE TEST REQUIRED
+Status: DEVICE-VALIDATED
 Active branch: nativeboot2-current
 
 ## Root cause
@@ -170,7 +170,29 @@ Audit artifact:
 
 ## Device validation
 
-B34 is build-validated only.
+B34 is DEVICE-VALIDATED.
+
+Device snapshot:
+`docs/handoff/history/B34-DEVICE1.md`
+
+Immutable branch:
+`nativeboot2-b34-focusmutexsplit1`
+
+Exact IPA-producing/device-tested commit:
+`24001e3306070fab2145bc1a4dd326a9fa83587d`
+
+Observed user-triggered Exit Emulator sequence:
+- `os_join_begin` at 12:54:31.868
+- `os_join_done` at 12:54:31.891
+- `shutdown_threads_done`
+- `shutdown_done`
+- `normal_restart_begin`
+- `normal_restart_done has_device=1` at 12:54:32.055
+
+The B33 deadlock boundary is removed on device. The guest AknFep
+Leave(-3) / KERN-EXEC 3 failure remains independent and unresolved.
+
+Original device-test plan follows for historical reference.
 
 Primary test:
 1. sign/install B34;
