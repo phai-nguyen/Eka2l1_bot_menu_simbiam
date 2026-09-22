@@ -193,20 +193,22 @@ def main() -> None:
     # ------------------------------------------------------------------
     av_anchor='''            LOG_ERROR(KERNEL, "Access violation {} address 0x{:X} in thread {}", (exception_type == arm::exception_type_access_violation_read) ? "reading" : "writing", exception_data, crr_thread()->name());
 '''
-    av_diag='''            kernel::process *nboot2_b32_pr = crr_process();
-            kernel::thread *nboot2_b32_thr = crr_thread();
-            if (core) {
-                LOG_WARN(KERNEL,
-                    "[NBOOT2][EIKFAULT_AV] process={} thread={} operation={} address=0x{:08X} pc=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} r0=0x{:08X} r1=0x{:08X} r2=0x{:08X} r3=0x{:08X} r4=0x{:08X} r5=0x{:08X} r6=0x{:08X} r7=0x{:08X} r8=0x{:08X} r9=0x{:08X} r10=0x{:08X} r11=0x{:08X} r12=0x{:08X}",
-                    nboot2_b32_pr ? nboot2_b32_pr->name() : "<none>",
-                    nboot2_b32_thr ? nboot2_b32_thr->name() : "<none>",
-                    (exception_type == arm::exception_type_access_violation_read) ? "read" : "write",
-                    exception_data, core->get_pc(), core->get_reg(14), core->get_reg(13),
-                    core->get_cpsr(),
-                    core->get_reg(0), core->get_reg(1), core->get_reg(2), core->get_reg(3),
-                    core->get_reg(4), core->get_reg(5), core->get_reg(6), core->get_reg(7),
-                    core->get_reg(8), core->get_reg(9), core->get_reg(10), core->get_reg(11),
-                    core->get_reg(12));
+    av_diag='''            {
+                kernel::process *nboot2_b32_pr = crr_process();
+                kernel::thread *nboot2_b32_thr = crr_thread();
+                if (core) {
+                    LOG_WARN(KERNEL,
+                        "[NBOOT2][EIKFAULT_AV] process={} thread={} operation={} address=0x{:08X} pc=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} r0=0x{:08X} r1=0x{:08X} r2=0x{:08X} r3=0x{:08X} r4=0x{:08X} r5=0x{:08X} r6=0x{:08X} r7=0x{:08X} r8=0x{:08X} r9=0x{:08X} r10=0x{:08X} r11=0x{:08X} r12=0x{:08X}",
+                        nboot2_b32_pr ? nboot2_b32_pr->name() : "<none>",
+                        nboot2_b32_thr ? nboot2_b32_thr->name() : "<none>",
+                        (exception_type == arm::exception_type_access_violation_read) ? "read" : "write",
+                        exception_data, core->get_pc(), core->get_reg(14), core->get_reg(13),
+                        core->get_cpsr(),
+                        core->get_reg(0), core->get_reg(1), core->get_reg(2), core->get_reg(3),
+                        core->get_reg(4), core->get_reg(5), core->get_reg(6), core->get_reg(7),
+                        core->get_reg(8), core->get_reg(9), core->get_reg(10), core->get_reg(11),
+                        core->get_reg(12));
+                }
             }
 
 ''' + av_anchor
