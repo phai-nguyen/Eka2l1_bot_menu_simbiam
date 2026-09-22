@@ -96,10 +96,8 @@ def main() -> None:
 
             // B39 EIKPOSTLEAVEAV1: read-only reconstruction of the direct
             // AvkonFep caller state proven by B38 device stack/code evidence.
-            const std::uint32_t nboot2_b39_saved_caller_r4_addr =
-                sp + 2 * sizeof(std::uint32_t);
-            const std::uint32_t nboot2_b39_saved_caller_lr_addr =
-                sp + 3 * sizeof(std::uint32_t);
+            const std::uint32_t nboot2_b39_saved_caller_r4_addr = sp + 2 * sizeof(std::uint32_t);
+            const std::uint32_t nboot2_b39_saved_caller_lr_addr = sp + 3 * sizeof(std::uint32_t);
 
             bool nboot2_b39_saved_r4_mapped = false;
             bool nboot2_b39_saved_lr_mapped = false;
