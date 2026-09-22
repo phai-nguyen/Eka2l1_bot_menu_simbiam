@@ -1,18 +1,16 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
-Latest immutable functional milestone: B34 FOCUSMUTEXSPLIT1
-Latest immutable functional code HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
-Latest device-observed diagnostic build: B35 EIKLEAVECALLER1
-Latest B35 device snapshot: docs/handoff/history/B35-DEVICE1.md
-Current B36 status: NO FUNCTIONAL CANDIDATE YET; SetNonFading completion hypothesis is already satisfied by B35 baseline
-Latest B35 authoritative GREEN HEAD: 71f5568e60d8823a39d4a1f29ff093034e3b99d9
-Latest device-validated functional milestone: B34 FOCUSMUTEXSPLIT1
-Latest B34 authoritative GREEN/device-tested HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
-Latest device-tested milestone: B35 diagnostic; B34 remains latest device-validated functional milestone
+Latest FASTBUILD1 CI implementation commit: b43e59696d313da97c8845a1a20e78d9b6c762d7
+Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
+Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
+Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
+Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
+Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
+B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
+B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1192,16 +1190,14 @@ Rules:
 
 Current persistence checkpoint:
 - active branch: `nativeboot2-current`
-- latest device-observed build: B39 EIKPOSTLEAVEAV1
-- latest build-validated candidate: B40 LOADERPDD1
-- B40 status: BUILD-VALIDATED; DEVICE TEST REQUIRED
-- B40 code HEAD: `adde620f6c2b57bec69268b32a889035e0a3eb51`
-- B40 GREEN run/job: `35765468574 / 106873756994`
-- B40 IPA SHA-256: `782d03a38bd3f87c0b0394b5d8753ec8599f8d8ef23b6d7168f3dc92faf3b5f6`
-- B40 IPA artifact: `10711662557`
-- B40 snapshot: `docs/handoff/history/B40-LOADERPDD1.md`
-- B39 root-cause snapshot remains: `docs/handoff/history/B39-DEVICE1.md`
-- next gate: device-test B40 and verify `[NBOOT2][LOADER_PDD] phase=enter/complete name=EUART1 result=0`, then determine whether canonical eiksrvs reaches healthy System GUI/session-factory initialization.
+- latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
+- immutable branch: `nativeboot2-b41-wservmessagewinexit1`
+- immutable/final validated code HEAD: `b43e59696d313da97c8845a1a20e78d9b6c762d7`
+- B41 GREEN run/job: `35794136142 / 106969339936`
+- B41 device snapshot: `docs/handoff/history/B41-DEVICE1.md`
+- B41 device result: MessageWin wipeout guard observed twice; Exit Emulator reaches os_join_done, graphics_join_done, shutdown_threads_done, state_reset_done, shutdown_done and normal_restart_done has_device=1
+- B40 is also now device-validated: EUART1 completes KErrNone, canonical eiksrvs registers `!EikAppUiServer`, and the B39 repeated EIKFEP/EIKFAULT/KERN-EXEC family disappears
+- next gate: continue from the now-healthy System GUI/exit baseline; do not reopen Loader PDD or MessageWin exit unless new device evidence regresses them.
 
 
 ## Latest override — B39 DEVICE1
@@ -1418,3 +1414,96 @@ Acceptance:
 
 Full snapshot:
 - `docs/handoff/history/B41-WSERVMESSAGEWINEXIT1.md`
+
+
+## Latest override — B41 DEVICE1
+
+This section supersedes the B41 device-test-required status above.
+
+B41 WSERVMESSAGEWINEXIT1 is now **DEVICE-VALIDATED** and promoted to the latest
+immutable functional milestone.
+
+Device evidence from the 2026-09-23 test on the primary iPhone 12 Pro Max /
+iOS 18.7 confirms both B40 and B41:
+
+### B40 boot result is now device-validated
+
+At `05:59:23.443`:
+
+- `[NBOOT2][LOADER_PDD] phase=enter name=EUART1`
+- `[NBOOT2][LOADER_PDD] phase=complete name=EUART1 result=0`
+
+The canonical eiksrvs instance continues beyond the former Loader opcode-4
+stall and at `05:59:23.820` registers:
+
+- `[NBOOT2][SERVER_REGISTER] process=eiksrvs[10003a4a]0001 server=!EikAppUiServer ...`
+
+The previous B39 failure family is absent in this run:
+
+- `[NBOOT2][EIKFEP_STATE]`: 0
+- `[NBOOT2][EIKFAULT_AV]`: 0
+- `[NBOOT2][EIKPOSTLEAVE_AV_FRAME]`: 0
+- `EikAppUiServerThread ... KERN-EXEC 3`: 0
+- `Unimplemented IPC call: 0x4 for server: !Loader`: 0
+
+Therefore the B39 root-cause chain is closed:
+`LoadPhysicalDevice(EUART1)` now completes, System GUI construction reaches
+healthy `!EikAppUiServer` registration, and the downstream NULL-session AV
+family disappears.
+
+### B41 exit result is device-validated
+
+The user selected **Thoát Emulator** at approximately `06:00:26`.
+
+The B41 guard fires twice at `06:00:26.683`:
+
+- `[NBOOT2][WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout`
+- `[NBOOT2][WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout`
+
+The exact shutdown sequence then completes:
+
+- `06:00:26.676 phase=os_join_begin`
+- `06:00:26.700 phase=os_join_done`
+- `06:00:26.701 phase=graphics_join_done`
+- `06:00:26.701 phase=shutdown_threads_done`
+- `06:00:26.701 phase=state_reset_done`
+- `06:00:26.701 phase=shutdown_done`
+- `06:00:26.854 phase=normal_restart_done has_device=1`
+
+The user explicitly confirms that B41 fixes the crash when exiting.
+
+This validates the B41 causal model: during kernel wipeout the MessageWin
+executor must not restore visibility through its borrowed canvas pointer.
+
+### Promotion
+
+Immutable functional branch:
+
+- `nativeboot2-b41-wservmessagewinexit1`
+
+Immutable/final validated code HEAD:
+
+- `b43e59696d313da97c8845a1a20e78d9b6c762d7`
+
+Build evidence remains:
+
+- GREEN run/job: `35794136142 / 106969339936`
+- B29-B41 apply/tests: PASS
+- regressions: PASS
+- iOS compile/link: PASS
+- binary invariants: PASS
+- compilation failures: 0
+- NOJAVA / MANIC3 preserved
+
+Device log SHA-256:
+
+- `EKA2L1(2).log`: `6ad6b13f5f8b15f77454aa11012a8f7738a590e0fd28d5bf15175f2017188a1a`
+- `EKA2L1_Persistent(2).log`: `d43817c9b10340c5d46328ac335348f88b927a8027d05cfc21595ff34c8beae2`
+- `EKA2L1_TakeThis(2).log`: `a09e9b668ae2f50e286d8c4389a7525d2dea4d7f00c2170c0a227b7f408c76e5`
+
+Preserve B40 Loader PDD, B41 MessageWin wipeout guard, B34 exit choreography,
+B36 handle carry, B37 batch deferral, stock AvkonFep, Leave/TRAP semantics,
+EPOC94 mappings, NOJAVA and MANIC3.
+
+Full device snapshot:
+- `docs/handoff/history/B41-DEVICE1.md`
