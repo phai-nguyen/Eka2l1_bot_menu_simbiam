@@ -144,6 +144,8 @@ jobs:
         grep -Fq '[NBOOT2][WSERV_HANDLE_CARRY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_NONFADING_ENTER]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_NONFADING_COMPLETE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][WSERV_BATCH_DEFER_BEGIN]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][WSERV_BATCH_SIGNAL]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
