@@ -4,12 +4,12 @@ Updated: 2026-09-22
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
-Latest immutable functional milestone: B31 SCHEDREADYMM1
-Latest immutable functional code HEAD: 6ccdd5c1b9101124981315322af5002dac057edc
+Latest immutable functional milestone: B34 FOCUSMUTEXSPLIT1
+Latest immutable functional code HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
 Latest device-observed diagnostic build: B33 EIKCANCELORIGIN1
-Latest build-validated functional candidate: B34 FOCUSMUTEXSPLIT1
-Latest B34 authoritative GREEN HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
-Latest device-tested milestone: B33 diagnostics / B31 functional
+Latest device-validated functional milestone: B34 FOCUSMUTEXSPLIT1
+Latest B34 authoritative GREEN/device-tested HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
+Latest device-tested milestone: B34 functional
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -25,12 +25,21 @@ Primary device-test environment:
 ## Current baseline
 
 Latest device-validated functional milestone:
+B34 = NATIVEBOOT2-B34-FOCUSMUTEXSPLIT1
+
+Immutable B34 branch:
+nativeboot2-b34-focusmutexsplit1
+
+Immutable B34 functional commit:
+24001e3306070fab2145bc1a4dd326a9fa83587d
+
+Previous immutable functional milestone:
 B31 = NATIVEBOOT2-B31-SCHEDREADYMM1
 
-Immutable B31 branch:
+Previous immutable B31 branch:
 nativeboot2-b31-schedreadymm1
 
-Immutable B31 functional commit:
+Previous immutable B31 functional commit:
 6ccdd5c1b9101124981315322af5002dac057edc
 
 Latest device-observed diagnostic milestone:
@@ -83,7 +92,16 @@ Active functional candidate:
 B34 FOCUSMUTEXSPLIT1
 
 Status:
-BUILD-VALIDATED, DEVICE TEST REQUIRED
+DEVICE-VALIDATED
+
+B34 device result:
+- user-triggered Exit Emulator at 12:54:31 reaches os_join_begin at 12:54:31.868;
+- os_join_done follows at 12:54:31.891, about 23 ms later;
+- shutdown_threads_done, state_reset_done and shutdown_done all complete;
+- normal_restart_begin completes;
+- normal_restart_done has_device=1 appears at 12:54:32.055;
+- therefore the B33 screen_mutex self-deadlock is removed on device;
+- no user Home Screen swipe was used to obtain this success.
 
 B34 scope:
 - keep std::mutex screen_mutex unchanged;
@@ -154,18 +172,21 @@ Audit artifact:
 Full B34 snapshot:
 docs/handoff/history/B34-FOCUSMUTEXSPLIT1.md
 
-Device-test rule:
-Sign/install B34, boot through the same Nokia 5800 path, then choose Thoát Emulator and do NOT manually swipe the app away. The expected fix boundary is that shutdown advances beyond os_join_begin to os_join_done, shutdown_threads_done, shutdown_done, and B26 normal frontend/library restoration. B34 is not device-validated until that sequence is observed. Keep the unresolved guest AknFep Leave(-3) investigation separate.
+Device validation:
+PASSED. Full snapshot:
+docs/handoff/history/B34-DEVICE1.md
+
+The B34 host Exit Emulator blocker is closed. Keep the unresolved guest AknFep Leave(-3) investigation separate.
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32/B33 preserve the unresolved guest AknFep -> Leave(-3) -> euser null-write investigation. B34 FOCUSMUTEXSPLIT1 is the current build-validated functional device-test candidate for the independently proven host Exit Emulator screen_mutex self-deadlock.
+FASTBUILD1 is PROMOTED. B34 FOCUSMUTEXSPLIT1 is now the latest device-validated immutable functional milestone and closes the independently proven host Exit Emulator screen_mutex self-deadlock. B32/B33 diagnostics still preserve the unresolved guest AknFep -> Leave(-3) -> euser null-write -> KERN-EXEC 3 investigation.
 
 Active development branch:
 nativeboot2-current
 
 Latest immutable functional milestone:
-nativeboot2-b31-schedreadymm1
+nativeboot2-b34-focusmutexsplit1
 
 Stable bootstrap:
 - milestone: B28 WSERVLIBTYPE1
@@ -680,7 +701,7 @@ Do not reintroduce:
 - B31: SCHEDREADYMM1 — device validated for the B30 host scheduler crash at 6ccdd5c1b9101124981315322af5002dac057edc; immutable branch nativeboot2-b31-schedreadymm1; next boundary is repeated EikAppUiServerThread KERN-EXEC 3
 - B32: EIKSRVFAULTDIAG1 — device-observed; localized AknFep -> Leave(-3) -> euser null write -> KERN-EXEC 3 and ruled out SVC 0xE3/0x2D as immediate causal targets
 - B33: EIKCANCELORIGIN1 — device-observed; LLE/HLE/notify probes do not identify the pre-Leave(-3) origin; Exit Emulator hang plus exact reconstructed source proved a same-thread screen_mutex self-deadlock during Wserv teardown
-- B34: FOCUSMUTEXSPLIT1 — build validated; narrow dedicated focus_callback_mutex split, device test required
+- B34: FOCUSMUTEXSPLIT1 — DEVICE-VALIDATED; dedicated focus_callback_mutex removes the B33 same-thread screen_mutex teardown deadlock; immutable branch nativeboot2-b34-focusmutexsplit1
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -699,11 +720,12 @@ Snapshots:
 - docs/handoff/history/B33-EIKCANCELORIGIN1.md
 - docs/handoff/history/B33-DEVICE1.md
 - docs/handoff/history/B34-FOCUSMUTEXSPLIT1.md
+- docs/handoff/history/B34-DEVICE1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 localized the repeated guest failure to AknFep -> User::Leave(KErrCancel/-3) -> euser null write 0x10 -> EikAppUiServerThread KERN-EXEC 3. B33 EIKCANCELORIGIN1 was device-tested: no EIKCANCEL_HLE occurs, its LLE cancellations belong to AknIconSrv/CdlServer, and eiksrvs EIKCANCEL_NOTIFY is post-KERN-EXEC cleanup, so the immediate AknFep Leave(-3) origin remains unresolved. Separately, B33 Exit Emulator reached os_join_begin and hung. The user manually swiped the hung app to Home Screen; the later 0x8BADF00D report is secondary and must not be described as B33 crashing to Home Screen. Exact B33 reconstruction proved the host root cause: window_server_client teardown holds screen_mutex across objects.clear(); focused window_group destruction calls update_focus -> fire_focus_change_callbacks, which tries to re-lock the same non-recursive screen_mutex on the same OS thread. B34 FOCUSMUTEXSPLIT1 is build-validated at run 35691395487 / job 106628955424 / HEAD 24001e3306070fab2145bc1a4dd326a9fa83587d, IPA SHA 486ed148c18689b9582988df1e30616ab4bb40c18070a7e554078161d20c4c5c. It ports only a dedicated focus_callback_mutex for fire/add/remove focus callbacks, preserving the outer screen_mutex teardown and all guest behavior. Device-test B34 by choosing Thoát Emulator and do not swipe away; success requires os_join_done -> shutdown_threads_done -> shutdown_done -> normal frontend restoration. Preserve B20-B33, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B34 FOCUSMUTEXSPLIT1 is now the latest device-validated immutable functional milestone on branch nativeboot2-b34-focusmutexsplit1 at exact IPA-producing/device-tested commit 24001e3306070fab2145bc1a4dd326a9fa83587d. B34 fixes the independent host Exit Emulator deadlock: the B33 reconstruction held screen_mutex across window_server_client objects.clear(), then focused window_group destruction reached update_focus -> fire_focus_change_callbacks and attempted to re-lock the same non-recursive screen_mutex. B34 moves only fire/add/remove focus callbacks to a dedicated focus_callback_mutex. Device log at 12:54:31 proves os_join_begin -> os_join_done in about 23 ms, then shutdown_threads_done -> shutdown_done -> normal_restart_done has_device=1, without the user swiping to Home Screen. The host exit blocker is closed. The separate guest blocker remains: B34 still records 16 eiksrvs/EikAppUiServerThread Leave(-3) events with the same signature; 13 primary write AVs at 0x10 and 3 later read AVs at 0x4, all KERN-EXEC 3. B33 completion probes remain negative: no HLE cancel, two unrelated AknIconSrv/CdlServer LLE cancels, and eiksrvs notify cancellations remain post-fault cleanup. Next work must return to identifying the immediate AknFep/User::Leave(-3) origin, without undoing B34. Preserve B20-B34, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
 
 This file is authoritative unless newer committed device evidence supersedes it.
