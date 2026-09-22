@@ -1,7 +1,7 @@
 # B30 ROOTEDLIBPATH1
 
 Date: 2026-09-22
-Status: BUILD-VALIDATED, DEVICE TEST REQUIRED
+Status: DEVICE-VALIDATED FOR ROOTEDLIBPATH BLOCKER; NEW HOST SCHEDULER CRASH EXPOSED
 Active development branch: nativeboot2-current
 
 ## Purpose
@@ -187,3 +187,27 @@ If B30 reaches `LDR_FORMAT`, `LDR_PARSE_FAIL`, `LDR_CODESEG_RESULT`, or
 `LDR_DEP_FAIL`, use the first new boundary as the next causal target. Do not
 preemptively import the upstream ROM/E32 classification change or patch the
 observed SVC gaps.
+
+
+## Device result — 2026-09-22
+
+B30 was device-tested on the target iPhone/iOS/RM-356 setup and succeeds at its intended loader boundary.
+
+Observed:
+- `LDR_ROOT_CANDIDATE candidate=Z:\\sys\\bin\\EiksrvUi.dll exists=1`;
+- `LDR_ROOT_RESOLVED ... success=1`;
+- `LDR_LIB_RESULT ... success=1 completion=0`;
+- the old rooted direct-miss sequence is absent for EiksrvUi;
+- startup continues for about 30 seconds beyond the former loader failure.
+
+The app later crashes natively on the Symbian OS host thread. The iOS crash report is EXC_BAD_ACCESS/SIGSEGV at address 0x0 with top frame `thread_scheduler::switch_context()+232`, called by `kernel_system::reschedule()`.
+
+Immediately before the crash, `akncapserver` is forcefully killed with category Domino / reason -33. A new SVCMISS 0xE3 is then observed, but it is not selected for the same patch.
+
+Upstream commit `437b29006bd8a0186f4070c9445f43e98e5c7435` contains an exact scheduler fix for a ready thread whose owning process has already lost its memory model. That is the preferred narrow B31 direction.
+
+Immutable B30 branch:
+`nativeboot2-b30-rootedlibpath1`
+
+Full device snapshot:
+`docs/handoff/history/B30-DEVICE1.md`
