@@ -7,7 +7,8 @@ Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f75
 Latest immutable functional milestone: B31 SCHEDREADYMM1
 Latest immutable functional code HEAD: 6ccdd5c1b9101124981315322af5002dac057edc
 Latest device-observed diagnostic build: B33 EIKCANCELORIGIN1
-Latest B33 build/device-tested code commit: 4db183b7a8f522f93057bfae22933f19c770156b
+Latest build-validated functional candidate: B34 FOCUSMUTEXSPLIT1
+Latest B34 authoritative GREEN HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
 Latest device-tested milestone: B33 diagnostics / B31 functional
 FASTBUILD1 status: PROMOTED
 
@@ -47,116 +48,118 @@ B32 device result:
 Full B32 device snapshot:
 docs/handoff/history/B32-DEVICE1.md
 
-Active diagnostic candidate:
+Active device evidence:
 B33 EIKCANCELORIGIN1
 
-Status:
-B33 DEVICE-OBSERVED; COMPLETION-ORIGIN PROBE NEGATIVE; EXIT WATCHDOG DEADLOCK LOCALIZED
-
-Active development branch:
-nativeboot2-current
-
-FASTBUILD workflow:
-.github/workflows/build-ios-nativeboot2-current-fast.yml
-
-B33 apply script:
-apply_nativeboot2_b33_eikcancelorigin1.py
-
-B33 contract:
-test_nativeboot2_b33_eikcancelorigin1.py
-
-Authoritative B33 GREEN run:
-https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/35684075913
-
-Run ID:
-35684075913
-
-Job ID:
-106607071205
-
-Build-tested code commit:
-4db183b7a8f522f93057bfae22933f19c770156b
-
-B33 IPA SHA-256:
-c8dd7468aa1d843bbe43cc0cd9f1965e82a15227faf98ca336a85e3d50ada2c8
-
-IPA artifact:
-- ID: 10675733488
-- ZIP digest: sha256:89dca7b9d1a1ef2935ef4c5dae5e81e8b4ceb5806b0c4ab71aec798c4ee0535a
-- expires: 2026-10-06
-
-Audit artifact:
-- ID: 10675908156
-- ZIP digest: sha256:4b0597d5d250dee67b2369f2a4a3d6215b42fad46c0cf6de6224e3767ca46111
-- expires: 2026-10-06
-
-FASTBUILD1:
-- bootstrap_source=B28_CACHE
-- bootstrap restore: 37 s
-- patch/regression: 1 s
-- CMake build: 51 s
-- package: 3 s
-- total: 119 s
-- sccache: 13/16 hits = 81.25%
-- actual compilations: 3
-- compilation failures: 0
-- NOJAVA preserved
-- MANIC3 preserved
-
-Post-build verification:
-- FASTBUILD1 manifest VALID
-- B33 EIKCANCELORIGIN1 PASS
-- full regression chain PASS
-- iOS compile/link PASS
-- packaged Mach-O contains [NBOOT2][EIKCANCEL_LLE]
-- packaged Mach-O contains [NBOOT2][EIKCANCEL_HLE]
-- packaged Mach-O contains [NBOOT2][EIKCANCEL_NOTIFY]
-- package/upload PASS
-
-TDD RED:
-- run 35683752870
-- expected failure on B32 baseline
-- temporary B33 RED workflow removed after proof
-
-B33 is diagnostic-only:
-- traces KErrCancel through native/LLE message completion;
-- traces KErrCancel through HLE ipc_context completion;
-- traces KErrCancel through generic notify_info completion;
-- completion values unchanged;
-- request signaling unchanged;
-- message lifetime unchanged;
-- leave behavior unchanged;
-- FEP behavior unchanged;
-- no SVC 0x2D or 0xE3 implementation.
-
-Full B33 build snapshot:
-docs/handoff/history/B33-EIKCANCELORIGIN1.md
-
-Full B33 device snapshot:
-docs/handoff/history/B33-DEVICE1.md
+B33 status:
+DEVICE-OBSERVED; COMPLETION-ORIGIN PROBE NEGATIVE; HOST EXIT SELF-DEADLOCK ROOT CAUSE NOW PROVEN
 
 B33 device result:
 - EIKCANCEL_HLE: none;
 - EIKCANCEL_LLE: only unrelated AknIconSrv/CdlServer KErrCancel completions;
-- eiksrvs EIKCANCEL_NOTIFY markers occur after EIKFAULT_AV -> KERN-EXEC 3, so they are post-fault cleanup rather than the origin of the preceding Leave(-3);
+- eiksrvs EIKCANCEL_NOTIFY occurs after EIKFAULT_AV -> KERN-EXEC 3 and is post-fault cleanup;
 - the immediate source of AknFep User::Leave(-3) remains unresolved;
 - Exit Emulator is accepted but stalls at BRIDGE_EXIT_PHASE os_join_begin;
-- iOS terminates the stuck app with FRONTBOARD 0x8BADF00D scene-update watchdog;
-- lifecycle queue waits in shutdown_threads/pthread_join;
-- Symbian OS thread is blocked acquiring screen::focus_callback_mutex during Wserv/window_group teardown;
-- B33 production instrumentation did not patch iOS exit or window-server code, so this is treated as a timing-sensitive pre-existing shutdown race/deadlock exposed by B33.
+- the user manually swiped the already-hung app to the iOS Home Screen; B33 did NOT spontaneously crash/eject itself to Home Screen;
+- the later FRONTBOARD 0x8BADF00D report reflects the hung app failing to complete lifecycle/background work after that user action;
+- B33 reconstructed source proves the Symbian OS thread self-deadlocks on screen_mutex during Wserv teardown.
 
-Preferred next build:
-B34 FOCUSLOCKDIAG1 — DIAGNOSTICS ONLY.
+Exact B33 host deadlock:
+window_server_client::~window_server_client()
+-> lock scr->screen_mutex
+-> objects.clear()
+-> window_group::~window_group()
+-> screen::update_focus()
+-> screen::fire_focus_change_callbacks()
+-> lock the same non-recursive screen_mutex again.
 
-B34 must identify the last owner/dispatch sequence for focus_callback_mutex before selecting a locking fix. Keep the guest AknFep Leave(-3) investigation separate.
+Full B33 build snapshot:
+docs/handoff/history/B33-EIKCANCELORIGIN1.md
+
+Full corrected B33 device snapshot:
+docs/handoff/history/B33-DEVICE1.md
+
+Active functional candidate:
+B34 FOCUSMUTEXSPLIT1
+
+Status:
+BUILD-VALIDATED, DEVICE TEST REQUIRED
+
+B34 scope:
+- keep std::mutex screen_mutex unchanged;
+- add dedicated std::mutex focus_callback_mutex;
+- move only fire/add/remove_focus_change_callback() to the dedicated mutex;
+- keep Wserv outer teardown locking and objects.clear() unchanged;
+- keep redraw/mode callback locking at B33 behavior;
+- keep B26 iOS exit choreography unchanged;
+- keep all guest/SVC/FEP/loader/scheduler/FBS/CenRep behavior unchanged.
+
+Upstream narrow reference:
+EKA2L1 commit 2896f1a0b0189d06db95fa5cfc0a5c14ee89be1d
+
+B34 apply script:
+apply_nativeboot2_b34_focusmutexsplit1.py
+
+B34 contract:
+test_nativeboot2_b34_focusmutexsplit1.py
+
+TDD RED:
+- run: 35691246288
+- B28 -> B33 reconstruction PASS
+- expected failure:
+  missing in screen.h dedicated focus callback mutex: std::mutex focus_callback_mutex;
+
+Authoritative B34 GREEN:
+- run: 35691395487
+- job: 106628955424
+- run HEAD: 24001e3306070fab2145bc1a4dd326a9fa83587d
+- functional patch script commit: b332286861becc205de491a67bdea68abb54d441
+- manifest commit: b1ac9fd243f58b257a9ee581294a3271f2d6c383
+- FASTBUILD1 manifest VALID
+- B34 FOCUSMUTEXSPLIT1 PASS
+- full regression chain PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- packaged Mach-O contains [NBOOT2][FOCUS_MUTEX_SPLIT]
+- IPA package/upload PASS
+- NOJAVA preserved
+- MANIC3 preserved
+
+B34 FASTBUILD1:
+- bootstrap_source=B28_CACHE
+- bootstrap restore: 35 s
+- patch/regression: 1 s
+- CMake build: 25 s
+- package: 3 s
+- total: 83 s
+- compile requests: 50
+- cache hits: 50
+- cache misses: 0
+- hit rate: 100%
+- compilation failures: 0
+
+B34 IPA SHA-256:
+486ed148c18689b9582988df1e30616ab4bb40c18070a7e554078161d20c4c5c
+
+IPA artifact:
+- ID: 10679545002
+- ZIP digest: sha256:f16a1ba31c6a72ba47ea157a60768ac6ebcc3599bb2e8cc25b286c6278bdd150
+- expires: 2026-10-06
+
+Audit artifact:
+- ID: 10677634965
+- ZIP digest: sha256:3db7b24c1d3d5ff9cd92572ffcdf4bb50afb57069183a8ff6f646cf3b69bbc48
+- expires: 2026-10-06
+
+Full B34 snapshot:
+docs/handoff/history/B34-FOCUSMUTEXSPLIT1.md
 
 Device-test rule:
-Run B33 until multiple AknFep / EikAppUiServerThread Leave(-3) cycles occur, then exit through B26 and correlate each B32 EIKFAULT_LEAVE with the immediately preceding B33 EIKCANCEL_LLE / EIKCANCEL_HLE / EIKCANCEL_NOTIFY marker from the same request/client context. Only that correlation may select the next functional compatibility fix.
+Sign/install B34, boot through the same Nokia 5800 path, then choose Thoát Emulator and do NOT manually swipe the app away. The expected fix boundary is that shutdown advances beyond os_join_begin to os_join_done, shutdown_threads_done, shutdown_done, and B26 normal frontend/library restoration. B34 is not device-validated until that sequence is observed. Keep the unresolved guest AknFep Leave(-3) investigation separate.
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 diagnostics localized the first guest causal family to AknFep -> Leave(KErrCancel) -> euser null write -> KERN-EXEC 3. B33 EIKCANCELORIGIN1 is the current build-validated diagnostic device-test candidate.
+FASTBUILD1 is PROMOTED. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32/B33 preserve the unresolved guest AknFep -> Leave(-3) -> euser null-write investigation. B34 FOCUSMUTEXSPLIT1 is the current build-validated functional device-test candidate for the independently proven host Exit Emulator screen_mutex self-deadlock.
 
 Active development branch:
 nativeboot2-current
@@ -584,7 +587,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B33 device evidence rules out the three instrumented KErrCancel completion paths as the immediate source of the AknFep Leave(-3): HLE is absent, LLE belongs to AknIcon/CdlServer, and eiksrvs notify cancellation occurs only after KERN-EXEC 3. Separately, Exit Emulator now localizes a host shutdown stall at os_join_begin; the Symbian OS thread is blocked acquiring screen::focus_callback_mutex during Wserv window-group teardown and iOS later watchdog-kills the app with 0x8BADF00D. Do not guess a mutex behavior fix yet because the crash report does not identify the lock owner. Preferred B34 is FOCUSLOCKDIAG1 diagnostics only: trace focus callback lock wait/acquire/callback/release plus add/remove and teardown entry, then use that device trace to select a bounded host-exit fix. Keep the unresolved guest AknFep Leave(-3) path separate.
+B34 FOCUSMUTEXSPLIT1 is build-validated and must be device-tested before promotion. The host Exit Emulator root cause is no longer speculative: B33 teardown holds screen_mutex across objects.clear(), and focused window-group destruction reaches fire_focus_change_callbacks(), which B33 tries to lock on the same non-recursive screen_mutex. B34 ports only the upstream focus-callback mutex split, leaving screen_mutex teardown and all guest behavior unchanged. Device success requires Exit Emulator to proceed beyond os_join_begin and return to the normal EKA2L1 frontend without the user manually swiping the app away. Keep the separate AknFep Leave(-3) investigation unchanged until B34 exit behavior is validated.
 
 
 
@@ -676,7 +679,8 @@ Do not reintroduce:
 - B30: ROOTEDLIBPATH1 — device validated for loader blocker at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; immutable branch nativeboot2-b30-rootedlibpath1; later host scheduler crash exposed
 - B31: SCHEDREADYMM1 — device validated for the B30 host scheduler crash at 6ccdd5c1b9101124981315322af5002dac057edc; immutable branch nativeboot2-b31-schedreadymm1; next boundary is repeated EikAppUiServerThread KERN-EXEC 3
 - B32: EIKSRVFAULTDIAG1 — device-observed; localized AknFep -> Leave(-3) -> euser null write -> KERN-EXEC 3 and ruled out SVC 0xE3/0x2D as immediate causal targets
-- B33: EIKCANCELORIGIN1 — device-observed; LLE/HLE/notify probes do not identify the pre-Leave(-3) origin; also exposed Exit Emulator watchdog stall at focus_callback_mutex during Wserv teardown
+- B33: EIKCANCELORIGIN1 — device-observed; LLE/HLE/notify probes do not identify the pre-Leave(-3) origin; Exit Emulator hang plus exact reconstructed source proved a same-thread screen_mutex self-deadlock during Wserv teardown
+- B34: FOCUSMUTEXSPLIT1 — build validated; narrow dedicated focus_callback_mutex split, device test required
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -694,11 +698,12 @@ Snapshots:
 - docs/handoff/history/B32-DEVICE1.md
 - docs/handoff/history/B33-EIKCANCELORIGIN1.md
 - docs/handoff/history/B33-DEVICE1.md
+- docs/handoff/history/B34-FOCUSMUTEXSPLIT1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 localized the first repeated guest failure to AknFep -> User::Leave(KErrCancel/-3) -> euser null write 0x10 -> EikAppUiServerThread KERN-EXEC 3. B33 EIKCANCELORIGIN1 at code commit 4db183b7a8f522f93057bfae22933f19c770156b was device-tested: no EIKCANCEL_HLE occurs, the two EIKCANCEL_LLE events belong to AknIconSrv/CdlServer, and eiksrvs EIKCANCEL_NOTIFY occurs only after its EIKFAULT_AV and KERN-EXEC 3, so none of those paths explains the preceding Leave(-3). Separately, the B33 Exit Emulator attempt reaches os_join_begin and stalls. The iOS report is EXC_CRASH/SIGKILL FRONTBOARD 0x8BADF00D, not SIGSEGV. The lifecycle queue is waiting in shutdown_threads/pthread_join while the Symbian OS thread is blocked in screen::fire_focus_change_callbacks -> screen::update_focus -> window_group destructor -> Wserv disconnect -> kernel wipeout. B33 did not directly patch iOS exit or window-server code. Preferred next build is B34 FOCUSLOCKDIAG1 diagnostics only to log focus callback mutex wait/acquire/callback/release, add/remove and teardown context, identify the lock owner/reentrancy sequence, and only then select a host-exit fix. Keep the AknFep Leave(-3) investigation separate. Preserve B20-B33, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. B31 SCHEDREADYMM1 remains the latest device-validated immutable functional milestone. B32 localized the repeated guest failure to AknFep -> User::Leave(KErrCancel/-3) -> euser null write 0x10 -> EikAppUiServerThread KERN-EXEC 3. B33 EIKCANCELORIGIN1 was device-tested: no EIKCANCEL_HLE occurs, its LLE cancellations belong to AknIconSrv/CdlServer, and eiksrvs EIKCANCEL_NOTIFY is post-KERN-EXEC cleanup, so the immediate AknFep Leave(-3) origin remains unresolved. Separately, B33 Exit Emulator reached os_join_begin and hung. The user manually swiped the hung app to Home Screen; the later 0x8BADF00D report is secondary and must not be described as B33 crashing to Home Screen. Exact B33 reconstruction proved the host root cause: window_server_client teardown holds screen_mutex across objects.clear(); focused window_group destruction calls update_focus -> fire_focus_change_callbacks, which tries to re-lock the same non-recursive screen_mutex on the same OS thread. B34 FOCUSMUTEXSPLIT1 is build-validated at run 35691395487 / job 106628955424 / HEAD 24001e3306070fab2145bc1a4dd326a9fa83587d, IPA SHA 486ed148c18689b9582988df1e30616ab4bb40c18070a7e554078161d20c4c5c. It ports only a dedicated focus_callback_mutex for fire/add/remove focus callbacks, preserving the outer screen_mutex teardown and all guest behavior. Device-test B34 by choosing Thoát Emulator and do not swipe away; success requires os_join_done -> shutdown_threads_done -> shutdown_done -> normal frontend restoration. Preserve B20-B33, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
 
 This file is authoritative unless newer committed device evidence supersedes it.
