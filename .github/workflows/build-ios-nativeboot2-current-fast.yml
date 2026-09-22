@@ -154,6 +154,7 @@ jobs:
         grep -Fq '[NBOOT2][EIKPOSTLEAVE_AV_FRAME]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][EIKPOSTLEAVE_AV_CODE16]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][EIKPOSTLEAVE_AV_STACK]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][LOADER_PDD]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"

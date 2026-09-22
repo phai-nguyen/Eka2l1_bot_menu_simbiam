@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RED source contract for NATIVEBOOT2 B40 LOADERPDD1.
+"""Source contract for NATIVEBOOT2 B40 LOADERPDD1.
 
 B39 device evidence identified the first causal startup break:
 CEikServAppUiBase::InitializeL -> User::LoadPhysicalDevice("EUART1")
@@ -7,9 +7,9 @@ CEikServAppUiBase::InitializeL -> User::LoadPhysicalDevice("EUART1")
 
 B40 is intentionally narrow: implement only Loader::LoadPhysicalDevice using
 upstream EKA2L1 commit 0987745cc0bde96511fce2a4bfefcfd8fbced3dc,
-return KErrNone for a valid HLE-backed PDD request, and expose a marker proving
-entry/completion. Generic unknown-IPC behavior and all B34-B39 behavior remain
-unchanged.
+return KErrNone for a valid HLE-backed PDD request, and expose runtime evidence
+of entry/completion. Generic unknown-IPC behavior and all B34-B39 behavior
+remain unchanged.
 """
 from __future__ import annotations
 import sys
@@ -32,24 +32,25 @@ def main() -> None:
     hdr=up/"src/emu/services/include/services/loader/loader.h"
     src=up/"src/emu/services/src/loader/loader.cpp"
     op=up/"src/emu/services/include/services/loader/op.h"
+    context=up/"src/emu/services/src/context.cpp"
     svc=up/"src/emu/kernel/src/svc.cpp"
     kern=up/"src/emu/kernel/src/kernel.cpp"
     window=up/"src/emu/services/src/window/window.cpp"
     screenh=up/"src/emu/services/include/services/window/screen.h"
 
-    for p in (hdr,src,op,svc,kern,window,screenh):
+    for p in (hdr,src,op,context,svc,kern,window,screenh):
         if not p.is_file():
             fail(f"missing source file: {p}")
 
     h=hdr.read_text(encoding="utf-8")
     s=src.read_text(encoding="utf-8")
     o=op.read_text(encoding="utf-8")
+    ct=context.read_text(encoding="utf-8")
     sv=svc.read_text(encoding="utf-8")
     ke=kern.read_text(encoding="utf-8")
     ws=window.read_text(encoding="utf-8")
     sh=screenh.read_text(encoding="utf-8")
 
-    # Canonical RED should fail here before implementation.
     need(s,"[NBOOT2][LOADER_PDD]","B40 Loader PDD runtime marker")
 
     # Exact narrow upstream behavior.
@@ -66,11 +67,17 @@ def main() -> None:
     need(s,"phase=enter","B40 entry evidence")
     need(s,"phase=complete","B40 completion evidence")
 
-    # B40 must not absorb the generic unknown-IPC fix from upstream 9f28c76f.
-    if "LoaderPDD generic unknown IPC" in s:
-        fail("generic unknown-IPC behavior bundled into B40")
+    # Do not absorb upstream 9f28c76f generic unknown-IPC completion into B40.
+    unknown_old='LOG_WARN(SERVICE_TRACK, "Unimplemented IPC call: 0x{:x} for server: {}", func, obj_name);'
+    need(ct, unknown_old, "legacy unknown-IPC dispatcher")
+    if 'LOG_ERROR(SERVICE_TRACK, "Unimplemented IPC call: 0x{:x} for server: {}", func, obj_name);' in ct:
+        fail("generic unknown-IPC dispatcher changed in B40")
+    pos=ct.find(unknown_old)
+    if pos < 0 or "context.complete(epoc::error_not_supported);" in ct[pos:pos+800]:
+        fail("generic unknown-IPC completion bundled into B40")
 
     # Preserve previous validated/diagnostic milestones.
+    need(s,"[NBOOT2][LDR_LIB_REQUEST]","B29 loader diagnostics")
     need(sv,"[NBOOT2][EIKFEP_STATE]","B39 FEP diagnostics")
     need(ke,"[NBOOT2][EIKPOSTLEAVE_AV_FRAME]","B39 AV diagnostics")
     need(ws,"[NBOOT2][WSERV_HANDLE_CARRY]","B36 handle carry")
