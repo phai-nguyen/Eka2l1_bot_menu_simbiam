@@ -4,11 +4,11 @@ Updated: 2026-09-22
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: 9381a02b131102ac6f1088ae077411d27f753132
-Latest immutable functional milestone: B29 CENREPTX1
-Latest immutable functional code HEAD: 7bceb18a337b0977f0f2f68ea0232748dd848392
-Latest development build: B30 ROOTEDLIBPATH1 — BUILD-VALIDATED
+Latest immutable functional milestone: B30 ROOTEDLIBPATH1
+Latest immutable functional code HEAD: 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
+Latest development build: B30 ROOTEDLIBPATH1 — DEVICE-VALIDATED FOR LOADER BLOCKER; HOST CRASH EXPOSED
 Latest B30 build-tested code commit: 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
-Latest device-tested milestone: B29
+Latest device-tested milestone: B30
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -116,7 +116,7 @@ docs/handoff/history/B30-ROOTEDLIBPATH1.md
 
 ## FASTBUILD1 — promoted development build path
 
-FASTBUILD1 is PROMOTED. B30 ROOTEDLIBPATH1 is build-validated and is the current device-test candidate.
+FASTBUILD1 is PROMOTED. B30 ROOTEDLIBPATH1 is device-validated for its loader target. The active investigation is the post-B30 host scheduler crash.
 
 Active development branch:
 nativeboot2-current
@@ -202,7 +202,7 @@ Development rule from now on:
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
 5. Do not return to sibling milestone branches as the primary development/cache path.
 
-FASTBUILD1 does not change guest behavior. B29 CENREPTX1 remains the latest device-validated immutable milestone. LOADERDIAG1 has now confirmed the next causal bug: rooted paths without a drive are opened verbatim instead of being resolved across mounted drives.
+FASTBUILD1 does not change guest behavior. B30 ROOTEDLIBPATH1 is now device-validated for the rooted-no-drive loader blocker: EiksrvUi.dll resolves from Z:\\sys\\bin and loads successfully. The next blocker is a native scheduler crash during later startup.
 
 ## Validated milestones
 
@@ -546,6 +546,51 @@ These remain candidates only.
 Current decision rule:
 B30 ROOTEDLIBPATH1 is build-validated. Device-test the B30 IPA. The rooted-no-drive request must progress through LDR_ROOT_CANDIDATE and preferably LDR_ROOT_RESOLVED instead of terminating at LDR_ROOT_DIRECT exists=0 -> LDR_ROOT_MISS. If loading then fails later, use the first LDR_FORMAT / LDR_PARSE_FAIL / LDR_CODESEG_RESULT / LDR_DEP_FAIL / LDR_LIB_RESULT boundary as the next causal target. Keep ROM/E32 classification, dependency behavior, relocation behavior, and SVC 0x2D/0x48/0x4A/0x50 unchanged until that trace.
 
+
+
+## B30 device result — 2026-09-22
+
+B30 ROOTEDLIBPATH1 is DEVICE-VALIDATED for its intended causal boundary.
+
+The first EiksrvUi request now follows:
+
+`LDR_LIB_REQUEST rooted_no_drive=1`
+-> `LDR_ROOT_BEGIN`
+-> `LDR_ROOT_CANDIDATE candidate=Z:\\sys\\bin\\EiksrvUi.dll exists=1`
+-> `LDR_FORMAT ... format=ROM`
+-> `LDR_ROOT_RESOLVED success=1`
+-> `LDR_LIB_RESULT success=1 completion=0`.
+
+The B29 direct-VFS miss no longer terminates this request.
+
+Startup then progresses for roughly 30 seconds. The supplied video remains on the NOKIA splash before the app exits to the iOS Home Screen.
+
+Late device ordering:
+1. AknIconSrv Leave -5 events are trapped.
+2. `akncapserver` is forcefully killed with category Domino, reason -33 at 08:47:47.542.
+3. SVCMISS 0xE3 appears at 08:47:47.549.
+4. Multiple later startup processes are spawned.
+5. Host logging stops at 08:47:47.646.
+6. iOS crash report timestamp is 08:47:48.
+
+Crash report:
+- EXC_BAD_ACCESS / SIGSEGV;
+- KERN_INVALID_ADDRESS at 0x0;
+- faulting thread: Symbian OS thread;
+- `thread_scheduler::switch_context()+232`;
+- `kernel_system::reschedule()+460`;
+- `system_impl::loop()+576`.
+
+Upstream EKA2L1 commit 437b29006bd8a0186f4070c9445f43e98e5c7435 contains the exact scheduler failure class: a ready thread can outlive its owning process memory model and be passed to `switch_context`. Its narrow fix filters/dequeues ready entries whose owner or memory model is gone before the context switch.
+
+Preferred B31 direction:
+SCHEDREADYMM1.
+
+Do not batch SVC 0xE3 into B31. Upstream maps 0xE3 to `Exec::GetModuleNameFromAddress`, so retain it as the next observed guest compatibility gap after the host crash is removed.
+
+Full device snapshot:
+docs/handoff/history/B30-DEVICE1.md
+
 ## Preserved invariants
 
 Keep:
@@ -588,7 +633,7 @@ Do not reintroduce:
 - B29: CENREPTX1 — device validated; immutable branch nativeboot2-b29-cenreptx1
 - B29-DIAG1: device-observed; proves CenRep/FEP success and localizes the next failure to library loading
 - B29-LOADERDIAG1: device-observed; proves rooted-no-drive direct VFS miss is causal and selects B30 ROOTEDLIBPATH1
-- B30: ROOTEDLIBPATH1 — build validated at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; device test pending
+- B30: ROOTEDLIBPATH1 — device validated for loader blocker at 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9; immutable branch nativeboot2-b30-rootedlibpath1; later host scheduler crash exposed
 
 Snapshots:
 - docs/handoff/history/B25-FBSSHAREDHEAP1.md
@@ -598,12 +643,12 @@ Snapshots:
 - docs/handoff/history/B29-CENREPTX1.md
 - docs/handoff/history/B29-DIAG1.md
 - docs/handoff/history/B29-LOADERDIAG1.md
-- docs/handoff/history/B30-ROOTEDLIBPATH1.md
+- docs/handoff/history/B30-ROOTEDLIBPATH1.md\n- docs/handoff/history/B30-DEVICE1.md
 
 ## How to resume
 
 Use:
 
-"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B29 CENREPTX1 remains the latest device-validated immutable milestone at commit 7bceb18a337b0977f0f2f68ea0232748dd848392. B30 ROOTEDLIBPATH1 is build-validated at code commit 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9, run 35666140887, IPA SHA e93aeedfae3d9d7d033e7c1e15374bac74ba584ed5becd264a0a05dc3cd41e67, artifact 10669182381. B30 narrowly resolves rooted-no-drive library paths across drive-qualified candidates in lib_manager::load(), preserves B29 LOADERDIAG1, and does not import ROM/E32 classification, dependency, relocation, or SVC changes. Device-test this IPA and inspect LDR_LIB_REQUEST, LDR_ROOT_BEGIN, LDR_ROOT_CANDIDATE, LDR_ROOT_RESOLVED/LDR_ROOT_EXHAUSTED, LDR_FORMAT/PARSE_FAIL, LDR_CODESEG_RESULT, LDR_DEP_FAIL and LDR_LIB_RESULT around the first \\sys\\bin\\EiksrvUi.dll request. Do not patch SVC 0x2D/0x48/0x4A/0x50 or import other upstream loader changes until the B30 trace establishes the next causal boundary."
+"Read docs/handoff/CURRENT.md from phai-nguyen/Eka2l1_bot_menu_simbiam. Active development is nativeboot2-current with FASTBUILD1 promoted. B30 ROOTEDLIBPATH1 is now the latest device-validated immutable milestone at commit 58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9 and branch nativeboot2-b30-rootedlibpath1. Device evidence proves EiksrvUi.dll resolves as Z:\\sys\\bin\\EiksrvUi.dll and LDR_LIB_RESULT succeeds. About 30 seconds later akncapserver is killed Domino -33 and the app host-crashes with EXC_BAD_ACCESS at address 0 in thread_scheduler::switch_context()+232 -> kernel_system::reschedule(). Upstream EKA2L1 commit 437b29006bd8a0186f4070c9445f43e98e5c7435 contains the exact narrow scheduler guard: remove ready threads whose owning process or memory model is gone before switch_context. Preferred B31 is SCHEDREADYMM1 only. Also record SVCMISS 0xE3 (GetModuleNameFromAddress upstream) as a separate later compatibility gap; do not batch it into the scheduler fix. Preserve B20-B30, SYSSTART ownership, native fbserv, NOJAVA and MANIC3."
 
 This file is authoritative unless newer committed device evidence supersedes it.
