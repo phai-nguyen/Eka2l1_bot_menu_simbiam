@@ -24,19 +24,22 @@ Primary device-test environment:
 ## Current baseline
 
 Latest device-validated functional milestone:
-B29 = NATIVEBOOT2-B29-CENREPTX1
+B30 = NATIVEBOOT2-B30-ROOTEDLIBPATH1
 
-Immutable B29 branch:
-nativeboot2-b29-cenreptx1
+Immutable B30 branch:
+nativeboot2-b30-rootedlibpath1
 
-Immutable B29 functional commit:
-7bceb18a337b0977f0f2f68ea0232748dd848392
+Immutable B30 functional commit:
+58a6178a53f9ddd8f4edbb5b3788d25131b9d4f9
+
+Previous immutable milestone:
+B29 CENREPTX1 at 7bceb18a337b0977f0f2f68ea0232748dd848392
 
 Active functional candidate:
-B30 ROOTEDLIBPATH1
+B31 SCHEDREADYMM1 — DESIGN CANDIDATE, NOT IMPLEMENTED
 
 Status:
-BUILD-VALIDATED, DEVICE TEST REQUIRED
+B30 DEVICE EVIDENCE LOCALIZES A NEW HOST SCHEDULER CRASH
 
 Active development branch:
 nativeboot2-current
@@ -122,7 +125,7 @@ Active development branch:
 nativeboot2-current
 
 Latest immutable functional milestone:
-nativeboot2-b29-cenreptx1
+nativeboot2-b30-rootedlibpath1
 
 Stable bootstrap:
 - milestone: B28 WSERVLIBTYPE1
@@ -196,7 +199,7 @@ Full benchmark/probe evidence:
 docs/handoff/history/FASTBUILD1.md
 
 Development rule from now on:
-1. B29/B30 functional work lands on nativeboot2-current.
+1. B30/B31 functional work lands on nativeboot2-current.
 2. Add the new apply_script|test_script row to ci/fastbuild1_manifest.txt.
 3. Build/test/device-test on nativeboot2-current.
 4. Snapshot the exact validated commit to an immutable nativeboot2-bXX-* branch.
@@ -544,7 +547,7 @@ B27 also saw:
 These remain candidates only.
 
 Current decision rule:
-B30 ROOTEDLIBPATH1 is build-validated. Device-test the B30 IPA. The rooted-no-drive request must progress through LDR_ROOT_CANDIDATE and preferably LDR_ROOT_RESOLVED instead of terminating at LDR_ROOT_DIRECT exists=0 -> LDR_ROOT_MISS. If loading then fails later, use the first LDR_FORMAT / LDR_PARSE_FAIL / LDR_CODESEG_RESULT / LDR_DEP_FAIL / LDR_LIB_RESULT boundary as the next causal target. Keep ROM/E32 classification, dependency behavior, relocation behavior, and SVC 0x2D/0x48/0x4A/0x50 unchanged until that trace.
+B30 ROOTEDLIBPATH1 is device-validated for the rooted-no-drive library-loading blocker. The next bounded code candidate is B31 SCHEDREADYMM1: backport only the ready-thread owner/memory-model validation in thread_scheduler::reschedule(), add a generic stale-ready-drop diagnostic marker, and device-test that single change. Do not batch SVC 0xE3, SVC 0x2D/0x48/0x4A/0x50, ROM/E32 classification, relocation, timer, IPC-lifetime, or other upstream changes into B31. If the host switch_context crash is removed, use the next device trace to select the next guest-side causal target.
 
 
 
