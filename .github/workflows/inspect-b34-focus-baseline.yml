@@ -1,0 +1,47 @@
+name: Inspect B34 Focus Baseline
+
+"on":
+  push:
+    branches:
+      - nativeboot2-current
+    paths:
+      - .github/workflows/inspect-b34-focus-baseline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore stable B28 bootstrap
+        id: b28
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+      - name: Reconstruct B33 baseline and inspect focus locking
+        run: |
+          set -euo pipefail
+          test "${{ steps.b28.outputs.cache-hit }}" = "true"
+          UP="$GITHUB_WORKSPACE/upstream"
+          python3 apply_nativeboot2_b29_cenreptx1.py "$UP"
+          python3 apply_nativeboot2_b29_diag1.py "$UP"
+          python3 apply_nativeboot2_b29_loaderdiag1.py "$UP"
+          python3 apply_nativeboot2_b30_rootedlibpath1.py "$UP"
+          python3 apply_nativeboot2_b31_schedreadymm1.py "$UP"
+          python3 apply_nativeboot2_b32_eiksrvfaultdiag1.py "$UP"
+          python3 apply_nativeboot2_b33_eikcancelorigin1.py "$UP"
+          echo "=== screen.h mutex lines ==="
+          grep -n -E 'mutex|focus_callback|screen_redraw_callback|screen_mode_change_callback' "$UP/src/emu/services/include/services/window/screen.h" || true
+          echo "=== screen.cpp focus functions ==="
+          grep -n -A35 -B12 'fire_focus_change_callbacks' "$UP/src/emu/services/src/window/screen.cpp" || true
+          echo "=== add/remove focus callback ==="
+          grep -n -A25 -B8 'add_focus_change_callback' "$UP/src/emu/services/src/window/screen.cpp" || true
+          echo "=== wingroup destructor ==="
+          grep -n -A30 -B8 'window_group::~window_group' "$UP/src/emu/services/src/window/classes/wingroup.cpp" || true
