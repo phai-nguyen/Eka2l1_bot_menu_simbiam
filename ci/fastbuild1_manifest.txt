@@ -9,6 +9,8 @@ apply_nativeboot2_b32_eiksrvfaultdiag1.py|test_nativeboot2_b32_eiksrvfaultdiag1.
 apply_nativeboot2_b33_eikcancelorigin1.py|test_nativeboot2_b33_eikcancelorigin1.py
 apply_nativeboot2_b34_focusmutexsplit1.py|test_nativeboot2_b34_focusmutexsplit1.py
 
+apply_nativeboot2_b35_eikleavecaller1.py|test_nativeboot2_b35_eikleavecaller1.py
+
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
@@ -19,4 +21,3 @@ test_nativeboot2_b25_fbssharedheap1.py
 test_nativeboot2_b26_ioslibraryexit1.py
 test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
-apply_nativeboot2_b35_eikleavecaller1.py|test_nativeboot2_b35_eikleavecaller1.py
