@@ -3597,3 +3597,145 @@ The device decision is whether Home screen creates/owns a WindowGroup that
 ever reaches final focus ahead of the Nokia startup group. Do not force focus
 or patch op `0x2B` until B49 device evidence identifies the exact caller,
 pattern, target group and focus transition.
+
+
+## Latest device override — B49 POSTLOGOWSERV1 DEVICE1
+
+B49 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+`docs/handoff/history/B49-DEVICE1.md`
+
+B49 video/log correlation proves:
+
+```
+splashscreen[100059de]
+ -> creates WindowGroup object 0x00030003
+ -> focus group id=3
+ -> group becomes S60SplashScreenGroup
+ -> Nokia logo appears at the same timestamp
+```
+
+Startup then creates a focus-requesting group with client handle
+`0x008000C0`, and Home screen/ailaunch creates another focus-requesting
+group with client handle `0x007007E8`.
+
+Home screen is successfully discoverable by UID, so its WindowGroup is not
+missing.
+
+At 23:22:07.655:
+
+```
+WSERV_BATCH_CMD op=0x6 obj_handle=0x00030003
+```
+
+The object is the splash WindowGroup. Window opcode `0x06` is
+`EWsWinOpSetOrdinalPositionPri`.
+
+Focus changes immediately:
+
+```
+S60SplashScreenGroup (id=3)
+ -> Startup (id=61)
+```
+
+Splashscreen exits normally 12 ms later.
+
+The full B49 recording remains visually pixel-identical to the Nokia startup
+surface after this focus handoff and splash exit. Therefore successful focus
+handoff alone does not replace the displayed splash pixels.
+
+Startup remains focus throughout normal runtime. Home screen only becomes
+focus during emulator teardown, after Exit Emulator has already been
+requested.
+
+Do not force Home screen focus yet.
+
+## Latest build override — B50 POSTLOGOCANVAS1
+
+B50 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+B50 classifies whether the post-logo failure is before or after normal
+WindowServer canvas presentation.
+
+New markers:
+
+- `[NBOOT2][POSTLOGO_ORDERPRI]`
+- `[NBOOT2][POSTLOGO_RECEIVEFOCUS]`
+- `[NBOOT2][POSTLOGO_CANVAS_CREATE]`
+- `[NBOOT2][POSTLOGO_CANVAS_ACTIVATE]`
+- `[NBOOT2][POSTLOGO_CANVAS_VISIBLE]`
+- `[NBOOT2][POSTLOGO_WG_DESTROY]`
+
+The trace is limited to:
+
+- splashscreen `0x100059DE`
+- Startup `0x100058F4`
+- Home screen `0x102750F0`
+
+B50 does not force focus, visibility, activation, z-order, redraw or framebuffer
+clearing. B49 behavior remains unchanged.
+
+### Canonical GREEN
+
+- run `35891253078` / run number 143
+- job `107283982581`
+- build HEAD `0445b52ba14d0c1b45ad79ed9d627c697d745be7`
+- FASTBUILD1 manifest VALID
+- B29-B50 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- compile requests/hits/misses `149/145/4`
+- actual compilations `4`
+- compilation failures `0`
+- NOJAVA / MANIC3 preserved
+
+FASTBUILD audit:
+- B28 cache bootstrap
+- bootstrap 37 s
+- patch/regression 3 s
+- build 82 s
+- package 2 s
+- total 151 s
+
+Unsigned IPA:
+
+- size `19,988,067` bytes
+- SHA-256
+  `0d46c081142116b472bedf41dc0620e8eff3601714947bb03ff013e93e1cda4c`
+
+GitHub IPA artifact:
+- ID `10765615710`
+- digest
+  `sha256:fbe1ba7e2272104058df0675142f65218559075e9c054005e1e14dbb6248052c`
+
+Full build snapshot:
+`docs/handoff/history/B50-POSTLOGOCANVAS1.md`
+
+### B50 device acceptance
+
+Use the same RM-356 V60 pair and provide:
+
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+- full screen recording
+
+Decision:
+
+```
+splash/Startup/Home group state
+ -> canvas create
+ -> SetVisible
+ -> Activate
+ -> physically_seen
+ -> splash destruction
+ -> displayed frame
+```
+
+If Startup/Home canvases become active + visible + physically seen while the
+video still retains stale Nokia pixels after splash destruction, the next
+boundary moves into WindowServer redraw/compositor/framebuffer invalidation.
+Do not clear the framebuffer or force Home focus before that evidence.
