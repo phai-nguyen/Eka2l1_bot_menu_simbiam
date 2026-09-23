@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B52 REDRAWSCHED1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B53 COMPOSITORTREE1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -27,6 +27,7 @@ apply_nativeboot2_b49_postlogowserv1.py|test_nativeboot2_b49_postlogowserv1.py
 apply_nativeboot2_b50_postlogocanvas1.py|test_nativeboot2_b50_postlogocanvas1.py
 apply_nativeboot2_b51_directscreen1.py|test_nativeboot2_b51_directscreen1.py
 apply_nativeboot2_b52_redrawsched1.py|test_nativeboot2_b52_redrawsched1.py
+apply_nativeboot2_b53_compositortree1.py|test_nativeboot2_b53_compositortree1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py

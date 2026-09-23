@@ -201,6 +201,9 @@ jobs:
         fi
         strings "$BIN" | grep -E 'DIRECTSCREEN|HOST_OVERLAY_ONLY|callback_next=1' | head -n 20 || true
         grep -Fq '[NBOOT2][REDRAW_SCHED]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][COMPOSITOR_FRAME]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][COMPOSITOR_GROUP]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][COMPOSITOR_CANVAS]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'marker_size=72x72' "$RUNNER_TEMP/fastbuild1.strings" || true
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
