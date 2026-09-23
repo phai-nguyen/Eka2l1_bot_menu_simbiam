@@ -18,6 +18,18 @@ def rep(text, old, new, label):
         fail(f"{label}: expected one anchor, found {count}")
     return text.replace(old,new,1)
 
+def rep_between(text, begin, end, old, new, label):
+    b=text.find(begin)
+    e=text.find(end,b+1)
+    if b < 0 or e < 0:
+        fail(f"{label}: function bounds not found")
+    region=text[b:e]
+    count=region.count(old)
+    if count != 1:
+        fail(f"{label}: expected one anchor in bounded region, found {count}")
+    region=region.replace(old,new,1)
+    return text[:b]+region+text[e:]
+
 def main():
     if len(sys.argv) != 2:
         fail("usage: apply_nativeboot2_b44_alftfxstartdiag1.py <upstream-root>")
@@ -97,7 +109,11 @@ def main():
 
         if (!server) {
 '''
-    s=rep(s,anchor,block,"B44 ALF session lookup")
+    s=rep_between(
+        s,
+        "    BRIDGE_FUNC(std::int32_t, session_create,",
+        "    BRIDGE_FUNC(std::int32_t, session_create_from_handle,",
+        anchor, block, "B44 ALF session lookup")
 
     anchor='''            if (b43_tfx) {
                 b43_tfx_miss.valid = true;
