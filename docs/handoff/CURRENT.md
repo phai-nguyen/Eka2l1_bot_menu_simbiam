@@ -3938,3 +3938,132 @@ natural splash demotion
 
 Do not implement a scheduler workaround before B52 device evidence identifies
 the first missing phase.
+
+
+## Latest device override — B52 REDRAWSCHED1 DEVICE1
+
+B52 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B52-DEVICE1.md`
+
+The natural splash handoff is now proven to reach host presentation.
+
+At 06:09:02.083:
+
+```
+splash requested_priority 1001 -> -1000
+REDRAW_SCHED schedule_enter
+REDRAW_SCHED scan_arm
+REDRAW_SCHED schedule_done
+focus: S60SplashScreenGroup id=3 -> Startup id=61
+```
+
+Splash is destroyed normally at 06:09:02.095 with
+`redraw_region_pending=1`.
+
+The iOS host then presents four additional frames:
+
+```
+06:09:02.085 frame=171
+06:09:02.093 frame=172
+06:09:02.104 frame=173
+06:09:02.117 frame=174
+```
+
+The enlarged marker advances across those presents, but the central Nokia
+pixels remain effectively pixel-identical before/after the transition and for
+the rest of the run.
+
+Therefore scheduler delivery / host present is no longer the unresolved
+boundary.
+
+B52 also revealed an instrumentation limitation: Startup WindowGroup IDs vary
+between runs. B52 inherited id=63 but the B52 device run uses Startup id=61.
+Missing post-focus REDRAW_SCHED/DIRECTSCREEN_REDRAW markers therefore cannot be
+interpreted as missing execution. The host presents prove that redraw callbacks
+occur.
+
+Source observation:
+
+`screen::redraw(builder, true)` clears the color buffer only if
+`FLAG_SERVER_REDRAW_PENDING` is set.
+
+The B52 handoff presents report `screen_flags=0x00000002`, i.e. the
+server-redraw-pending bit 0x8 is not set. This is a candidate explanation for
+stale Nokia pixels, not yet a functional conclusion.
+
+## Latest build override — B53 COMPOSITORTREE1
+
+B53 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B53-COMPOSITORTREE1.md`
+
+B53 uses WindowGroup name/UID matching instead of unstable run-specific object
+IDs and adds:
+
+- `[NBOOT2][COMPOSITOR_FRAME]`
+- `[NBOOT2][COMPOSITOR_GROUP]`
+- `[NBOOT2][COMPOSITOR_CANVAS]`
+
+It records:
+
+- conditional color-clear state;
+- top-level group ordering;
+- canvas visibility / physical visibility;
+- absolute rectangles;
+- per-canvas exact `draw()` result;
+- total client / visible / physically-visible / drawn canvas counts.
+
+B53 does not change the B28 compositor's conditional color clear or traversal.
+
+### Canonical GREEN
+
+- run ID `35933740025`
+- run number `155`
+- job `107425985727`
+- HEAD `332040435ef6318902e23732cf1c6ec4369a72f6`
+- B29-B53 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA package/upload PASS
+- NOJAVA / MANIC3 preserved
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+
+Unsigned IPA:
+
+- size `19,996,831` bytes
+- SHA-256
+  `d4c126540b7a12bef9569fd60f0f8db1ce74f4d12a6d23a83e90d626ace707a5`
+
+Library path:
+
+`/Eka2l1 Boot menu/EKA2L1-NATIVEBOOT2-B53-COMPOSITORTREE1-unsigned.ipa`
+
+### B53 device-test rule
+
+Use the same RM-356 V60 pair and keep the emulator running at least
+**150 seconds after the Nokia logo appears**.
+
+Send the same 3 logs + full recording.
+
+Primary question:
+
+```
+natural Splash -> Startup handoff
+ -> compositor frame
+ -> color_clear ?
+ -> group order
+ -> physical visibility
+ -> per-canvas draw result
+ -> host present
+```
+
+Do not add a forced clear until B53 proves whether Startup/Home frames fail to
+cover the stale splash pixels.
