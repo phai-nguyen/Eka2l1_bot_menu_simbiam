@@ -80,6 +80,11 @@ def main():
             "#include <services/context.h>\n",
             "#include <services/context.h>\n#include <config/config.h>\n",
             "CenRep config include")
+    if "#include <kernel/process.h>" not in rp:
+        rp=rep(rp,
+            "#include <config/config.h>\n",
+            "#include <config/config.h>\n#include <kernel/process.h>\n",
+            "CenRep process include")
 
     get_begin="    void central_repo_client_subsession::get_value(service::ipc_context *ctx) {"
     get_end="    void central_repo_client_subsession::append_new_key_to_found_eq_list"
