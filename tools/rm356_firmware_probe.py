@@ -44,13 +44,24 @@ def decode_text(path: Path) -> str:
     raw = path.read_bytes()
     if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
         return raw.decode("utf-16")
-    for enc in ("utf-8-sig", "utf-16-le", "latin-1"):
+
+    # CenRep exports are sometimes UTF-16 without a BOM. Detect the regular
+    # NUL-byte lane before trying UTF-8, because NUL is valid UTF-8 and would
+    # otherwise silently produce an unusable string.
+    sample = raw[:512]
+    if len(sample) >= 4:
+        even_nuls = sum(1 for i in range(0, len(sample), 2) if sample[i] == 0)
+        odd_nuls = sum(1 for i in range(1, len(sample), 2) if sample[i] == 0)
+        even_slots = (len(sample) + 1) // 2
+        odd_slots = len(sample) // 2
+        if odd_slots and odd_nuls / odd_slots > 0.35:
+            return raw.decode("utf-16-le", errors="replace")
+        if even_slots and even_nuls / even_slots > 0.35:
+            return raw.decode("utf-16-be", errors="replace")
+
+    for enc in ("utf-8-sig", "latin-1"):
         try:
-            text = raw.decode(enc)
-            # Reject a false UTF-16 decode of ordinary 8-bit ASCII.
-            if enc == "utf-16-le" and "\x00" not in raw.decode("latin-1", errors="ignore"):
-                continue
-            return text
+            return raw.decode(enc)
         except UnicodeDecodeError:
             pass
     return raw.decode("latin-1", errors="replace")
