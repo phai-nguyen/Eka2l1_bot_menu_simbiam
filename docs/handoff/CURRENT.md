@@ -9,12 +9,12 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
-Latest device diagnostic snapshot: docs/handoff/history/B42-DEVICE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B43-DEVICE1.md
 Latest build diagnostic snapshot: docs/handoff/history/B43-TFXSERVERDIAG1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
-B43 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — diagnostic-only TfxServer CreateSession/resolution provenance
+B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1787,3 +1787,89 @@ MANIC3.
 
 Full snapshot:
 - `docs/handoff/history/B43-TFXSERVERDIAG1.md`
+
+
+## Latest override — B43 DEVICE1
+
+B43 TFXSERVERDIAG1 is now **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+B41 remains the latest immutable functional milestone.
+
+### Direct akncapserver causal chain is proven
+
+B43 captures three TfxServer session misses. The two akncapserver attempts are
+directly correlated on the same guest thread:
+
+```text
+09:55:45.437 akncapserver...0002 TfxServer -> KErrNotFound
+09:55:45.545 same process/thread -> [TFX_LEAVE] correlated=1 Leave(-1)
+09:55:45.575 self-kill reason=-1
+
+09:55:46.202 akncapserver...0003 TfxServer -> KErrNotFound
+09:55:46.296 same process/thread -> [TFX_LEAVE] correlated=1 Leave(-1)
+09:55:46.327 self-kill reason=-1
+```
+
+The gaps are approximately 108 ms and 94 ms.
+
+Both Leave(-1) traces resolve to the same Avkon/AknSkins module/offset pattern,
+including:
+
+- `avkon.dll + 0xA73DC / 0xA742C / 0xA741C`
+- `AKNSKINS.DLL + 0x164 / 0x384`
+- `euser.dll + 0x95B0 / 0x1C83C`
+
+This makes the akncapserver TfxServer failure family deterministic.
+
+The earlier eiksrvs TfxServer miss is **not** same-thread correlated:
+CreateSession occurs on `EikAppUiServerThread`, while the subsequent
+Leave(-1) is on `ViewServerThread`.
+
+### Provider-resolution result is negative
+
+- `[NBOOT2][TFX_RESOLVE]`: 0
+- `[NBOOT2][TFX_SERVER_REGISTER]`: 0
+- no runtime `alfredserver.exe` process observed
+- no UID `0x10282845` observed
+
+The runtime does load `akntransitionutils.dll` and
+`aknlistloadertfx.dll`, and AppArc reads `alfredserver_reg.rsc`, but no
+public `TfxServer` endpoint is registered.
+
+### Public-source architecture
+
+Public Symbian source confirms:
+
+- Avkon explicitly searches for server name `TfxServer`;
+- AknCapServer is compiled against transition-effects components;
+- Alfred server UID3 is `0x10282845` and its registration is background/hidden;
+- ALF clients launch Alfred through AppArc on demand;
+- Alfred constructs transition effects and loads a TFX ECom plugin;
+- `tfxsrvplugin.dll` has DLL UID `0x10282DBA`;
+- TFX public UID is `0x10281F7D`;
+- the transition server is described as being loaded into Wserv through a
+  CAnimDll plugin;
+- Alfred's internal TFX client connects to the ALF streamer/bridge endpoint.
+
+Therefore B44 must diagnose the provider-startup chain; it must not assume that
+`alfredserver.exe` itself is the public TfxServer process.
+
+### Baseline preservation
+
+- B42 SA_HWRM_ABI still present.
+- B40 EUART1 still completes with result 0.
+- `!EikAppUiServer` still registers.
+- B41 Exit Emulator still reaches `normal_restart_done has_device=1`.
+
+### Next candidate
+
+**B44 ALFTFXSTARTDIAG1**
+
+Trace Alfred UID `0x10282845` AppArc launch, ALF app-server/streamer endpoint
+creation, TFX ECom plugin resolution/load (`0x10282DBA`), and the
+`0x10281F7D` TFX status path where safely observable.
+
+Keep TfxServer miss semantics unchanged until the missing provider-startup step
+is identified.
+
+Full snapshot:
+- `docs/handoff/history/B43-DEVICE1.md`
