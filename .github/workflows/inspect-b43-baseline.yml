@@ -1,0 +1,35 @@
+name: Inspect B43 B42 source baseline
+"on":
+  push:
+    branches: [nativeboot2-current]
+    paths: [".github/workflows/inspect-b43-baseline.yml"]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/cache/restore@v4
+      id: bootstrap
+      with:
+        path: upstream
+        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+        fail-on-cache-miss: true
+    - name: Reconstruct and verify B42
+      run: |
+        python3 test_nativeboot2_b28_wservlibtype1.py upstream
+        python3 ci/fastbuild1_manifest.py apply "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/upstream"
+        python3 ci/fastbuild1_manifest.py regress "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/upstream"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: B43-B42-SOURCE-BASELINE
+        path: |
+          upstream/src/emu/kernel
+          upstream/src/emu/services
+          upstream/src/emu/config
+          upstream/src/emu/mem
+          upstream/src/emu/utils
+          upstream/src/emu/ios/src/emu_bridge.mm
+        retention-days: 7
