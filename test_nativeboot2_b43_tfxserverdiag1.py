@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """RED source contract for NATIVEBOOT2 B43 TFXSERVERDIAG1.
 
+Scope clarification:
+This work is interoperability/emulator startup debugging for Nokia 5800/Symbian
+firmware inside EKA2L1. It only observes guest client/server startup behavior.
+It does not attack networks, bypass access controls, deploy malware, or access
+external systems.
+
 B42 device evidence:
 - TfxServer CreateSession misses in eiksrvs and twice in akncapserver;
 - each miss is followed by Leave(-1);
@@ -95,6 +101,7 @@ def main() -> None:
 
     print(f"{MARK}: PASS")
     print("scope=TFXSERVER_CREATESESSION_AND_RESOLUTION_DIAGNOSTIC_ONLY")
+    print("network_attack=NONE")
     print("fake_server=NONE")
     print("missing_result=KErrNotFound_PRESERVED")
     print("B40_B41_B42=PRESERVED")
