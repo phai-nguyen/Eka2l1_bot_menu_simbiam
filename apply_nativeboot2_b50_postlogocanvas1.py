@@ -231,38 +231,42 @@ def main():
         "    void window_group::queue_message_data",
         old,new,"WG_DESTROY end")
 
-    # 4) Trace client canvas creation for splash/startup/Home.
-    old='''        ctx.complete(add_object(win));
-    }
-
-    void window_server_client::create_graphic_context'''
-    new='''        epoc::canvas_base *b50_canvas = reinterpret_cast<epoc::canvas_base *>(win.get());
-        epoc::window_group *b50_group = b50_canvas ? b50_canvas->get_group() : nullptr;
-        kernel::thread *b50_thr = ctx.msg ? ctx.msg->own_thr : nullptr;
-        kernel::process *b50_pr = b50_thr ? b50_thr->owning_process() : nullptr;
-        const std::uint32_t b50_uid3 = b50_pr
-            ? static_cast<std::uint32_t>(std::get<2>(b50_pr->get_uid_type())) : 0;
-        const std::uint32_t b50_handle = add_object(win);
-        if (b50_postlogo_uid(b50_uid3)) {
-            LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_CANVAS_CREATE] process={} uid3=0x{:08X} thread={} object_handle=0x{:08X} client_handle=0x{:08X} win_type={} group_id={} group_handle=0x{:08X} group_name={} behavior=OBSERVE_ONLY",
-                b50_pr ? b50_pr->name() : std::string("<null>"), b50_uid3,
-                b50_thr ? b50_thr->name() : std::string("<null>"),
-                b50_handle,
-                b50_canvas ? b50_canvas->client_handle : 0,
-                b50_canvas ? static_cast<int>(b50_canvas->win_type) : -1,
-                b50_group ? b50_group->id : 0,
-                b50_group ? b50_group->client_handle : 0,
-                b50_group ? common::ucs2_to_utf8(b50_group->name) : std::string("<null>"));
-        }
-        ctx.complete(b50_handle);
-    }
-
-    void window_server_client::create_graphic_context'''
-    window=rep_between(window,
-        "    void window_server_client::create_window_base",
-        "    void window_server_client::create_graphic_context",
-        old,new,"CANVAS_CREATE")
+    # 4) Trace client canvas creation for splash/startup/Home. Locate the
+    # completion structurally because the B28 bootstrap source predates some
+    # upstream spelling/layout changes.
+    b=window.find("    void window_server_client::create_window_base")
+    e=window.find("    void window_server_client::create_graphic_context",b)
+    if b<0 or e<0:
+        fail("CANVAS_CREATE: bounds not found")
+    block=window[b:e]
+    m=re.search(
+        r'(?m)^(\s*)([A-Za-z_]\w*)\.complete\(\s*add_object\(([^\n;]*\bwin\b[^\n;]*)\)\s*\);\s*$',
+        block)
+    if not m:
+        fail("CANVAS_CREATE: direct add_object completion not found")
+    indent,ctx_name,add_arg=m.group(1),m.group(2),m.group(3)
+    replacement=indent+'''epoc::canvas_base *b50_canvas = reinterpret_cast<epoc::canvas_base *>(win.get());
+''' + indent + '''epoc::window_group *b50_group = b50_canvas ? b50_canvas->get_group() : nullptr;
+''' + indent + '''kernel::thread *b50_thr = '''+ctx_name+'''.msg ? '''+ctx_name+'''.msg->own_thr : nullptr;
+''' + indent + '''kernel::process *b50_pr = b50_thr ? b50_thr->owning_process() : nullptr;
+''' + indent + '''const std::uint32_t b50_uid3 = b50_pr
+''' + indent + '''    ? static_cast<std::uint32_t>(std::get<2>(b50_pr->get_uid_type())) : 0;
+''' + indent + '''const std::uint32_t b50_handle = add_object('''+add_arg+''');
+''' + indent + '''if (b50_postlogo_uid(b50_uid3)) {
+''' + indent + '''    LOG_WARN(SERVICE_WINDOW,
+''' + indent + '''        "[NBOOT2][POSTLOGO_CANVAS_CREATE] process={} uid3=0x{:08X} thread={} object_handle=0x{:08X} client_handle=0x{:08X} win_type={} group_id={} group_handle=0x{:08X} group_name={} behavior=OBSERVE_ONLY",
+''' + indent + '''        b50_pr ? b50_pr->name() : std::string("<null>"), b50_uid3,
+''' + indent + '''        b50_thr ? b50_thr->name() : std::string("<null>"),
+''' + indent + '''        b50_handle,
+''' + indent + '''        b50_canvas ? b50_canvas->client_handle : 0,
+''' + indent + '''        b50_canvas ? static_cast<int>(b50_canvas->win_type) : -1,
+''' + indent + '''        b50_group ? b50_group->id : 0,
+''' + indent + '''        b50_group ? b50_group->client_handle : 0,
+''' + indent + '''        b50_group ? common::ucs2_to_utf8(b50_group->name) : std::string("<null>"));
+''' + indent + '''}
+''' + indent + ctx_name + '''.complete(b50_handle);'''
+    block=block[:m.start()]+replacement+block[m.end():]
+    window=window[:b]+block+window[e:]
 
     # 5) Trace activation. Source is winuser.cpp (the earlier B49 attempt
     # incorrectly targeted window.cpp; B50 uses the authoritative file).
