@@ -3,20 +3,21 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: 512f30981971f340dd45d2828754856782076122
+Latest FASTBUILD1 CI implementation commit: e38c0b38211d0cf19b19eba3fdbfc739ccddcd10
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 Latest device diagnostic snapshot: docs/handoff/history/B45-DEVICE1.md
-Latest build diagnostic snapshot: docs/handoff/history/B45-AKNSKINNTFX1.md
+Latest build diagnostic snapshot: docs/handoff/history/B46-AKNSKINROUTE2.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
 B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
 B45 status: DEVICE-OBSERVED; ROUTE NOT ACTIVATED — guard failed because runtime epoc enum=10 and Z-profile is mounted after services init
+B46 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — RM-356 native AknSkin route selected from device metadata, independent of epoc94 equality and pre-mount Z existence
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2462,3 +2463,149 @@ Working name:
 
 Full snapshot:
 - `docs/handoff/history/B45-DEVICE1.md`
+
+
+## Latest build override — B46 AKNSKINROUTE2
+
+B46 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+B41 remains the latest immutable functional milestone.
+B45 DEVICE1 remains the latest device-observed diagnostic milestone until B46
+device logs arrive.
+
+### Why B46 exists
+
+B45 device logs proved its native AknSkin route never activated because:
+- runtime reported enum integer 10 instead of matching exact `epocver::epoc94`;
+- B45 checked `Z:\sys\bin\aknskinsrv.exe` before the RM-356 Z-profile
+  overlay was mounted, so the result was a false `exists=0`.
+
+Historical firmware extraction logs independently prove the RM-356 package
+contains both `aknskinsrv.exe` and `aknskinsrv.dll`.
+
+### B46 route
+
+B46 uses device-manager metadata already available before HLE service creation:
+
+```text
+current_device = sys->get_device_manager()->get_current()
+firmware_code starts with rm-356 / RM-356
+native_phone_boot == true
+```
+
+If both conditions hold, EKA2L1 does **not** pre-create HLE
+`akn_skin_server`.
+
+All other devices and non-native-phone-boot modes retain the HLE.
+
+B45's epoc94 and pre-mount Z probes remain in the binary as diagnostics only;
+they no longer gate the route.
+
+### New marker
+
+`[NBOOT2][AKNSKIN_ROUTE2]`
+
+Expected native RM-356 line:
+
+```text
+decision=skip_hle
+firmware_code=<RM-356 profile>
+native_phone_boot=1
+behavior=GUEST_NATIVE_ROUTE
+```
+
+B45 markers remain:
+- `AKNSKIN_ROUTE`
+- `AKNSKIN_SESSION`
+- `AKNSKIN_NATIVE_PROC`
+- `AKNSKIN_NATIVE_REGISTER`
+- `AKNSKIN_ROM`
+
+B44 TFX/ALF diagnostics also remain.
+
+### Semantic guard
+
+B46 does not:
+- change the global Symbian/EPOC version;
+- fake `TfxServer`;
+- directly launch `AknSkinSrv.exe`;
+- force Alfred;
+- synthesize ECom success;
+- define/set TFX P&S for the guest;
+- complete unknown IPC;
+- alter B42 HWRM behavior.
+
+The stock guest client must still decide whether to call its own
+`StartServer()` after receiving the real `KErrNotFound`.
+
+### TDD/build
+
+Canonical RED:
+- test commit: `c2e6477a3bbf9424a3e7dc33d0191f7ba3506517`
+- RED manifest: `79120778aa07de6a8e727d6ae39735ee717b88cc`
+- run/job: `35840641091 / 107114600500`
+- B29-B45: PASS
+- B20-B28 regressions: PASS
+- expected fail:
+  `missing in B46 route marker: [NBOOT2][AKNSKIN_ROUTE2]`
+
+Implementation:
+- route2 implementation: `e38c0b38211d0cf19b19eba3fdbfc739ccddcd10`
+- manifest activation: `abb40f03b0a12bf64d51b91e139466d732fceafc`
+- binary invariant: `fc15de9e3c3e324142e33088990ca6ce25f27403`
+
+Canonical GREEN:
+- run/job: `35841200270 / 107116409392`
+- FASTBUILD1 manifest: VALID
+- B29-B46 apply/tests: PASS
+- B20-B28 regressions: PASS
+- iOS compile/link: PASS
+- B46 Mach-O marker invariant: PASS
+- IPA package/upload: PASS
+- compile requests: 149
+- cache hits: 149
+- cache misses: 0
+- hit rate: 100%
+- actual compilations: 0
+- compilation failures: 0
+
+Unsigned IPA SHA-256:
+
+`a536852b1c4f916e0b99e6a97aa36a315f434578e3830ce8c67824e9a0aaeab9`
+
+IPA artifact:
+- ID: `10740833931`
+- size: 19,912,068 bytes
+- ZIP digest:
+  `sha256:af91c0905dcd8d0e6026e3347ed00453c11da118a2c39dfc47f9f4065125fef7`
+
+Audit artifact:
+- ID: `10740769226`
+- digest:
+  `sha256:31bf2b832b768291a8ebae26b3ccd53ff7cd8ffbbdcc6de976b7a3bd335edbe1`
+
+Downloaded IPA was re-hashed locally and matches CI exactly.
+
+### Device-test acceptance
+
+The first success criterion is **not** that the phone boots farther.
+
+The critical sequence is:
+
+```text
+AKNSKIN_ROUTE2 decision=skip_hle
+-> AKNSKIN_SESSION phase=missing for !AknSkinServer
+-> AKNSKIN_NATIVE_PROC phase=request for aknskinsrv.exe
+```
+
+Then classify the first new boundary:
+
+- native process result success/failure;
+- `AKNSKIN_NATIVE_REGISTER`;
+- subsequent skin session `server_hle=0`;
+- TFX ECom/P&S/ALF/TfxServer activity.
+
+If B46 reaches a new crash or Leave before registration, preserve that exact
+evidence; do not add fallback behavior until it is analyzed.
+
+Full snapshot:
+- `docs/handoff/history/B46-AKNSKINROUTE2.md`
