@@ -40,3 +40,11 @@ jobs:
           sed -n '1310,1385p' "$UP/src/emu/ios/src/launcher.cpp"
           echo "=== screen.cpp 145-230 ==="
           sed -n '145,230p' "$UP/src/emu/services/src/window/screen.cpp"
+          echo "=== scheduler.cpp ==="
+          sed -n '1,320p' "$UP/src/emu/services/src/window/scheduler.cpp"
+          echo "=== scheduler.h ==="
+          sed -n '1,260p' "$UP/src/emu/services/include/services/window/scheduler.h"
+          echo "=== winbase move/order ==="
+          sed -n '70,190p' "$UP/src/emu/services/src/window/classes/winbase.cpp"
+          echo "=== winuser try_update ==="
+          grep -n -A90 -B20 'canvas_base::try_update' "$UP/src/emu/services/src/window/classes/winuser.cpp" || true
