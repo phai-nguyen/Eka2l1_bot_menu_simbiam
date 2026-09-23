@@ -13,6 +13,11 @@ def main():
     loader=up/'services/src/loader/loader.cpp' if (up/'services/src/loader/loader.cpp').exists() else up/'src/emu/services/src/loader/loader.cpp'
     sa=up/'services/src/sms/sa/sa.cpp' if (up/'services/src/sms/sa/sa.cpp').exists() else up/'src/emu/services/src/sms/sa/sa.cpp'
     s=svc.read_text(); l=loader.read_text(); sat=sa.read_text()
+    if '#include <config/config.h>' not in l:
+        l=rep(l,
+            '#include <system/epoc.h>\n',
+            '#include <config/config.h>\n#include <system/epoc.h>\n',
+            'loader config include')
     for g,where in (('[NBOOT2][SA_HWRM_ABI]',sat),('[NBOOT2][LOADER_PDD]',l),('[NBOOT2][EIKFEP_STATE]',s)):
         if g not in where: fail('missing baseline '+g)
     if '[NBOOT2][TFX_SESSION]' in s: print('already'); return
