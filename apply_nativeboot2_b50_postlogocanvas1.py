@@ -147,21 +147,10 @@ def main():
 '''
     winbase=rep_once(winbase,old,new,"ORDERPRI")
 
-    # 2) Trace explicit ReceiveFocus changes on WindowGroups.
+    # 2) Trace explicit ReceiveFocus changes on WindowGroups. Keep the
+    # insertion anchors narrow because earlier milestones may have touched
+    # nearby logging/locking without changing the operation itself.
     old='''    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd) {
-        flags &= ~flag_focus_receiveable;
-
-        if (*reinterpret_cast<std::uint32_t *>(cmd.data_ptr)) {
-            flags |= flag_focus_receiveable;
-
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to enable keyboard focus", common::ucs2_to_utf8(name));
-        } else {
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to disable keyboard focus", common::ucs2_to_utf8(name));
-        }
-
-        scr->update_focus(&client->get_ws(), nullptr);
-        context.complete(epoc::error_none);
-    }
 '''
     new='''    void window_group::receive_focus(service::ipc_context &context, ws_cmd &cmd) {
         kernel::thread *b50_thr = context.msg ? context.msg->own_thr : nullptr;
@@ -170,21 +159,15 @@ def main():
             ? static_cast<std::uint32_t>(std::get<2>(b50_pr->get_uid_type())) : 0;
         const bool b50_old_focusable = can_receive_focus();
         const bool b50_requested = (*reinterpret_cast<std::uint32_t *>(cmd.data_ptr)) != 0;
+'''
+    wingroup=rep_once(wingroup,old,new,"RECEIVEFOCUS entry")
 
-        flags &= ~flag_focus_receiveable;
-
-        if (b50_requested) {
-            flags |= flag_focus_receiveable;
-
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to enable keyboard focus", common::ucs2_to_utf8(name));
-        } else {
-            LOG_TRACE(SERVICE_WINDOW, "Request group {} to disable keyboard focus", common::ucs2_to_utf8(name));
-        }
-
-        scr->update_focus(&client->get_ws(), nullptr);
+    old='''        scr->update_focus(&client->get_ws(), nullptr);
+'''
+    new='''        scr->update_focus(&client->get_ws(), nullptr);
         if (b50_postlogo_uid(b50_uid3)) {
             LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_RECEIVEFOCUS] process={} uid3=0x{:08X} thread={} group_id={} client_handle=0x{:08X} group_name={} requested={} old_focusable={} new_focusable={} final_focus_id={} result=0 behavior=OBSERVE_ONLY",
+                "[NBOOT2][POSTLOGO_RECEIVEFOCUS] process={} uid3=0x{:08X} thread={} group_id={} client_handle=0x{:08X} group_name={} requested={} old_focusable={} new_focusable={} final_focus_id={} behavior=OBSERVE_ONLY",
                 b50_pr ? b50_pr->name() : std::string("<null>"),
                 b50_uid3,
                 b50_thr ? b50_thr->name() : std::string("<null>"),
@@ -193,10 +176,11 @@ def main():
                 can_receive_focus() ? 1 : 0,
                 scr->focus ? scr->focus->id : 0);
         }
-        context.complete(epoc::error_none);
-    }
 '''
-    wingroup=rep_once(wingroup,old,new,"RECEIVEFOCUS")
+    wingroup=rep_between(wingroup,
+        "    void window_group::receive_focus",
+        "    void window_group::on_owner_process_uid_type_change",
+        old,new,"RECEIVEFOCUS result")
 
     # 3) Trace group destruction. This tells us exactly when the splash group
     # leaves the WindowServer tree and what group becomes focus afterward.
