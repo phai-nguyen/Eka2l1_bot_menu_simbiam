@@ -3,16 +3,18 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: c57838dbbe9f8b0d66fe5c5b79505eafa7b10da3
+Latest FASTBUILD1 CI implementation commit: 00362ae8faedd6bda130b32ba39d3f051a02ef68
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 Latest device diagnostic snapshot: docs/handoff/history/B42-DEVICE1.md
+Latest build diagnostic snapshot: docs/handoff/history/B43-TFXSERVERDIAG1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
+B43 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — diagnostic-only TfxServer CreateSession/resolution provenance
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1705,3 +1707,83 @@ Scope should remain diagnostic:
 
 Full device snapshot:
 - `docs/handoff/history/B42-DEVICE1.md`
+
+
+## Latest override — B43 TFXSERVERDIAG1
+
+B43 is now **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+B41 remains the latest immutable functional milestone; B42 remains the latest
+device-observed diagnostic milestone.
+
+### Scope clarification
+
+B43 is interoperability/emulator startup debugging for Nokia 5800/Symbian
+firmware inside EKA2L1. It does not attack networks, bypass access controls,
+deploy malware, or access external systems. It only observes the guest
+client/server startup chain.
+
+### Why B43
+
+B42 device evidence shows a repeated causal family:
+
+```text
+eiksrvs       -> TfxServer missing -> Leave(-1)
+akncapserver1 -> TfxServer missing -> Leave(-1) -> self-kill
+akncapserver2 -> TfxServer missing -> Leave(-1) -> self-kill
+```
+
+The second akncapserver failure is followed by SYSSTART shutdown handling.
+B43 therefore instruments this exact path without creating a fake server.
+
+### Runtime markers
+
+- `[NBOOT2][TFX_SESSION]`
+- `[NBOOT2][TFX_SESSION_FRAME]`
+- `[NBOOT2][TFX_SESSION_STACK]`
+- `[NBOOT2][TFX_LEAVE]`
+- `[NBOOT2][TFX_RESOLVE]`
+- `[NBOOT2][TFX_SERVER_REGISTER]`
+
+The missing-server path still returns `epoc::error_not_found` and logs
+`behavior=UNCHANGED_KErrNotFound`.
+
+### Build evidence
+
+- canonical RED run/job: `35809951781 / 107019069011`
+- expected RED: missing `[NBOOT2][TFX_SESSION]`
+- B29-B42 before RED: PASS
+- implementation: `8b3e6eb2c5ee90e88f49cf20037f5b56e5bb61f1`
+- intermediate compile run/job: `35810185857 / 107019798922`
+- intermediate failure: incomplete `config::state` in loader diagnostics
+- final code HEAD: `00362ae8faedd6bda130b32ba39d3f051a02ef68`
+- GREEN run/job: `35810358190 / 107020337672`
+- B29-B43 apply/tests: PASS
+- regressions: PASS
+- iOS compile/link: PASS
+- binary invariants: PASS
+- IPA package/upload: PASS
+- compile requests/hits/misses: `149 / 148 / 1`
+- compilation failures: `0`
+- NOJAVA / MANIC3 preserved
+
+Unsigned IPA SHA-256:
+
+`452346807417961e9c6fa85a7f5fc848b76ff65bb95cc861de1656c819be75c8`
+
+IPA artifact:
+- ID `10729741855`
+- digest
+  `sha256:5b8c50e8e38acae1eed2119d935bfa17f4c210c9c65a9a0ea3e8c3093e804010`
+
+### Resume from here
+
+Device-test B43 on the same RM-356 path. Do not expect a boot-progress change;
+B43 deliberately preserves `KErrNotFound`.
+
+Send the usual three EKA2L1 logs. Inspect TFX_RESOLVE, TFX_SESSION provenance,
+TFX_LEAVE correlation, and any TFX_SERVER_REGISTER event. Preserve B42, B40,
+B41, stock AvkonFep, firmware SYSSTART ownership, Wserv behavior, NOJAVA and
+MANIC3.
+
+Full snapshot:
+- `docs/handoff/history/B43-TFXSERVERDIAG1.md`
