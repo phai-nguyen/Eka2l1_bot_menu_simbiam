@@ -20,6 +20,7 @@ apply_nativeboot2_b42_sahwrmabi1.py|test_nativeboot2_b42_sahwrmabi1.py
 apply_nativeboot2_b43_tfxserverdiag1.py|test_nativeboot2_b43_tfxserverdiag1.py
 apply_nativeboot2_b44_alftfxstartdiag1.py|test_nativeboot2_b44_alftfxstartdiag1.py
 apply_nativeboot2_b45_aknskinntfx1.py|test_nativeboot2_b45_aknskinntfx1.py
+apply_nativeboot2_b46_aknskinroute2.py|test_nativeboot2_b46_aknskinroute2.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
@@ -33,4 +34,3 @@ test_nativeboot2_b28_wservlibtype1.py
 
 
 
-test_nativeboot2_b46_aknskinroute2.py
