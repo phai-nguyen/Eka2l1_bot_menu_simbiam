@@ -28,6 +28,11 @@ class RM356FirmwareProbeTests(unittest.TestCase):
             got = mod.parse_key9(p)
             self.assertEqual(got["classification"], "enabled-default")
 
+            p.write_bytes("0x00000009 int 0x8 0\n".encode("utf-16-le"))
+            got = mod.parse_key9(p)
+            self.assertTrue(got["found"])
+            self.assertEqual(got["classification"], "enabled-default")
+
     def test_scan_and_compare(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
