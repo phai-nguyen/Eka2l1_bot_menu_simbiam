@@ -210,8 +210,8 @@ def main():
     # Postconditions.
     if ios.count(present_marker)!=1:
         fail(f"expected one DIRECTSCREEN_PRESENT source marker, got {ios.count(present_marker)}")
-    if screen.count(redraw_marker)!=2:
-        fail(f"expected two DIRECTSCREEN_REDRAW source markers, got {screen.count(redraw_marker)}")
+    if screen.count(redraw_marker)!=1:
+        fail(f"expected one retained DIRECTSCREEN_REDRAW source marker, got {screen.count(redraw_marker)}")
     if "submit_screen_frame(state, scr);" not in ios:
         fail("screen callback present path lost")
     if "scr->redraw(" in ios[ios.find(submit_begin):ios.find(submit_end,ios.find(submit_begin))]:
