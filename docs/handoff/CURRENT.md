@@ -3830,3 +3830,111 @@ Decision:
   content;
 - redraw `performed=1` + moving marker + stale Nokia => inspect actual
   `screen_texture` writes/tree traversal next.
+
+
+## Latest device override — B51 DIRECTSCREEN1 DEVICE1
+
+B51 is **DEVICE-OBSERVED; VISUAL DIAGNOSTIC SUCCESS**, with one important
+qualification: the test ended before the natural ~120 s splash handoff seen in
+B49/B50.
+
+Full snapshot:
+
+`docs/handoff/history/B51-DEVICE1.md`
+
+Observed:
+
+- 170 `DIRECTSCREEN_REDRAW phase=enter`;
+- 170 `DIRECTSCREEN_REDRAW phase=result`;
+- all 170 redraw results have `performed=1`;
+- 170 `DIRECTSCREEN_PRESENT` events;
+- the host-only marker moves one-for-one with those present events;
+- last redraw/present is at 05:05:10.422;
+- after that the visual marker freezes exactly as designed.
+
+The user reported the 15x15 host marker was too small and difficult to see.
+In the 510x1108 recording it is only about 7x7 pixels.
+
+The B51 run exits at 05:06:24.425, only about 80 s after the first splash
+redraw/present. The splash destruction immediately after that is teardown
+caused by Exit Emulator, not the natural boot handoff.
+
+Therefore B51 proves the initial WindowServer compositor and iOS host present
+path are alive, but does not yet prove what happens when the natural splash
+demotion occurs.
+
+## Latest build override — B52 REDRAWSCHED1
+
+B52 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B52-REDRAWSCHED1.md`
+
+B52 preserves B51 and adds:
+
+- `[NBOOT2][REDRAW_SCHED]` tracing across
+  `schedule -> schedule_scans -> idle_callback -> scan_for_redraw ->
+  invoke_due_animation -> screen::redraw`;
+- enlarged host marker: `72x72` pixels instead of `15x15`;
+- marker moved to y=128 for visibility.
+
+B52 is diagnostic-only. It does not force redraw, present, focus, z-order,
+visibility, activation, guest screen-texture writes, or framebuffer clearing.
+
+### Canonical GREEN
+
+- run ID `35928441761`
+- run number `152`
+- job `107409037256`
+- HEAD `2461ee8a5747a07f1aacbc58790a7021de134b4e`
+- B29-B52 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- `REDRAW_SCHED` retained in Mach-O
+- IPA package/upload PASS
+- NOJAVA / MANIC3 preserved
+- compile requests/hits/misses `149/147/2`
+- actual compilations `2`
+- compilation failures `0`
+
+Unsigned IPA:
+
+- size `19,991,158` bytes
+- SHA-256
+  `f391d2114b4142bb7282d224d2d8d07a30a239045d46e9984234b316955ed40a`
+
+Library path:
+
+`/Eka2l1 Boot menu/EKA2L1-NATIVEBOOT2-B52-REDRAWSCHED1-unsigned.ipa`
+
+### B52 device-test rule
+
+Use the same RM-356 V60 pair.
+
+After the Nokia logo first appears, leave the emulator running for at least
+**150 seconds** before pressing Exit Emulator. B49/B50 show the natural splash
+handoff around ~120 s, so the B51 ~80 s run was too short.
+
+Send:
+
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+- full screen recording
+
+Decision boundary:
+
+```
+natural splash demotion
+ -> redraw schedule request
+ -> scan callback
+ -> due animation invoke
+ -> screen::redraw
+ -> iOS redraw callback
+ -> host present
+```
+
+Do not implement a scheduler workaround before B52 device evidence identifies
+the first missing phase.
