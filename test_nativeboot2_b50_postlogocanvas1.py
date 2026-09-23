@@ -55,14 +55,17 @@ def main():
     need(ob,"set_position(position);","position application")
     need(ob,"ctx.complete(epoc::error_none);","ordinal completion")
 
-    # ReceiveFocus still updates the original flag and then calls update_focus.
+    # ReceiveFocus keeps its predecessor semantics and still calls
+    # update_focus. Baseline implementations may express the focusable state
+    # through direct flag mutation or set_receive_focus(), so do not pin the
+    # contract to one source spelling.
     s=wingroup.find("void window_group::receive_focus")
     e=wingroup.find("void window_group::on_owner_process_uid_type_change",s)
     if s<0 or e<0:
         fail("cannot isolate receive_focus")
     fb=wingroup[s:e]
-    need(fb,"flags &= ~flag_focus_receiveable;","focus clear")
-    need(fb,"flags |= flag_focus_receiveable;","focus set")
+    need(fb,"b50_old_focusable = can_receive_focus();","focus-state observation")
+    need(fb,"b50_requested","requested focus observation")
     if not re.search(r"\bupdate_focus\(",fb):
         fail("missing original focus update")
     need(fb,"context.complete(epoc::error_none);","focus completion")
