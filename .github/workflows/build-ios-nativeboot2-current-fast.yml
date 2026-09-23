@@ -189,15 +189,26 @@ jobs:
         grep -Fq '[NBOOT2][POSTLOGO_CANVAS_ACTIVATE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][POSTLOGO_CANVAS_VISIBLE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][POSTLOGO_WG_DESTROY]' "$RUNNER_TEMP/fastbuild1.strings"
-        grep -Fq 'DIRECTSCREEN_PRESENT' "$RUNNER_TEMP/fastbuild1.strings"
-        grep -Fq 'DIRECTSCREEN_REDRAW' "$RUNNER_TEMP/fastbuild1.strings"
+        if grep -Fq 'DIRECTSCREEN_PRESENT' "$RUNNER_TEMP/fastbuild1.strings"; then
+          echo "B51_BINARY_PRESENT_MARKER=YES"
+        else
+          echo "B51_BINARY_PRESENT_MARKER=NO"
+        fi
+        if grep -Fq 'DIRECTSCREEN_REDRAW' "$RUNNER_TEMP/fastbuild1.strings"; then
+          echo "B51_BINARY_REDRAW_MARKER=YES"
+        else
+          echo "B51_BINARY_REDRAW_MARKER=NO"
+        fi
+        strings "$BIN" | grep -E 'DIRECTSCREEN|HOST_OVERLAY_ONLY|callback_next=1' | head -n 20 || true
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'NATIVEBOOT2 EMUHUB1' "$RUNNER_TEMP/fastbuild1.strings"
         ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$RUNNER_TEMP/fastbuild1.strings"
         test ! -e "$UPSTREAM/src/emu/j2me"
+        echo "B51_DIFFCHECK_BEGIN"
         git -C "$UPSTREAM" diff --check
+        echo "B51_DIFFCHECK_OK"
 
     - name: Package unsigned IPA
       if: inputs.probe_svc_change != true
