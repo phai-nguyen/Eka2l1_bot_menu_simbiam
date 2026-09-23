@@ -3,14 +3,14 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: e38c0b38211d0cf19b19eba3fdbfc739ccddcd10
+Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 Latest device diagnostic snapshot: docs/handoff/history/B46-DEVICE1.md
-Latest build diagnostic snapshot: docs/handoff/history/B46-AKNSKINROUTE2.md
+Latest build diagnostic snapshot: docs/handoff/history/B47-AKNSKINTFXSTATE1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
@@ -18,6 +18,7 @@ B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss 
 B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
 B45 status: DEVICE-OBSERVED; ROUTE NOT ACTIVATED — guard failed because runtime epoc enum=10 and Z-profile is mounted after services init
 B46 status: DEVICE-OBSERVED; ROUTE SUCCESS — guest launches native AknSkinSrv.exe, !AknSkinServer registers, clients bind server_hle=0; TFX provider remains absent
+B47 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — diagnostic-only native AknSkin TFX state/Wserv/ECom boundary tracing
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2788,3 +2789,144 @@ No KERN-EXEC, EXC_BAD_ACCESS, or host access-violation family is present.
 
 Full snapshot:
 - `docs/handoff/history/B46-DEVICE1.md`
+
+
+## Latest build override — B47 AKNSKINTFXSTATE1
+
+B47 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+B41 remains the immutable functional baseline.
+B46 DEVICE1 remains the latest device-observed diagnostic milestone until B47
+device logs arrive.
+
+### Scope clarification
+
+This work is interoperability/emulator startup debugging for Nokia 5800/Symbian
+firmware inside EKA2L1 on iOS. It observes guest CenRep, Wserv, ECom and server
+lifecycle behavior only. It does not attack external systems, bypass access
+controls, deploy malware, or access third-party data.
+
+### Purpose
+
+B46 proved that the stock guest launches native `AknSkinSrv.exe`, native
+`!AknSkinServer` registers, and clients bind with `server_hle=0`, but TFX
+still does not start.
+
+Symbian source identifies the next gate:
+
+```text
+KCRUidThemes             = 0x102818E8
+KThemesTransitionEffects = 0x00000009
+```
+
+B47 is diagnostic-only and records whether native AknSkinSrv crosses this gate.
+
+### New markers
+
+- `[NBOOT2][AKNSKIN_TFX_STATE]`
+  - native AknSkinSrv CenRep GetInt for repo `0x102818E8`, key `0x9`;
+  - logs request, result, returned integer and whether the value equals
+    `KMaxTInt`.
+- `[NBOOT2][AKNSKIN_TFX_WSERV]`
+  - native AknSkinSrv CreateSession to `!Windowserver`;
+  - logs request and lookup result only.
+- `[NBOOT2][AKNSKIN_TFX_ECOM]`
+  - all native AknSkinSrv IPC sent to `!ecomserver`;
+  - logs raw function, argument types/raw values and literal presence for
+    `0x10282DBD` / `0x10282DBC`.
+
+All markers are `behavior=OBSERVE_ONLY`.
+
+### Semantic guard
+
+B47 does not:
+- modify CenRep values;
+- force `KThemesTransitionEffects`;
+- change Wserv result;
+- change ECom IPC function/arguments/result;
+- fake TfxServer;
+- define TFX P&S;
+- force Alfred;
+- change global EPOC version;
+- alter B42 HWRM behavior.
+
+### TDD/build chronology
+
+Canonical RED:
+- contract commit: `4dff83fde398150a534e4f9bb4f641ac3a6635c0`
+- pair wiring: `7eb4787e075a72215aa4ce55f217b761f9b8249d`
+- run/job: `35847386001 / 107136721921`
+- B29-B46 PASS;
+- B47 fails only because `[NBOOT2][AKNSKIN_TFX_STATE]` is absent.
+
+Implementation lineage:
+- `08ff6f5c86ecdcd518663686cdf902aae27579d1` diagnostic implementation;
+- `39e624f97944dd071a89c02c8fb9d52964f4a6d3` ECom probe anchor fix;
+- `f53298c978c5808aa66c70a84c5d2aca788c0d34` UID annotation;
+- `5cbfba2b7330bb34e7afadafde534df4351543e8` test boundary fix;
+- `db1b7258b7808a2b3e04bddd22d9252d5eac6adc` assignment-vs-comparison test fix;
+- `ab4415d0f94b002d01e6ea2035600a2dddc99c1d` compile support include.
+
+Intermediate compile failure:
+- run `35853924882`;
+- single failure: `repo.cpp` used `kernel::process::name()` with only a
+  forward declaration;
+- fixed only by including `kernel/process.h`.
+
+Canonical GREEN:
+- build HEAD: `cc7d53ebb99f0ea754ffc432f9221586bef13fcc`
+- run/job: `35854365057 / 107159241200`
+- FASTBUILD1 manifest VALID
+- B29-B47 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- B47 Mach-O invariants PASS
+- IPA package/upload PASS
+- compile requests: 149
+- cache hits: 149
+- cache misses: 0
+- hit rate: 100%
+- compilation failures: 0
+
+Unsigned IPA SHA-256:
+
+`ae3a0b0e467c19d30277274355c3eb537fdcd75becd55f2f2e463dbca1b27885`
+
+IPA artifact:
+- ID: `10746604288`
+- GitHub ZIP size: 19,913,636 bytes
+- ZIP digest:
+  `sha256:cd5f8842f473c4244281de3430ff72ced4eec2f4490a27a912fa4e2598557adc`
+
+Audit artifact:
+- ID: `10746932579`
+- digest:
+  `sha256:7747fcb0e01ea2088f6181ff6420bffeab24eb37234724c67a340ccdcf6ac06e`
+
+Downloaded artifact ZIP and extracted IPA were re-hashed locally and match CI.
+
+### Device acceptance
+
+Test the same RM-356 path as B46 and send:
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+
+Primary classification:
+
+```text
+AKNSKIN_TFX_STATE request/result
+        ↓
+if result error or value == KMaxTInt
+    native AknSkinSrv intentionally skips TFX provider
+else
+    expect AKNSKIN_TFX_WSERV
+        ↓
+    expect AKNSKIN_TFX_ECOM
+        ↓
+    inspect TFX_ECOM_RSC / TFX_ECOM_DLL / ALF / TfxServer
+```
+
+Do not select B48 until the first missing stage is device-proven.
+
+Full snapshot:
+- `docs/handoff/history/B47-AKNSKINTFXSTATE1.md`
