@@ -1,6 +1,6 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
@@ -3739,3 +3739,94 @@ If Startup/Home canvases become active + visible + physically seen while the
 video still retains stale Nokia pixels after splash destruction, the next
 boundary moves into WindowServer redraw/compositor/framebuffer invalidation.
 Do not clear the framebuffer or force Home focus before that evidence.
+
+
+## Latest device override — B50 POSTLOGOCANVAS1 DEVICE1
+
+B50 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B50-DEVICE1.md`
+
+B50 proves the post-logo failure is later than simple WindowServer
+group/canvas creation and activation:
+
+- Startup group 63 exists and has visible/active canvases;
+- Home screen group 75 exists and has many canvases, including visible/active
+  canvases;
+- splash priority drops from 1001 to -1000;
+- focus changes from splash group 3 to Startup group 63;
+- the splash WindowGroup is destroyed;
+- visible-region recomputation is pending;
+- the full device recording nevertheless remains on the same Nokia startup
+  pixels.
+
+Therefore do not force Home focus and do not reopen FileFlush/TFX hypotheses.
+The next boundary is WindowServer redraw/composition -> iOS host presentation.
+
+## Latest build override — B51 DIRECTSCREEN1
+
+B51 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B51-DIRECTSCREEN1.md`
+
+Corrected B51 build HEAD:
+
+`f5a5e5b2a37a0cd94a31cb0ad73cc134a19bdfc7`
+
+Canonical FASTBUILD:
+
+- run ID `35902306523`
+- run number `150`
+- B29-B51 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- `DIRECTSCREEN_PRESENT` retained in Mach-O
+- `DIRECTSCREEN_REDRAW` retained in Mach-O
+- IPA package/upload PASS
+- NOJAVA / MANIC3 preserved
+
+Unsigned IPA:
+
+- size `19,989,478` bytes
+- SHA-256
+  `c9113a51d3a8d7ad90e3d2270dcd0c350fa82ec812bf629045b81dfac2b6f4f9`
+
+Library path:
+
+`/Eka2l1 Boot menu/EKA2L1-NATIVEBOOT2-B51-DIRECTSCREEN1-unsigned.ipa`
+
+B51 traces:
+
+- `[NBOOT2][DIRECTSCREEN_REDRAW]` around the real
+  `screen::redraw(driver)` path for splash/Startup/Home focus groups;
+- `[NBOOT2][DIRECTSCREEN_PRESENT]` in the actual B28/current iOS
+  `state.cpp` redraw callback.
+
+The host-present probe draws a tiny moving four-phase colored square directly
+on host bitmap 0 after `launcher_->draw(screen_texture)` and before the
+existing present. It does not modify guest screen texture, focus, z-order,
+activation, visibility, or redraw scheduling.
+
+Device-test rule:
+
+- use the same RM-356 V60 runtime pair;
+- record the full test;
+- send `EKA2L1.log`, `EKA2L1_Persistent.log`,
+  `EKA2L1_TakeThis.log`, and the full screen recording;
+- let the test continue past Nokia splash demotion/destruction before using
+  Exit Emulator.
+
+Decision:
+
+- moving marker + stale Nokia => host present is alive; investigate guest
+  `screen_texture`/composition;
+- marker/present stops => redraw-to-present scheduling is the missing stage;
+- redraw continues with `performed=0` => compositor emits no drawable guest
+  content;
+- redraw `performed=1` + moving marker + stale Nokia => inspect actual
+  `screen_texture` writes/tree traversal next.
