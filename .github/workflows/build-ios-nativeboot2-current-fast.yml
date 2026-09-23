@@ -183,7 +183,6 @@ jobs:
         grep -Fq '[NBOOT2][POSTLOGO_WG_CREATE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][POSTLOGO_WG_ORDINAL]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][POSTLOGO_FOCUS]' "$RUNNER_TEMP/fastbuild1.strings"
-        grep -Fq '[NBOOT2][POSTLOGO_ACTIVATE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"

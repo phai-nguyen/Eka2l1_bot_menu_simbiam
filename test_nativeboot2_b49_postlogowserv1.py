@@ -36,7 +36,6 @@ def main():
         "[NBOOT2][POSTLOGO_WG_FIND]",
         "[NBOOT2][POSTLOGO_WG_CREATE]",
         "[NBOOT2][POSTLOGO_WG_ORDINAL]",
-        "[NBOOT2][POSTLOGO_ACTIVATE]",
     ):
         need(win,marker,"window.cpp")
     need(screen,"[NBOOT2][POSTLOGO_FOCUS]","screen.cpp")
@@ -63,15 +62,6 @@ def main():
     if "ctx.complete(epoc::error_not_found);" in ob:
         fail("B49 must not substitute not-found for ordinal")
 
-    act_start=win.find("void canvas_base::activate")
-    act_end=win.find("void canvas_base::scroll",act_start)
-    if act_start<0 or act_end<0:
-        fail("cannot isolate activate")
-    ab=win[act_start:act_end]
-    need(ab,"flags |= flags_active;","original activation flag")
-    need(ab,"on_activate();","original activation callback")
-    need(ab,"ctx.complete(epoc::error_none);" if "ctx.complete" in ab else "context.complete(epoc::error_none);","activation completion")
-
     foc_start=screen.find("epoc::window_group *screen::update_focus")
     foc_end=screen.find("epoc::window_group *screen::get_group_chain",foc_start)
     if foc_start<0 or foc_end<0:
@@ -92,7 +82,6 @@ def main():
     print("window_group_result_change=NONE")
     print("focus_result_change=NONE")
     print("ordinal_semantics_change=NONE")
-    print("activation_semantics_change=NONE")
     print("B48_FILEFLUSH_HEALTH=PRESERVED")
     print("B47_STOCK_TFX_SUPPRESSION=PRESERVED")
 

@@ -55,7 +55,6 @@ def main():
         "[NBOOT2][POSTLOGO_WG_CREATE]",
         "[NBOOT2][POSTLOGO_WG_ORDINAL]",
         "[NBOOT2][POSTLOGO_FOCUS]",
-        "[NBOOT2][POSTLOGO_ACTIVATE]",
     ]
     if any(m in win or m in screen for m in markers):
         if all((m in win or m in screen) for m in markers):
@@ -173,33 +172,7 @@ def main():
     struct def_mode_max_num_colors'''
     win=rep_once(win,old,new,"WG_ORDINAL")
 
-    # 4) Trace client canvas activation and owning group.
-    old='''    void canvas_base::activate(service::ipc_context &context, ws_cmd &cmd) {
-'''
-    new='''    void canvas_base::activate(service::ipc_context &context, ws_cmd &cmd) {
-        // B49 observe-only: log activation before executing the pre-existing body.
-        if (client->get_ws().get_kernel_system()->get_config()->native_phone_boot) {
-            epoc::window_group *b49_group = get_group();
-            kernel::thread *b49_act_thr = context.msg ? context.msg->own_thr : nullptr;
-            kernel::process *b49_act_pr = b49_act_thr ? b49_act_thr->owning_process() : nullptr;
-            const std::uint32_t b49_act_uid3 = b49_act_pr
-                ? static_cast<std::uint32_t>(std::get<2>(b49_act_pr->get_uid_type())) : 0;
-            LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_ACTIVATE] process={} uid3=0x{:08X} thread={} canvas_handle=0x{:08X} group_id={} group_client_handle=0x{:08X} group_name={} visible_before={} physically_seen_before={} behavior=OBSERVE_ONLY",
-                b49_act_pr ? b49_act_pr->name() : std::string("<null>"),
-                b49_act_uid3,
-                b49_act_thr ? b49_act_thr->name() : std::string("<null>"),
-                client_handle,
-                b49_group ? b49_group->id : 0,
-                b49_group ? b49_group->client_handle : 0,
-                b49_group ? common::ucs2_to_utf8(b49_group->name) : std::string("<null>"),
-                is_visible() ? 1 : 0,
-                can_be_physically_seen() ? 1 : 0);
-        }
-'''
-    win=rep_once(win,old,new,"ACTIVATE")
-
-    # 5) Focus selection is the key post-logo boundary.
+    # 4) Focus selection is the key post-logo boundary.
     if "#include <common/cvt.h>" not in screen:
         screen=rep_once(screen,"#include <common/rgb.h>\n","#include <common/cvt.h>\n#include <common/rgb.h>\n","screen cvt include")
 
@@ -251,8 +224,6 @@ def main():
     for m in markers[:4]:
         if m not in win and m not in screen:
             fail("missing marker after patch: "+m)
-    if "[NBOOT2][POSTLOGO_ACTIVATE]" not in win:
-        fail("activation marker missing")
     if "[NBOOT2][XNTHEME_FSFLUSH]" not in files:
         fail("B48 FileFlush marker lost")
     if "[NBOOT2][XNTHEME_IPC]" not in svc:
@@ -266,7 +237,6 @@ def main():
     print("window_group_result_change=NONE")
     print("focus_result_change=NONE")
     print("ordinal_semantics_change=NONE")
-    print("activation_semantics_change=NONE")
     print("B48_FILEFLUSH_HEALTH=PRESERVED")
     print("B47_STOCK_TFX_SUPPRESSION=PRESERVED")
 
