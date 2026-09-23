@@ -63,7 +63,7 @@ def main():
     need(rb,clear,"conditional color clear")
     if rb.count("builder.clear(")!=1:
         fail("B53 must not add another clear")
-    if rb.count("root->walk_tree_back_to_front(&adrawwalker);")!=1:
+    if rb.count("root->walk_tree(&adrawwalker, window_tree_walk_style::bonjour_children);")!=1:
         fail("window tree draw traversal count changed")
     need(rb,"return adrawwalker.total_redrawed_;","original return")
 
