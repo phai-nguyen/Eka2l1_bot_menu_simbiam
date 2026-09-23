@@ -6,6 +6,7 @@ No CenRep value, Wserv result, ECom result, P&S value, or TfxServer behavior
 may be synthesized.
 """
 from pathlib import Path
+import re
 import sys
 
 MARK="NATIVEBOOT2-B47-AKNSKINTFXSTATE1-TEST"
@@ -121,8 +122,7 @@ def main():
     if marker_pos < 0 or callback_pos < 0:
         fail("cannot isolate B47 ECom observe-only block")
     b47_block=gb[marker_pos:callback_pos]
-    if "ord =" in b47_block or "arg.args[0] =" in b47_block or "arg.args[1] =" in b47_block \
-        or "arg.args[2] =" in b47_block or "arg.args[3] =" in b47_block:
+    if re.search(r"\\bord\\s*=(?!=)", b47_block) or re.search(r"arg\\.args\\[[0-3]\\]\\s*=(?!=)", b47_block):
         fail("B47 appears to rewrite ECom request")
 
     if (up/"src/emu/j2me").exists():
