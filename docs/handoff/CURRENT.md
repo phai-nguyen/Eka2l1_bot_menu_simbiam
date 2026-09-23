@@ -3163,3 +3163,35 @@ Research snapshot with full rationale:
 
 Synthetic probe validation covers UTF-8 and BOM-less UTF-16 CenRep input plus
 component SHA-256 comparison. Runtime B47 semantics remain unchanged.
+
+
+## V60 firmware authority override — 2026-09-23
+
+The exact device-test RM-356 V60 pair is now verified.
+
+RPKG:
+- raw size `134,540,934` bytes
+- SHA-256 `bc41496abc8d4c87de976b65cadfb922b4dfd9583a0dbcf35b7e4bff23eb008f`
+- version resources identify `RM-356 60.0.003`, Nokia 5800 XpressMusic,
+  Symbian OS 9.4
+- `Z:\\private\\10202BE9\\102818E8.txt` key `0x9` is exactly
+  `0x7fffffff`
+- ECom SPI contains both `0x10282DBC` and `0x10282DBD`
+
+Corrected device-test ROM:
+- size `41,283,584` bytes
+- SHA-256
+  `b4328dfa555d73e14a4bab2de46bbec702970e4b63c8ce878da589fa6b64c444`
+- valid EKA2 ROM burn tree with 2,161 files
+- contains AknSkinSrv plus core TFX binaries
+- eight checked AknSkin/TFX binaries are byte-identical between ROM and RPKG
+
+Interpretation:
+the V60 firmware contains the TFX code and registrations while the stock
+Themes repository selects `KMaxTInt` at key `0x9`. If B47 device logs show
+the same read result/value, skipping provider startup is stock behavior.
+Do not fake TFX/ECom/ALF. B47 device evidence remains the final runtime check
+before selecting any B48 behavior.
+
+Full evidence:
+`docs/handoff/history/RM356-FIRMWARE-RESEARCH-2026-09-23.md`.
