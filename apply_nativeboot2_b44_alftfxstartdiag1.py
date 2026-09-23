@@ -349,33 +349,28 @@ def main():
 '''
     s=rep(s,anchor,block,"B44 P&S set")
 
-    # Handle-based get.
-    anchor='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
-
-        if (prop->get_property_object()->get_int() == -1) {
-            return epoc::error_argument;
-        }
-
-        return epoc::error_none;
-    }
-
-    BRIDGE_FUNC(std::int32_t, property_get_bin'''
-    block='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
-
+    # Handle-based get. Use bounded text surgery because prior milestones may
+    # have changed the exact error-handling body.
+    b44_get_begin="    BRIDGE_FUNC(std::int32_t, property_get_int,"
+    b44_get_end="    BRIDGE_FUNC(std::int32_t, property_get_bin"
+    b=s.find(b44_get_begin)
+    e=s.find(b44_get_end,b+1)
+    if b < 0 or e < 0:
+        fail("B44 P&S get: function bounds not found")
+    region=s[b:e]
+    get_anchor='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
+'''
+    get_insert='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
         service::property *b44_obj = prop->get_property_object();
-        if (b44_obj->get_int() == -1) {
-            b44_tfx_ps_log(kern, "get", "result", b44_obj->first, b44_obj->second,
-                -1, -1, epoc::error_argument);
-            return epoc::error_argument;
+        if (b44_obj && b44_tfx_ps_target(b44_obj->first, b44_obj->second)) {
+            b44_tfx_ps_log(kern, "get", "read", b44_obj->first, b44_obj->second,
+                b44_obj->get_int(), b44_obj->get_int(), epoc::error_none);
         }
-
-        b44_tfx_ps_log(kern, "get", "result", b44_obj->first, b44_obj->second,
-            b44_obj->get_int(), b44_obj->get_int(), epoc::error_none);
-        return epoc::error_none;
-    }
-
-    BRIDGE_FUNC(std::int32_t, property_get_bin'''
-    s=rep(s,anchor,block,"B44 P&S get")
+'''
+    if region.count(get_anchor) != 1:
+        fail(f"B44 P&S get: expected read anchor once, found {region.count(get_anchor)}")
+    region=region.replace(get_anchor,get_insert,1)
+    s=s[:b]+region+s[e:]
 
     # Direct find/set.
     anchor='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
@@ -562,7 +557,7 @@ def main():
             LOG_WARN(SERVICE_APPLIST,
                 "[NBOOT2][ALF_APPARC_REG] phase=parsed uid=0x{:08X} rsc={} app_path={} drive={} behavior=OBSERVE_ONLY",
                 reg.mandatory_info.uid, common::ucs2_to_utf8(reg.rsc_path),
-                common::ucs2_to_utf8(reg.mandatory_info.app_path),
+                common::ucs2_to_utf8(reg.mandatory_info.app_path.to_std_string(nullptr)),
                 static_cast<int>(reg.land_drive));
         }
 
@@ -687,7 +682,7 @@ def main():
                 "[NBOOT2][ALF_APPARC_GETINFO] phase=resolve uid=0x{:08X} found=1 rsc={} exe={} behavior=OBSERVE_ONLY",
                 static_cast<std::uint32_t>(app_uid),
                 common::ucs2_to_utf8(reg->rsc_path),
-                common::ucs2_to_utf8(reg->mandatory_info.app_path));
+                common::ucs2_to_utf8(reg->mandatory_info.app_path.to_std_string(nullptr)));
         }
 
         apa_app_info info_copy = reg->mandatory_info;
@@ -703,7 +698,7 @@ def main():
         if (b44_alf_uid) {
             LOG_WARN(SERVICE_APPLIST,
                 "[NBOOT2][ALF_APPARC_GETINFO] phase=complete uid=0x{:08X} result=0 exe={} behavior=OBSERVE_ONLY",
-                static_cast<std::uint32_t>(app_uid), common::ucs2_to_utf8(info_copy.app_path));
+                static_cast<std::uint32_t>(app_uid), common::ucs2_to_utf8(info_copy.app_path.to_std_string(nullptr)));
         }
         ctx.complete(epoc::error_none);
     }
