@@ -119,7 +119,8 @@ def main():
 
 #include <cassert>
 '''
-    inc_new='''#include <services/window/screen.h>
+    inc_new='''#include <services/window/classes/wingroup.h>
+#include <services/window/screen.h>
 
 #include <common/log.h>
 
