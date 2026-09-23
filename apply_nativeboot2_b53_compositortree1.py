@@ -89,7 +89,6 @@ def main():
     old='''    struct window_drawer_walker : public window_tree_walker {
         drivers::graphics_command_builder &builder_;
         std::uint32_t total_redrawed_;
-        canvas_base *streaming_window_ = nullptr;
 
         explicit window_drawer_walker(drivers::graphics_command_builder &builder)
             : builder_(builder)
@@ -102,10 +101,6 @@ def main():
             }
 
             epoc::canvas_base *cv = reinterpret_cast<epoc::canvas_base*>(win);
-
-            if (cv->can_be_physically_seen() && cv->surface_streaming()) {
-                streaming_window_ = cv;
-            }
 
             if (cv->draw(builder_))
                 total_redrawed_++;
@@ -123,7 +118,6 @@ def main():
         std::uint32_t total_physically_seen_;
         bool trace_;
         std::uint64_t frame_id_;
-        canvas_base *streaming_window_ = nullptr;
 
         explicit window_drawer_walker(drivers::graphics_command_builder &builder,
             const bool trace = false, const std::uint64_t frame_id = 0)
@@ -152,10 +146,6 @@ def main():
             }
             if (physically_seen) {
                 total_physically_seen_++;
-            }
-
-            if (physically_seen && cv->surface_streaming()) {
-                streaming_window_ = cv;
             }
 
             const bool drawn = cv->draw(builder_);
@@ -266,29 +256,21 @@ def main():
     screen=rep_between(screen,begin,end,old,new,"B53 frame begin")
 
     old='''        window_drawer_walker adrawwalker(builder);
-        root->walk_tree_back_to_front(&adrawwalker);
+        root->walk_tree(&adrawwalker, window_tree_walk_style::bonjour_children);
 '''
 
     new='''        window_drawer_walker adrawwalker(builder, b53_trace, b53_frame);
-        root->walk_tree_back_to_front(&adrawwalker);
+        root->walk_tree(&adrawwalker, window_tree_walk_style::bonjour_children);
 '''
     screen=rep_between(screen,begin,end,old,new,"B53 walker call")
 
-    old='''        if (adrawwalker.streaming_window_) {
-            adrawwalker.streaming_window_->canvas_base::try_update(nullptr);
-        }
-
-        return adrawwalker.total_redrawed_;
+    old='''        return adrawwalker.total_redrawed_;
     }
 '''
 
-    new='''        if (adrawwalker.streaming_window_) {
-            adrawwalker.streaming_window_->canvas_base::try_update(nullptr);
-        }
-
-        if (b53_trace) {
+    new='''        if (b53_trace) {
             LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][COMPOSITOR_FRAME] phase=end frame={} screen={} focus_id={} focus_name={} total_clients={} total_visible={} total_physically_seen={} total_drawn={} flags_after=0x{:08X} color_clear_was={} behavior=OBSERVE_ONLY",
+                "[NBOOT2][COMPOSITOR_FRAME] phase=end frame={} screen={} focus_id={} focus_name={} total_clients={} total_visible={} total_physically_seen={} total_drawn={} flags_after=0x{:08X} behavior=OBSERVE_ONLY",
                 b53_frame, number,
                 focus ? focus->id : 0,
                 focus ? common::ucs2_to_utf8(focus->name) : std::string("<null>"),
@@ -296,8 +278,7 @@ def main():
                 adrawwalker.total_visible_,
                 adrawwalker.total_physically_seen_,
                 adrawwalker.total_redrawed_,
-                static_cast<std::uint32_t>(flags_),
-                (flags_ & FLAG_SERVER_REDRAW_PENDING) ? 1 : 0);
+                static_cast<std::uint32_t>(flags_));
         }
 
         return adrawwalker.total_redrawed_;
