@@ -9,14 +9,14 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
-Latest device diagnostic snapshot: docs/handoff/history/B44-DEVICE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B45-DEVICE1.md
 Latest build diagnostic snapshot: docs/handoff/history/B45-AKNSKINNTFX1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
 B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
-B45 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — guarded native AknSkinServer route experiment for RM-356/EPOC9.4
+B45 status: DEVICE-OBSERVED; ROUTE NOT ACTIVATED — guard failed because runtime epoc enum=10 and Z-profile is mounted after services init
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2324,3 +2324,141 @@ that device evidence is read.
 
 Full snapshot:
 - `docs/handoff/history/B45-AKNSKINNTFX1.md`
+
+
+## Latest device override — B45 DEVICE1
+
+B45 device test did **not** exercise the intended native AknSkinServer route.
+
+### Log integrity
+
+- `EKA2L1(6).log`
+  SHA-256 `bf0c6b1c37fd932454f87ba527448018094547c38d7ed92b9fe5cda3fca1bbd4`
+- `EKA2L1_Persistent(6).log`
+  SHA-256 `178854edd9bd874fd3aa19d92e7a417af3d0b1f784afe469e2cb3e0cc108283b`
+- `EKA2L1_TakeThis(6).log`
+  SHA-256 `d3b45ea360bc86afa853c3fb3195123b584c83e6c20f4dac70072aa91230ddb7`
+
+### First failure: EPOC-version guard mismatch
+
+At native-mode service initialization:
+
+```text
+[NBOOT2][AKNSKIN_ROUTE]
+phase=hle_keep
+epoc=10
+native_phone_boot=1
+exe_sysbin=0
+exe_legacy=0
+```
+
+Current EKA2L1 `epocver` ordering makes integer 10 equal
+`epoc93fp1`; `epoc94` is a later enum value. Therefore B45's exact
+`== epocver::epoc94` guard is false on the current RM-356 runtime even though
+this firmware path otherwise uses the project's S60v5 compatibility behavior.
+
+Do not reuse this enum equality as the B46 RM-356 discriminator.
+
+### Second failure: ROM existence was checked before Z-profile mount
+
+Chronology:
+
+```text
+15:05:08.361 ROM profile selected
+15:05:08.367 SYM.ROM mapped
+15:05:08.368 initialize HLE services
+15:05:08.368 B45 checks Z:\sys\bin\aknskinsrv.exe -> exists=0
+15:05:08.369 active RM-356 profile announced
+15:05:08.369 Z profile mount announced
+```
+
+Thus B45 performs the `io_system::exist()` test one initialization step too
+early for the extracted Z-profile overlay.
+
+Historical firmware-install logs already prove this RM-356 package contains:
+
+- `Z:\sys\bin\aknskinsrv.exe`
+- `Z:\sys\bin\aknskinsrv.dll`
+
+So B45's `exists=0` must not be interpreted as the firmware lacking the
+native skin server.
+
+### Consequence
+
+HLE `!AknSkinServer` remains active.
+
+Observed native-mode sessions:
+
+```text
+eiksrvs      -> !AknSkinServer found=1 server_hle=1
+akncapserver -> !AknSkinServer found=1 server_hle=1
+akncapserver -> !AknSkinServer found=1 server_hle=1
+AknIconSrv   -> !AknSkinServer found=1 server_hle=1
+```
+
+There is no:
+- `AKNSKIN_SESSION phase=missing`;
+- `AKNSKIN_NATIVE_PROC`;
+- `AKNSKIN_NATIVE_REGISTER`.
+
+Therefore the stock `RAknsSrvSession::Connect()->StartServer()` route was
+never reached.
+
+### B44 failure family repeats unchanged
+
+TFX status P&S is again undefined before first attach.
+
+No:
+- `TFX_ECOM_RSC`;
+- `TFX_ECOM_DLL`;
+- `ALF_SESSION`;
+- `ALF_SERVER_REGISTER`;
+- `TfxServer` registration.
+
+The two akncapserver causal chains remain:
+
+- first TfxServer miss -> correlated Leave(-1): ~106 ms;
+- second TfxServer miss -> correlated Leave(-1): ~99 ms.
+
+### Preserved milestones
+
+B42:
+- HWRM raw `0x2000000A` marker remains;
+- SYSSTART kill attempt follows ~29.996 s later.
+
+B40:
+- `EUART1` PDD enter/complete result 0;
+- `!EikAppUiServer` registers successfully.
+
+B41:
+- two MessageWin wipeout guards;
+- `os_join_done`;
+- `graphics_join_done`;
+- `shutdown_threads_done`;
+- `state_reset_done`;
+- `shutdown_done`;
+- `normal_restart_done has_device=1`.
+
+No `KERN-EXEC`, `EXC_BAD_ACCESS`, or host access-violation marker appears
+in this device window.
+
+### B46 direction
+
+Do not change TFX/ALF semantics yet.
+
+B46 should fix **route selection timing**, not the native server itself:
+
+1. Do not use `epocver::epoc94` equality as the RM-356 gate.
+2. Do not test the extracted Z-profile before it is mounted.
+3. Use an RM-356/native-phone-boot discriminator available before HLE service
+   creation, or move the route decision to a point after profile mount but
+   before `akn_skin_server` is registered.
+4. Preserve a fallback path for non-RM-356/non-native modes.
+5. Keep all B44/B45 provenance markers so the first real native-start attempt
+   captures process creation and registration.
+
+Working name:
+`NATIVEBOOT2-B46-AKNSKINROUTE2`.
+
+Full snapshot:
+- `docs/handoff/history/B45-DEVICE1.md`
