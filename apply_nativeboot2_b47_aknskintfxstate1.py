@@ -201,7 +201,7 @@ def main():
         if (b47_aknskin_wserv) {
             kernel::thread *b47_thr = kern->crr_thread();
             LOG_WARN(KERNEL,
-                "[NBOOT2][AKNSKIN_TFX_WSERV] phase=request process={} thread={} server={} msg_slots={} mode={} behavior=OBSERVE_ONLY",
+                "[NBOOT2][AKNSKIN_TFX_WSERV] phase=request process={} thread={} server={} msg_slots={} mode={} expected_uid3=0x10207114 behavior=OBSERVE_ONLY",
                 b47_session_process,
                 b47_thr ? b47_thr->name() : std::string("<null>"),
                 server_name, msg_slot, mode);
@@ -210,7 +210,7 @@ def main():
         server_ptr server = kern->get_by_name<service::server>(server_name);
         if (b47_aknskin_wserv) {
             LOG_WARN(KERNEL,
-                "[NBOOT2][AKNSKIN_TFX_WSERV] phase=lookup process={} server={} found={} server_hle={} behavior=OBSERVE_ONLY",
+                "[NBOOT2][AKNSKIN_TFX_WSERV] phase=lookup process={} server={} found={} server_hle={} expected_uid3=0x10207114 behavior=OBSERVE_ONLY",
                 b47_session_process, server_name,
                 server ? 1 : 0, server ? (server->is_hle() ? 1 : 0) : -1);
         }
@@ -248,7 +248,7 @@ def main():
                 || static_cast<std::uint32_t>(arg.args[2]) == 0x10282DBC
                 || static_cast<std::uint32_t>(arg.args[3]) == 0x10282DBC;
             LOG_WARN(KERNEL,
-                "[NBOOT2][AKNSKIN_TFX_ECOM] phase=send process={} thread={} server={} function=0x{:X} sync={} status=0x{:08X} flag=0x{:08X} types=[{},{},{},{}] raw=[0x{:08X},0x{:08X},0x{:08X},0x{:08X}] literal_controller={} literal_server={} expected_controller_if=0x10282DBD expected_server_if=0x10282DBC behavior=OBSERVE_ONLY",
+                "[NBOOT2][AKNSKIN_TFX_ECOM] phase=send process={} thread={} server={} function=0x{:X} sync={} status=0x{:08X} flag=0x{:08X} types=[{},{},{},{}] raw=[0x{:08X},0x{:08X},0x{:08X},0x{:08X}] literal_controller={} literal_server={} expected_caller_uid3=0x10207114 expected_controller_if=0x10282DBD expected_server_if=0x10282DBC behavior=OBSERVE_ONLY",
                 b47_send_process,
                 b47_thr ? b47_thr->name() : std::string("<null>"),
                 server_name, static_cast<std::uint32_t>(ord), sync ? 1 : 0,
