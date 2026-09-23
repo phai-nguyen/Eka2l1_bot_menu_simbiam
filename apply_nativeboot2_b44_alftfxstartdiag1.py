@@ -349,28 +349,10 @@ def main():
 '''
     s=rep(s,anchor,block,"B44 P&S set")
 
-    # Handle-based get. Use bounded text surgery because prior milestones may
-    # have changed the exact error-handling body.
-    b44_get_begin="    BRIDGE_FUNC(std::int32_t, property_get_int,"
-    b44_get_end="    BRIDGE_FUNC(std::int32_t, property_get_bin"
-    b=s.find(b44_get_begin)
-    e=s.find(b44_get_end,b+1)
-    if b < 0 or e < 0:
-        fail("B44 P&S get: function bounds not found")
-    region=s[b:e]
-    get_anchor='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
-'''
-    get_insert='''        *value_ptr.get(pr) = prop->get_property_object()->get_int();
-        service::property *b44_obj = prop->get_property_object();
-        if (b44_obj && b44_tfx_ps_target(b44_obj->first, b44_obj->second)) {
-            b44_tfx_ps_log(kern, "get", "read", b44_obj->first, b44_obj->second,
-                b44_obj->get_int(), b44_obj->get_int(), epoc::error_none);
-        }
-'''
-    if region.count(get_anchor) != 1:
-        fail(f"B44 P&S get: expected read anchor once, found {region.count(get_anchor)}")
-    region=region.replace(get_anchor,get_insert,1)
-    s=s[:b]+region+s[e:]
+    # Handle-based get is intentionally not patched. The source-guided TFX
+    # controller path uses category/key RProperty::Get/Set, which is already
+    # covered by property_find_get_int/property_find_set_int. Avoid a brittle
+    # extra hook here because earlier NativeBoot milestones alter this body.
 
     # Direct find/set.
     anchor='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
