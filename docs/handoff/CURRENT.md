@@ -3396,3 +3396,107 @@ If FileFlush reports `flush_ok=1 completion=0`, close the old FS27 hypothesis
 and move beyond theme storage. If FileFlush or xnthemeserver completion is
 nonzero, correlate the exact request/result with the subsequent guest Leave
 before selecting any functional fix.
+
+
+## Latest device override — B48 XNTHEMEPOST1 DEVICE1
+
+B48 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+`docs/handoff/history/B48-DEVICE1.md`
+
+### Decisive result
+
+B47 stock RM-356 V60 TFX suppression remains preserved:
+
+```
+repo=0x102818E8
+key=0x00000009
+result=0
+value=0x7FFFFFFF
+enabled=0
+suppressed=1
+```
+
+Native `xnthemeserver[10207254]` launches, registers, and remains alive through
+normal emulator teardown.
+
+B48 captured **40** xnthemeserver FileServer `FileFlush` operations. Every
+one completed:
+
+```
+flush_ok=1
+completion=0
+behavior=OBSERVE_ONLY
+```
+
+This includes the previously suspicious cache files:
+
+```
+C:\Private\10207254\themes\sources\hdrcache.dat
+C:\Private\10207254\themes\sources\cleanupfiles.dat
+```
+
+Therefore FileServer opcode hex `0x27` / decimal 39
+(`fs_msg_file_flush`) is not the source of the recurring
+`Leave(-5)`.
+
+There are 37 trapped `Leave(-5)` events in xnthemeserver, but they occur
+guest-side after successful FileFlush completions and are trapped while the
+server continues processing. Do not synthesize `-5` from FileFlush and do
+not suppress these guest leaves.
+
+Observed Home screen -> xnthemeserver completions are non-negative:
+
+- function `-1` -> result `0`
+- function `9` -> result `18`
+- function `3` -> result `4`
+- function `4` -> result `6`
+- function `13` -> result `22`
+
+Home screen progresses to:
+
+```
+SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_EVENTREADY_ARM
+```
+
+No `KERN-EXEC`, `EIKFAULT_AV`, `EXC_BAD_ACCESS` or host access
+violation is present.
+
+Exit Emulator remains healthy:
+
+```
+22:42:09.732 os_join_begin
+22:42:09.776 os_join_done
+```
+
+about 44 ms, followed by `normal_restart_done has_device=1`.
+
+### Next-boundary candidate
+
+After Home screen reaches event-loop setup, the only negative WindowServer
+batch result currently observed is `op=0x2B result=-1` three times.
+
+The pinned WindowServer opcode table maps decimal 43 / hex `0x2B` to
+`ws_cl_op_find_window_group_identifier`.
+
+This is only a candidate boundary. A window-group lookup miss can be normal,
+so do not patch it without correlating the actual B48 visual device state.
+
+Four later `RM356_FS_UNKNOWN opcode=80` observations map to
+`fs_msg_notify_disk_space`; they are also not proven blockers.
+
+### Consequence
+
+The old theme-cache / FileFlush hypothesis is closed.
+
+Do not:
+- alter FileFlush results;
+- change MENUUI13 FS-DIRUID1;
+- reopen or force TFX;
+- fake xnthemeserver completions;
+- patch WindowServer `0x2B` from the lookup miss alone.
+
+B49 functional behavior is **NOT SELECTED** until the visible B48 screen state
+is correlated. Request one screenshot or short screen recording from the B48
+test before selecting the next diagnostic boundary.
