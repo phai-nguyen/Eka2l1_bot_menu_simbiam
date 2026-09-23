@@ -499,71 +499,10 @@ def main():
     l=rep(l,anchor,block,"B44 TFX DLL success")
 
     # ------------------------------------------------------------------
-    # AppList/AppArc: ROM inventory, Alfred registration, GetAppInfo.
+    # AppList/AppArc: ROM inventory and exact Alfred GetAppInfo lookup.
+    # Do not depend on the newer upstream commit_registry() helper because
+    # the FASTBUILD B28 bootstrap may predate that behavioral change.
     # ------------------------------------------------------------------
-    anchor='''    static bool commit_registry(std::vector<apa_app_registry> &regs, apa_app_registry &&reg) {
-        auto same_path = std::find_if'''
-    block='''    static bool commit_registry(std::vector<apa_app_registry> &regs, apa_app_registry &&reg) {
-        const bool b44_alf_reg = reg.mandatory_info.uid == 0x10282845
-            || common::ucs2_to_utf8(reg.rsc_path).find("alfredserver") != std::string::npos
-            || common::ucs2_to_utf8(reg.rsc_path).find("AlfredServer") != std::string::npos;
-        if (b44_alf_reg) {
-            LOG_WARN(SERVICE_APPLIST,
-                "[NBOOT2][ALF_APPARC_REG] phase=parsed uid=0x{:08X} rsc={} app_path={} drive={} behavior=OBSERVE_ONLY",
-                reg.mandatory_info.uid, common::ucs2_to_utf8(reg.rsc_path),
-                common::ucs2_to_utf8(reg.mandatory_info.app_path.to_std_string(nullptr)),
-                static_cast<int>(reg.land_drive));
-        }
-
-        auto same_path = std::find_if'''
-    a=rep(a,anchor,block,"B44 AppArc registry parsed")
-
-    anchor='''            if (same_path->last_rsc_modified == reg.last_rsc_modified) {
-                return false;
-            }
-'''
-    block='''            if (same_path->last_rsc_modified == reg.last_rsc_modified) {
-                if (b44_alf_reg) {
-                    LOG_WARN(SERVICE_APPLIST,
-                        "[NBOOT2][ALF_APPARC_REG] phase=duplicate_rejected reason=same_path uid=0x{:08X} rsc={} behavior=OBSERVE_ONLY",
-                        reg.mandatory_info.uid, common::ucs2_to_utf8(reg.rsc_path));
-                }
-                return false;
-            }
-'''
-    a=rep(a,anchor,block,"B44 AppArc same path")
-
-    anchor='''                if (!should_replace_duplicate_registry(reg, *same_uid)) {
-                    return false;
-                }
-'''
-    block='''                if (!should_replace_duplicate_registry(reg, *same_uid)) {
-                    if (b44_alf_reg) {
-                        LOG_WARN(SERVICE_APPLIST,
-                            "[NBOOT2][ALF_APPARC_REG] phase=duplicate_rejected reason=same_uid uid=0x{:08X} rsc={} existing_rsc={} behavior=OBSERVE_ONLY",
-                            reg.mandatory_info.uid, common::ucs2_to_utf8(reg.rsc_path),
-                            common::ucs2_to_utf8(same_uid->rsc_path));
-                    }
-                    return false;
-                }
-'''
-    a=rep(a,anchor,block,"B44 AppArc same uid")
-
-    anchor='''        regs.push_back(std::move(reg));
-        return true;
-    }
-'''
-    block='''        if (b44_alf_reg) {
-            LOG_WARN(SERVICE_APPLIST,
-                "[NBOOT2][ALF_APPARC_REG] phase=committed uid=0x{:08X} rsc={} behavior=OBSERVE_ONLY",
-                reg.mandatory_info.uid, common::ucs2_to_utf8(reg.rsc_path));
-        }
-        regs.push_back(std::move(reg));
-        return true;
-    }
-'''
-    a=rep(a,anchor,block,"B44 AppArc committed")
-
     anchor='''    bool applist_server::rescan_registries(eka2l1::io_system *io) {
         LOG_INFO(SERVICE_APPLIST, "Loading app registries");
 
@@ -617,12 +556,18 @@ def main():
                 static_cast<std::uint32_t>(app_uid),
                 b44_pr ? b44_pr->name() : std::string("<null>"),
                 b44_thr ? b44_thr->name() : std::string("<null>"));
+            LOG_WARN(SERVICE_APPLIST,
+                "[NBOOT2][ALF_APPARC_REG] phase=lookup uid=0x{:08X} behavior=OBSERVE_ONLY",
+                static_cast<std::uint32_t>(app_uid));
         }
 
         apa_app_registry *reg = get_registration(app_uid);
 
         if (!reg) {
             if (b44_alf_uid) {
+                LOG_WARN(SERVICE_APPLIST,
+                    "[NBOOT2][ALF_APPARC_REG] phase=result uid=0x{:08X} found=0 behavior=OBSERVE_ONLY",
+                    static_cast<std::uint32_t>(app_uid));
                 LOG_WARN(SERVICE_APPLIST,
                     "[NBOOT2][ALF_APPARC_GETINFO] phase=result uid=0x{:08X} found=0 result={} behavior=OBSERVE_ONLY",
                     static_cast<std::uint32_t>(app_uid), epoc::error_not_found);
@@ -632,6 +577,10 @@ def main():
         }
 
         if (b44_alf_uid) {
+            LOG_WARN(SERVICE_APPLIST,
+                "[NBOOT2][ALF_APPARC_REG] phase=result uid=0x{:08X} found=1 rsc={} behavior=OBSERVE_ONLY",
+                static_cast<std::uint32_t>(app_uid),
+                common::ucs2_to_utf8(reg->rsc_path));
             LOG_WARN(SERVICE_APPLIST,
                 "[NBOOT2][ALF_APPARC_GETINFO] phase=resolve uid=0x{:08X} found=1 rsc={} exe={} behavior=OBSERVE_ONLY",
                 static_cast<std::uint32_t>(app_uid),
