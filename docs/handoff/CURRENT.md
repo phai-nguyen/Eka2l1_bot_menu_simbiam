@@ -3,18 +3,19 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: 00362ae8faedd6bda130b32ba39d3f051a02ef68
+Latest FASTBUILD1 CI implementation commit: d9f8e8fabecb3f5af4b28f10413166e6fa07d4f6
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 Latest device diagnostic snapshot: docs/handoff/history/B43-DEVICE1.md
-Latest build diagnostic snapshot: docs/handoff/history/B43-TFXSERVERDIAG1.md
+Latest build diagnostic snapshot: docs/handoff/history/B44-ALFTFXSTARTDIAG1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
+B44 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — one-run ALF/TFX provider-startup graph instrumentation
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1873,3 +1874,156 @@ is identified.
 
 Full snapshot:
 - `docs/handoff/history/B43-DEVICE1.md`
+
+
+## Latest override — B44 ALFTFXSTARTDIAG1
+
+B44 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+B41 remains the latest immutable functional milestone. B43 remains the latest
+device-observed diagnostic milestone.
+
+### Why B44 changed direction after Deep Research
+
+Primary Symbian/Nokia source shows the highest-information provider path is:
+
+```text
+AknSkinSrv
+  -> ECom TFX implementation 0x10282DBD / 0x10282DBC
+  -> tfxsrvplugin.dll (UID 0x10282DBA)
+  -> TFX P&S 0x10207218 / key 0x2
+  -> RAlfTfxClient::Open()
+  -> CreateSession("alfstreamerserver")
+  -> ALF backend
+  -> public TfxServer registration
+```
+
+The Alfred/AppArc path is observed in parallel:
+
+```text
+GetAppInfo(0x10282845)
+  -> alfredserver_reg.rsc
+  -> process create alfredserver.exe / alfserver.exe
+  -> ALF AppServer
+```
+
+B44 does not assume either path succeeds.
+
+### Scope clarification
+
+B44 is interoperability/emulator startup diagnostics only. It does not attack
+networks, bypass access control, deploy malware, access external systems, or
+change guest authorization.
+
+B44 does **not**:
+- create/fake TfxServer;
+- force-launch Alfred;
+- force ECom implementation mapping;
+- write the TFX P&S running bit;
+- synthesize unknown IPC completion;
+- alter B42 HWRM pending behavior.
+
+### One-device-run marker set
+
+- `[NBOOT2][ALF_ROM_ARTIFACT]`
+- `[NBOOT2][ALF_APPARC_REG]`
+- `[NBOOT2][ALF_APPARC_GETINFO]`
+- `[NBOOT2][ALF_PROC_CREATE]`
+- `[NBOOT2][TFX_ECOM_RSC]`
+- `[NBOOT2][TFX_ECOM_DLL]`
+- `[NBOOT2][TFX_PS]`
+- `[NBOOT2][TFX_MANIFEST]`
+- `[NBOOT2][ALF_SESSION]`
+- `[NBOOT2][ALF_SERVER_REGISTER]`
+
+B43 TfxServer/Leave markers remain intact.
+
+### TDD/build
+
+Canonical RED:
+- test commit: `ff910c5e8072b27b737b07e376564cce8c5b9db2`
+- RED manifest commit: `e177e561a166e6d902c93841f3be98daa2186e5d`
+- RED run/job: `35816770777 / 107039852137`
+- B29-B43 apply/tests: PASS
+- B20-B28 regressions: PASS
+- expected failure: missing `[NBOOT2][ALF_SESSION]`
+
+Implementation lineage:
+- initial multi-boundary instrumentation: `ffaf8e737e5045560e659cf79f6d7a014858ce8a`
+- bounded session patch: `ea545f367dc1cb5005e03888ef83f82e6553b778`
+- hardened P&S/AppArc descriptor handling: `3740f53a535e686709e202a91aa43f73ede20771`
+- stable category/key P&S probes: `4606b77e338bb663a2973911c74a8d2d803fbb76`
+- B28-compatible AppArc diagnostics: `d2875cc4fab1c481cb9cf708f66e80a23823e162`
+- branch-independent FileServer probes: `98c0cd66ac0d82d8a780fe005b775588fd76a4ab`
+- final implementation: `d9f8e8fabecb3f5af4b28f10413166e6fa07d4f6`
+- binary-invariant commit: `b7810836cbb252dcf4232377345e84dfb4037797`
+
+The intermediate failures were patch-contract/anchor mismatches against the
+older B28 bootstrap source; no guest-visible functional workaround was added.
+
+### Canonical GREEN
+
+- implementation HEAD: `d9f8e8fabecb3f5af4b28f10413166e6fa07d4f6`
+- canonical build HEAD: `b7810836cbb252dcf4232377345e84dfb4037797`
+- run/job: `35818238348 / 107044317789`
+- FASTBUILD1 manifest: VALID
+- B29-B44 apply/tests: PASS
+- B20-B28 regressions: PASS
+- iOS compile/link: PASS
+- B44 Mach-O marker invariants: PASS
+- IPA package/upload: PASS
+- NOJAVA / MANIC3: PRESERVED
+- compile requests: 149
+- cache hits: 149
+- cache misses: 0
+- hit rate: 100%
+- actual compilations: 0
+- compilation failures: 0
+
+Unsigned IPA SHA-256:
+
+`5797d71f39bb790ebbae605459f03ce9d248fd713e8a3def0fa450a51eba2870`
+
+IPA artifact:
+- ID: `10732596370`
+- size: 19,905,507 bytes
+- ZIP digest:
+  `sha256:41bbc1cfffac4def2e248ddaf0c4c9702cbc6ad4ff888fae52a0ec9a4619a5cf`
+- expires: 2026-10-07
+
+Audit artifact:
+- ID: `10732566416`
+- digest:
+  `sha256:37c73a442c9fb28287b9efcd6a735a652cc21860230f51547103d5d7aa930d28`
+
+Downloaded IPA was re-hashed locally and matches CI exactly.
+
+### Device-test goal
+
+B44 is not expected to boot farther by itself. The purpose is to classify the
+missing provider stage in one run.
+
+Test the same RM-356 path, let the B42 ~30 s HWRM delay remain, wait through
+the akncapserver/TfxServer window, then use Thoát Emulator normally and send:
+
+- EKA2L1.log
+- EKA2L1_Persistent.log
+- EKA2L1_TakeThis.log
+
+Read the first missing boundary in this order:
+
+```text
+ROM artifact
+-> AppArc/ECom request
+-> tfxsrvplugin resource/DLL
+-> TFX P&S
+-> alfstreamerserver
+-> Alfred/ALF AppServer
+-> TfxServer registration
+-> akncapserver session result
+```
+
+Do not implement a functional B45 until B44 device evidence identifies the
+first missing provider-startup boundary.
+
+Full snapshot:
+- `docs/handoff/history/B44-ALFTFXSTARTDIAG1.md`
