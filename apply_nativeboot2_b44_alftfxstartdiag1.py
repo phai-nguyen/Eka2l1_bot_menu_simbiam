@@ -354,44 +354,16 @@ def main():
     # covered by property_find_get_int/property_find_set_int. Avoid a brittle
     # extra hook here because earlier NativeBoot milestones alter this body.
 
-    # Direct find/set.
-    anchor='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
-        property_ptr prop = kern->get_prop(cage, key);
-
-        if (!prop || !prop->is_defined()) {
-            return epoc::error_not_found;
-        }
-
-        const bool res = prop->set(value);
-
-        if (!res) {
-            return epoc::error_argument;
-        }
-
-        return epoc::error_none;
-    }
+    # Direct category/key Set: entry-only probe, deliberately independent
+    # from the exact body because earlier NativeBoot milestones may alter it.
+    find_set_sig='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
 '''
-    block='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
-        property_ptr prop = kern->get_prop(cage, key);
-
-        if (!prop || !prop->is_defined()) {
-            b44_tfx_ps_log(kern, "find_set", "missing", cage, key, 0, value, epoc::error_not_found);
-            return epoc::error_not_found;
+    find_set_new='''    BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
+        if (b44_tfx_ps_target(cage, key)) {
+            b44_tfx_ps_log(kern, "find_set", "request", cage, key, 0, value, 0);
         }
-
-        const std::int32_t b44_old = prop->get_int();
-        const bool res = prop->set(value);
-
-        if (!res) {
-            b44_tfx_ps_log(kern, "find_set", "result", cage, key, b44_old, value, epoc::error_argument);
-            return epoc::error_argument;
-        }
-
-        b44_tfx_ps_log(kern, "find_set", "result", cage, key, b44_old, value, epoc::error_none);
-        return epoc::error_none;
-    }
 '''
-    s=rep(s,anchor,block,"B44 P&S find_set")
+    s=rep(s,find_set_sig,find_set_new,"B44 P&S find_set entry")
 
     # ------------------------------------------------------------------
     # Loader: exact TFX ECom DLL and Alfred process creation.
