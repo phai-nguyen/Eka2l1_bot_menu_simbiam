@@ -3530,3 +3530,70 @@ For every future device-tested build, request:
 
 The user has confirmed they can record every build. Use video/log timestamp
 correlation before selecting a functional fix.
+
+
+## Latest build override — B49 POSTLOGOWSERV1
+
+B49 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+B48 video authority:
+- black display until about 35.2 seconds;
+- Nokia boot surface then appears;
+- blue Nokia logo remains static through the rest of the ~228 second test;
+- Exit Emulator remains normal.
+
+B48 logs already prove theme FileFlush is healthy. Therefore B49 moves to the
+post-logo WindowServer group/focus boundary.
+
+### B49 markers
+
+- `[NBOOT2][POSTLOGO_WG_FIND]`
+- `[NBOOT2][POSTLOGO_WG_CREATE]`
+- `[NBOOT2][POSTLOGO_WG_ORDINAL]`
+- `[NBOOT2][POSTLOGO_FOCUS]`
+
+The trace records which process creates/searches WindowGroups, wildcard lookup
+patterns/results, ordinal movement, and old/new/final focus selection.
+
+No WindowServer result, z-order request, focus policy, FileServer behavior,
+TFX state, or theme result is changed.
+
+### Canonical GREEN
+
+- run `35886788765`
+- job `107268855673`
+- build HEAD `58cb44733ad6b8cd5bd0543687532a70852cf326`
+- FASTBUILD1 manifest VALID
+- B29-B49 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+
+Unsigned IPA SHA-256:
+
+`ab22067d9be0f28a802cfc2ff0356790e43c04ca8fb34847bdccaef7271dd17b`
+
+IPA artifact:
+- ID `10763560496`
+- ZIP digest
+  `sha256:df69213c6a9310b323124c46d9b0572a871c9c96c37c9e9381b5361318241f9c`
+
+Full snapshot:
+`docs/handoff/history/B49-POSTLOGOWSERV1.md`
+
+### Device acceptance
+
+Use the same RM-356 V60 pair and provide:
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+- full screen recording
+
+The device decision is whether Home screen creates/owns a WindowGroup that
+ever reaches final focus ahead of the Nokia startup group. Do not force focus
+or patch op `0x2B` until B49 device evidence identifies the exact caller,
+pattern, target group and focus transition.
