@@ -19,6 +19,7 @@ apply_nativeboot2_b41_wservmessagewinexit1.py|test_nativeboot2_b41_wservmessagew
 apply_nativeboot2_b42_sahwrmabi1.py|test_nativeboot2_b42_sahwrmabi1.py
 apply_nativeboot2_b43_tfxserverdiag1.py|test_nativeboot2_b43_tfxserverdiag1.py
 apply_nativeboot2_b44_alftfxstartdiag1.py|test_nativeboot2_b44_alftfxstartdiag1.py
+apply_nativeboot2_b45_aknskinntfx1.py|test_nativeboot2_b45_aknskinntfx1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
@@ -31,4 +32,3 @@ test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
 
 
-test_nativeboot2_b45_aknskinntfx1.py
