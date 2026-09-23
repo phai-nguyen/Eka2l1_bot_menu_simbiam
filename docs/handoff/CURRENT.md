@@ -3145,3 +3145,21 @@ B47 remains:
 **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
 
 Do not choose B48 behavior before B47 device evidence.
+
+
+### RM-356 probe tooling
+
+A reproducible extracted-firmware comparison tool is now available:
+
+- `tools/rm356_firmware_probe.py`
+- `test_rm356_firmware_probe.py`
+
+Latest tool/test commits:
+- `5f8d6ccecc6cbdba5d3c0dd04eb699120d8e099b`
+- `58dcd1bbcb5ebff36837f06e0c2b803fb1d8df39`
+
+Research snapshot with full rationale:
+`docs/handoff/history/RM356-FIRMWARE-RESEARCH-2026-09-23.md`
+
+Synthetic probe validation covers UTF-8 and BOM-less UTF-16 CenRep input plus
+component SHA-256 comparison. Runtime B47 semantics remain unchanged.
