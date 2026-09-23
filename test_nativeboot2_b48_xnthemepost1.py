@@ -24,15 +24,17 @@ def main():
 
     up = Path(sys.argv[1]).resolve()
     svc_path = up / "src/emu/kernel/src/svc.cpp"
+    repo_path = up / "src/emu/services/src/centralrepo/repo.cpp"
     files_path = up / "src/emu/services/src/fs/files.cpp"
     dirs_path = up / "src/emu/services/src/fs/dirs.cpp"
     op_path = up / "src/emu/services/include/services/fs/op.h"
 
-    for p in (svc_path, files_path, dirs_path, op_path):
+    for p in (svc_path, repo_path, files_path, dirs_path, op_path):
         if not p.is_file():
             fail(f"missing source: {p}")
 
     svc = svc_path.read_text(encoding="utf-8")
+    repo = repo_path.read_text(encoding="utf-8")
     files = files_path.read_text(encoding="utf-8")
     dirs = dirs_path.read_text(encoding="utf-8")
     op = op_path.read_text(encoding="utf-8")
@@ -63,9 +65,10 @@ def main():
     if "attrib &= ~io_attrib_include_dir;" in open_block:
         fail("B48 regressed FS-DIRUID1 directory inclusion")
 
-    # Preserve B47's stock-firmware conclusion and diagnostics.
+    # Preserve B47's stock-firmware conclusion and diagnostics. The state
+    # marker is in CentralRepository; the Wserv/ECom markers are in svc.cpp.
+    need(repo, "[NBOOT2][AKNSKIN_TFX_STATE]", "B47 CenRep preservation")
     for needle in (
-        "[NBOOT2][AKNSKIN_TFX_STATE]",
         "[NBOOT2][AKNSKIN_TFX_WSERV]",
         "[NBOOT2][AKNSKIN_TFX_ECOM]",
         "SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COMPLETE:",
