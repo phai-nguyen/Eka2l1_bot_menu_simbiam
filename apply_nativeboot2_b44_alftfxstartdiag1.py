@@ -446,9 +446,9 @@ def main():
             || lib_name.find("alfred") != std::string::npos || lib_name.find("Alfred") != std::string::npos
             || lib_name.find("transition") != std::string::npos || lib_name.find("Transition") != std::string::npos;
         const bool b44_tfx_ecom_dll =
-            lib_name.find("tfxsrvplugin") != std::string::npos
-            || lib_name.find("TfxSrvPlugin") != std::string::npos
-            || lib_name.find("TFXSRVPLUGIN") != std::string::npos;
+            lib_name.find("tfxsrvplugin.dll") != std::string::npos
+            || lib_name.find("TfxSrvPlugin.dll") != std::string::npos
+            || lib_name.find("TFXSRVPLUGIN.DLL") != std::string::npos;
         if (b44_tfx_ecom_dll && ctx.sys->get_config()->native_phone_boot) {
             LOG_WARN(SERVICE_LOADER,
                 "[NBOOT2][TFX_ECOM_DLL] phase=request process={} path={} file={} expected_uid3=0x10282DBA behavior=OBSERVE_ONLY",
