@@ -34,3 +34,9 @@ jobs:
           find "$UP/src/emu/ios" -maxdepth 4 -type f | sort
           echo "=== presentation/redraw matches ==="
           grep -R -n -E 'submit_screen|screen_texture|redraw_callback|add_screen_redraw|present\(|draw_bitmap|rendered_frame|enqueue_frame|external_display|screen_redraw' "$UP/src/emu/ios" "$UP/src/emu/services/src/window" "$UP/src/emu/services/include/services/window" | head -n 800 || true
+          echo "=== ios state.cpp 45-115 ==="
+          sed -n '45,115p' "$UP/src/emu/ios/src/state.cpp"
+          echo "=== ios launcher.cpp 1310-1385 ==="
+          sed -n '1310,1385p' "$UP/src/emu/ios/src/launcher.cpp"
+          echo "=== screen.cpp 145-230 ==="
+          sed -n '145,230p' "$UP/src/emu/services/src/window/screen.cpp"
