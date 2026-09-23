@@ -3500,3 +3500,33 @@ Do not:
 B49 functional behavior is **NOT SELECTED** until the visible B48 screen state
 is correlated. Request one screenshot or short screen recording from the B48
 test before selecting the next diagnostic boundary.
+
+
+## B48 visual authority / device-test protocol
+
+B48 screen recording confirms the emulator does not remain black.
+
+Visual sequence:
+- black display for about 35 seconds;
+- Nokia white startup screen appears at about 36 seconds;
+- blue `NOKIA` logo remains static until the user exits after roughly
+  3 minutes 45 seconds.
+
+This overlaps the log interval in which xnthemeserver succeeds and Home screen
+reaches `INPUT_EVENTREADY_ARM`.
+
+Interpretation:
+the renderer can present the Nokia boot surface, but the presentation/focus
+chain never replaces that surface with the native Home screen.
+
+B49 is therefore selected as a **diagnostic-only post-logo WindowServer
+group/focus/activation trace**.
+
+For every future device-tested build, request:
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+- a screen recording of the full test
+
+The user has confirmed they can record every build. Use video/log timestamp
+correlation before selecting a functional fix.
