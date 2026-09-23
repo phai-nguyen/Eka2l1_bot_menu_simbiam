@@ -9,13 +9,13 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
-Latest device diagnostic snapshot: docs/handoff/history/B43-DEVICE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B44-DEVICE1.md
 Latest build diagnostic snapshot: docs/handoff/history/B44-ALFTFXSTARTDIAG1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
-B44 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — one-run ALF/TFX provider-startup graph instrumentation
+B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2027,3 +2027,129 @@ first missing provider-startup boundary.
 
 Full snapshot:
 - `docs/handoff/history/B44-ALFTFXSTARTDIAG1.md`
+
+
+## Latest device override — B44 DEVICE1
+
+B44 device evidence identifies the first strong provider-startup boundary.
+
+### Log integrity
+
+- `EKA2L1(5).log`
+  SHA-256 `f389ad365148cb69bc810db8daa6f363c560ea12a56ef44566a2b4a6820675af`
+- `EKA2L1_Persistent(5).log`
+  SHA-256 `6b777b8a06c7a16ceae10bb37356c80622e9c7620b59e60299154fd0a8d6adda`
+- `EKA2L1_TakeThis(5).log`
+  SHA-256 `cf5bae4037dcdd88b291741b4cd0c1ac424bbdf482e9b4676fd618b153f9477c`
+
+### New B44 evidence
+
+At `11:38:05.396` eiksrvs attaches:
+
+```text
+category=0x10207218 key=0x2
+Property ... has not been defined before
+[NBOOT2][TFX_PS] op=attach ...
+```
+
+This is stronger than merely observing value zero: EKA2L1's `property_attach`
+creates a placeholder property object when no definition exists. Therefore the
+first TFX status property access proves **the TFX status property was undefined
+before the client attach**.
+
+The same placeholder object is then attached by both akncapserver attempts.
+
+No B44 evidence appears for:
+- `tfxsrvplugin.dll`;
+- TFX ECom resource/UID `0x10282DBA`;
+- `alfstreamerserver` client session;
+- Alfred process creation;
+- Alfred GetAppInfo UID `0x10282845`;
+- final `TfxServer` registration.
+
+However generic AppArc evidence proves the Alfred registration resource exists
+and is parsed:
+- `Z:\private\10003a3f\apps\alfredserver_reg.rsc` opens successfully twice;
+- AppList reports UID `0x10282845` during registry scan.
+
+Thus the registration file is not the first missing artifact.
+
+### HLE AknSkinServer boundary
+
+At `11:38:05.377` the device creates:
+
+```text
+AknsSrvSharedMemoryChunk
+```
+
+EKA2L1 source shows this exact chunk is created by the HLE
+`akn_skin_server::do_initialisation()`.
+
+Upstream EKA2L1 service initialization also creates `akn_skin_server`
+unconditionally for this service set, and the HLE server name is
+`!AknSkinServer`.
+
+The HLE `do_initialisation()` initializes:
+- skin settings;
+- icon configuration;
+- FBS linkage;
+- shared skin chunk;
+- semaphore/mutex;
+- chunk maintainer;
+- active skin merge.
+
+It contains **no ECom TFX provider creation, tfxsrvplugin load, P&S TFX status
+definition, RAlfTfxClient startup, Alfred startup, or TfxServer provider
+registration**.
+
+Device logs contain no native `aknskinsrv` process start.
+
+This yields the current high-confidence provider boundary:
+
+```text
+RM-356 client
+  -> !AknSkinServer
+  -> EKA2L1 HLE skin implementation
+  -> skin data/chunk works
+  X native transition-effects provider startup does not occur
+  -> TFX P&S remains undefined
+  -> no tfxsrvplugin / ALF provider path
+  -> TfxServer absent
+  -> akncapserver CreateSession returns KErrNotFound
+  -> same-thread Leave(-1)
+```
+
+Do not yet fake TfxServer or simply force-launch Alfred. The next build should
+target this HLE/native skin-provider boundary explicitly.
+
+### B43 causal chain repeats unchanged
+
+- eiksrvs TfxServer miss: `11:38:05.397`
+- ViewServerThread Leave(-1): `11:38:05.579` (~182 ms later)
+- akncapserver #1 miss: `11:38:06.009`
+- correlated Leave(-1): `11:38:06.122` (~113 ms)
+- akncapserver #2 miss: `11:38:06.781`
+- correlated Leave(-1): `11:38:06.872` (~91 ms)
+
+No `TfxServer` registration occurs.
+
+### Preserved milestones
+
+B42 HWRM:
+- ABI marker at `11:37:34.518`;
+- SYSSTART kill attempt at `11:38:04.514`;
+- delay ~29.996 s.
+
+B40:
+- EUART1 PDD enter/complete at `11:38:05.586`;
+- `!EikAppUiServer` registers at `11:38:05.945`.
+
+B41:
+- two `[WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout` at `11:41:05.395`;
+- `shutdown_done` at `11:41:05.413`;
+- `normal_restart_done has_device=1` at `11:41:05.532`.
+
+No KERN-EXEC or host access violation is present in the B44 test window.
+
+Full snapshot:
+- `docs/handoff/history/B44-DEVICE1.md`
