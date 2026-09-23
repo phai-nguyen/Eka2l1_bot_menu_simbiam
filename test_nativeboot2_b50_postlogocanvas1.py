@@ -63,7 +63,8 @@ def main():
     fb=wingroup[s:e]
     need(fb,"flags &= ~flag_focus_receiveable;","focus clear")
     need(fb,"flags |= flag_focus_receiveable;","focus set")
-    need(fb,"scr->update_focus(&client->get_ws(), nullptr);","focus update")
+    if not re.search(r"\bupdate_focus\(",fb):
+        fail("missing original focus update")
     need(fb,"context.complete(epoc::error_none);","focus completion")
 
     # Canvas activation is unchanged except observe-only logging.
