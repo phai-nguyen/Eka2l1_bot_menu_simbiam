@@ -20,6 +20,7 @@ No result, focus policy, z-order request, visibility request, activation, or
 rendering behavior is changed.
 """
 from pathlib import Path
+import re
 import sys
 
 MARK="NATIVEBOOT2-B50-POSTLOGOCANVAS1"
@@ -162,10 +163,16 @@ def main():
 '''
     wingroup=rep_once(wingroup,old,new,"RECEIVEFOCUS entry")
 
-    old='''        scr->update_focus(&client->get_ws(), nullptr);
-'''
-    new='''        scr->update_focus(&client->get_ws(), nullptr);
-        if (b50_postlogo_uid(b50_uid3)) {
+    b=wingroup.find("    void window_group::receive_focus")
+    e=wingroup.find("    void window_group::on_owner_process_uid_type_change",b)
+    if b<0 or e<0:
+        fail("RECEIVEFOCUS result: bounds not found")
+    block=wingroup[b:e]
+    m=re.search(r'(?m)^(\s+[^\n]*update_focus\([^\n;]*\);\n)',block)
+    if not m:
+        fail("RECEIVEFOCUS result: update_focus call not found")
+    call=m.group(1)
+    trace=call+'''        if (b50_postlogo_uid(b50_uid3)) {
             LOG_WARN(SERVICE_WINDOW,
                 "[NBOOT2][POSTLOGO_RECEIVEFOCUS] process={} uid3=0x{:08X} thread={} group_id={} client_handle=0x{:08X} group_name={} requested={} old_focusable={} new_focusable={} final_focus_id={} behavior=OBSERVE_ONLY",
                 b50_pr ? b50_pr->name() : std::string("<null>"),
@@ -177,10 +184,8 @@ def main():
                 scr->focus ? scr->focus->id : 0);
         }
 '''
-    wingroup=rep_between(wingroup,
-        "    void window_group::receive_focus",
-        "    void window_group::on_owner_process_uid_type_change",
-        old,new,"RECEIVEFOCUS result")
+    block=block[:m.start()]+trace+block[m.end():]
+    wingroup=wingroup[:b]+block+wingroup[e:]
 
     # 3) Trace group destruction. This tells us exactly when the splash group
     # leaves the WindowServer tree and what group becomes focus afterward.
