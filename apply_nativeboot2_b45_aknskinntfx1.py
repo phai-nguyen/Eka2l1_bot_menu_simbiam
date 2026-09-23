@@ -84,8 +84,6 @@ def main():
             "init log include")
 
     anchor='''            CREATE_SERVER(sys, akn_skin_server);
-
-            CREATE_SERVER(sys, system_agent_server);
 '''
     block='''            const bool b45_aknskin_exe_sysbin =
                 sys->get_io_system()->exist(u"z:\\sys\\bin\\aknskinsrv.exe");
@@ -98,17 +96,15 @@ def main():
 
             if (b45_aknskin_native_route) {
                 LOG_WARN(SERVICE_UI,
-                    "[NBOOT2][AKNSKIN_ROUTE] phase=hle_skip epoc=94 native_phone_boot=1 exe_sysbin={} exe_legacy={} behavior=GUEST_NATIVE_ROUTE",
+                    "[NBOOT2][AKNSKIN_ROUTE] phase=hle_skip epoc=94 native_phone_boot=1 exe_sysbin={} exe_legacy={} expected_exe_uid3=0x10207114 behavior=GUEST_NATIVE_ROUTE",
                     b45_aknskin_exe_sysbin ? 1 : 0, b45_aknskin_exe_legacy ? 1 : 0);
             } else {
                 LOG_WARN(SERVICE_UI,
-                    "[NBOOT2][AKNSKIN_ROUTE] phase=hle_keep epoc={} native_phone_boot={} exe_sysbin={} exe_legacy={} behavior=UNCHANGED_HLE",
+                    "[NBOOT2][AKNSKIN_ROUTE] phase=hle_keep epoc={} native_phone_boot={} exe_sysbin={} exe_legacy={} expected_exe_uid3=0x10207114 behavior=UNCHANGED_HLE",
                     static_cast<int>(sys->get_symbian_version_use()), cfg->native_phone_boot ? 1 : 0,
                     b45_aknskin_exe_sysbin ? 1 : 0, b45_aknskin_exe_legacy ? 1 : 0);
                 CREATE_SERVER(sys, akn_skin_server);
             }
-
-            CREATE_SERVER(sys, system_agent_server);
 '''
     i=rep(i,anchor,block,"native AknSkin route")
 
@@ -284,7 +280,7 @@ def main():
             const std::u16string b45_exe_legacy = u"z:\\system\\programs\\aknskinsrv.exe";
             const std::u16string b45_dll = u"z:\\sys\\bin\\aknskinsrv.dll";
             LOG_WARN(SERVICE_APPLIST,
-                "[NBOOT2][AKNSKIN_ROM] exe_sysbin={} exists={} exe_legacy={} exists_legacy={} dll={} dll_exists={} expected_dll_uid3=0x10005A35 behavior=OBSERVE_ONLY",
+                "[NBOOT2][AKNSKIN_ROM] exe_sysbin={} exists={} exe_legacy={} exists_legacy={} dll={} dll_exists={} expected_exe_uid3=0x10207114 expected_dll_uid3=0x10005A35 behavior=OBSERVE_ONLY",
                 common::ucs2_to_utf8(b45_exe_sysbin), io->exist(b45_exe_sysbin) ? 1 : 0,
                 common::ucs2_to_utf8(b45_exe_legacy), io->exist(b45_exe_legacy) ? 1 : 0,
                 common::ucs2_to_utf8(b45_dll), io->exist(b45_dll) ? 1 : 0);

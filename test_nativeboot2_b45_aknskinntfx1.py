@@ -101,6 +101,7 @@ def main():
         "[NBOOT2][AKNSKIN_ROM]",
         'u"z:\\sys\\bin\\aknskinsrv.exe"',
         'u"z:\\sys\\bin\\aknskinsrv.dll"',
+        "expected_exe_uid3=0x10207114",
         "expected_dll_uid3=0x10005A35",
     ):
         need(a,needle,"B45 ROM inventory")
