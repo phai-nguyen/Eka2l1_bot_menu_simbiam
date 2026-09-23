@@ -631,20 +631,21 @@ def main():
             || name_utf8.find("MANIFEST.MF") != std::string::npos;
         kernel::thread *b44_thr = ctx->msg->own_thr;
         kernel::process *b44_pr = b44_thr ? b44_thr->owning_process() : nullptr;
+        const bool b44_exists = ctx->sys->get_io_system()->exist(*name_res);
         auto b44_log_file = [&](const char *phase, const std::int32_t result) {
             if (b44_tfx_ecom_rsc) {
                 LOG_WARN(SERVICE_EFSRV,
-                    "[NBOOT2][TFX_ECOM_RSC] phase={} path={} process={} thread={} result={} behavior=OBSERVE_ONLY",
+                    "[NBOOT2][TFX_ECOM_RSC] phase={} path={} process={} thread={} exists={} result={} behavior=OBSERVE_ONLY",
                     phase, name_utf8,
                     b44_pr ? b44_pr->name() : std::string("<null>"),
-                    b44_thr ? b44_thr->name() : std::string("<null>"), result);
+                    b44_thr ? b44_thr->name() : std::string("<null>"), b44_exists ? 1 : 0, result);
             }
             if (b44_tfx_manifest) {
                 LOG_WARN(SERVICE_EFSRV,
-                    "[NBOOT2][TFX_MANIFEST] phase={} path={} process={} thread={} result={} behavior=OBSERVE_ONLY",
+                    "[NBOOT2][TFX_MANIFEST] phase={} path={} process={} thread={} exists={} result={} behavior=OBSERVE_ONLY",
                     phase, name_utf8,
                     b44_pr ? b44_pr->name() : std::string("<null>"),
-                    b44_thr ? b44_thr->name() : std::string("<null>"), result);
+                    b44_thr ? b44_thr->name() : std::string("<null>"), b44_exists ? 1 : 0, result);
             }
         };
         if (b44_tfx_ecom_rsc || b44_tfx_manifest) {
@@ -655,57 +656,8 @@ def main():
 '''
     f=rep(f,anchor,block,"B44 FS request")
 
-    anchor='''                ctx->complete(epoc::error_path_not_found);
-                return;
-            }
-        }
 
-        const bool is_it_avail'''
-    block='''                b44_log_file("result", epoc::error_path_not_found);
-                ctx->complete(epoc::error_path_not_found);
-                return;
-            }
-        }
 
-        const bool is_it_avail'''
-    f=rep(f,anchor,block,"B44 FS missing directory")
-
-    anchor='''        if (!is_it_avail && (existence == exist_mode_neccessary)) {
-            LOG_ERROR(SERVICE_EFSRV, "Trying to open a non-existent file: {} while the open mode requires its availbility!",
-                name_utf8);
-
-            ctx->complete(epoc::error_not_found);
-            return;
-        }
-'''
-    block='''        if (!is_it_avail && (existence == exist_mode_neccessary)) {
-            LOG_ERROR(SERVICE_EFSRV, "Trying to open a non-existent file: {} while the open mode requires its availbility!",
-                name_utf8);
-
-            b44_log_file("result", epoc::error_not_found);
-            ctx->complete(epoc::error_not_found);
-            return;
-        }
-'''
-    f=rep(f,anchor,block,"B44 FS missing file")
-
-    anchor='''        if (handle <= 0) {
-            ctx->complete(handle);
-            return;
-        }
-
-        LOG_TRACE(SERVICE_EFSRV, "Handle opened: {}", handle);
-'''
-    block='''        if (handle <= 0) {
-            b44_log_file("result", handle);
-            ctx->complete(handle);
-            return;
-        }
-
-        b44_log_file("result", epoc::error_none);
-        LOG_TRACE(SERVICE_EFSRV, "Handle opened: {}", handle);
-'''
-    f=rep(f,anchor,block,"B44 FS open result")
 
     svc.write_text(s)
     loader.write_text(l)
