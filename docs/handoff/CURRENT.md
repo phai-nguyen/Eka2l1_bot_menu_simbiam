@@ -3102,3 +3102,46 @@ Preferred Vietnam product codes when available:
    position; do not require them before progressing.
 4. Keep all project state updates in GitHub `docs/handoff/CURRENT.md` and
    history snapshots.
+
+
+## Firmware research override — 2026-09-23 late evening
+
+A dedicated RM-356 research checkpoint was added after the B47 handoff:
+
+`docs/handoff/history/RM356-FIRMWARE-RESEARCH-2026-09-23.md`
+
+Commit:
+`25c27e6f25a7122555eb92a0eaaf0850bb346ebd`
+
+New externally corroborated facts:
+
+- Internet Archive exposes the Nokia 5800 set as
+  `5800 RM-356_part1.zip` through `part8.zip`; part1-part7 are about
+  4.0-4.1 GB and part8 about 1.5 GB.
+- Exact installer-to-part mapping is still unproven because automated
+  archive-internal ZIP directory fetches return HTTP 403.
+- APAC V40/V50/V51/V52 package families are independently confirmed by old
+  Nokia firmware catalogs and support-server release logs.
+- `RM-356_APAC_52.0.007_v15.0.exe` is independently confirmed and remains the
+  preferred already-downloaded control firmware.
+- Vietnam product codes are corroborated as:
+  `0573800` Black, `0559962` Blue, `0559676` Red,
+  `0591831` Gun/Black.
+- Symbian firmware references identify
+  `private\\10202BE9\\102818E8.txt` key `0x9` as the theme-effects
+  control:
+  `0x7FFFFFFF` = disabled, `0x8` = enabled by default; one reference
+  describes `0` as automatic.
+
+B47 interpretation is now sharper:
+
+- if native AknSkinSrv reads repo `0x102818E8` key `0x9` as an error or
+  `0x7FFFFFFF/KMaxTInt`, the missing TFX ECom/ALF/TfxServer chain is
+  firmware-selected behavior and must not be synthesized;
+- if the value is non-KMaxTInt, continue to the already-instrumented native
+  WindowServer then ECom boundary.
+
+B47 remains:
+**BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Do not choose B48 behavior before B47 device evidence.
