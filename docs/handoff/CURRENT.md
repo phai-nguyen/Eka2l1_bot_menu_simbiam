@@ -2930,3 +2930,175 @@ Do not select B48 until the first missing stage is device-proven.
 
 Full snapshot:
 - `docs/handoff/history/B47-AKNSKINTFXSTATE1.md`
+
+
+## Conversation handoff — 2026-09-23 evening
+
+The current chat is intentionally being closed because it has become very
+long. Continue from this section in a new conversation.
+
+### Current code/build state
+
+Active branch:
+`nativeboot2-current`
+
+Current branch HEAD before this handoff:
+`08cf7062a4ffdbdac7bb39f898e4d926632dbe08`
+
+Latest implementation:
+`ab4415d0f94b002d01e6ea2035600a2dddc99c1d`
+
+B47 binary-invariant HEAD:
+`cc7d53ebb99f0ea754ffc432f9221586bef13fcc`
+
+B47 canonical GREEN:
+- run `35854365057`
+- job `107159241200`
+- B29-B47 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- B47 Mach-O marker invariants PASS
+- IPA package/upload PASS
+- compile requests/hits/misses `149/149/0`
+- compilation failures `0`
+
+B47 unsigned IPA SHA-256:
+`ae3a0b0e467c19d30277274355c3eb537fdcd75becd55f2f2e463dbca1b27885`
+
+B47 IPA artifact:
+- ID `10746604288`
+- ZIP digest
+  `sha256:cd5f8842f473c4244281de3430ff72ced4eec2f4490a27a912fa4e2598557adc`
+
+B47 status:
+**BUILD-VALIDATED; DEVICE TEST REQUIRED**
+
+Full build snapshot:
+`docs/handoff/history/B47-AKNSKINTFXSTATE1.md`
+
+### What B47 must prove on device
+
+B46 already proved the stock guest path:
+- RM-356 native route skips HLE AknSkinServer;
+- guest receives real KErrNotFound for `!AknSkinServer`;
+- guest launches `AknSkinSrv.exe`;
+- UID3 `0x10207114`;
+- native `!AknSkinServer` registers;
+- clients bind with `server_hle=0`.
+
+B47 is diagnostic-only and adds:
+
+```text
+[NBOOT2][AKNSKIN_TFX_STATE]
+[NBOOT2][AKNSKIN_TFX_WSERV]
+[NBOOT2][AKNSKIN_TFX_ECOM]
+```
+
+Primary decision tree:
+
+```text
+native AknSkinSrv
+ -> CenRep 0x102818E8 / key 0x00000009
+    -> if error or KMaxTInt: TFX suppressed at Themes settings gate
+    -> otherwise:
+         -> AknSkinSrv -> !Windowserver
+         -> AknSkinSrv -> !ecomserver
+         -> inspect 0x10282DBD / 0x10282DBC
+         -> inspect tfxsrvplugin / ALF / TfxServer
+```
+
+Do not implement B48 behavior until B47 device logs identify the first missing
+stage.
+
+Expected device logs:
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+
+### Internet Archive / Exa firmware research
+
+Archive item:
+`https://archive.org/details/Nokia_BB5_firmwares`
+
+The item contains eight large Nokia 5800 RM-356 ZIP archives, roughly 30 GB
+total. Internet Archive currently restricts direct automated inspection of the
+ZIP central directories, so exact mapping from firmware package name to
+`part1..part8` has not yet been proven.
+
+Exa confirmed old Nokia firmware catalogs listing these exact package names:
+
+```text
+RM-356_APAC_40.0.005_v12.0.exe
+RM-356_APAC_50.0.005_v13.0.exe
+RM-356_APAC_51.0.006_v14.0.exe
+RM-356_APAC_52.0.007_v15.0.exe
+RM-356_EMEA_40.0.005_v12.0.exe
+RM-356_EMEA_50.0.005_...
+```
+
+Exa also found a FoneFun index with later APAC V50 package revisions including:
+- `RM-356 APAC 50.0.005 v13.05.exe`
+- `v13.06.exe`
+- `v13.07.exe`
+- `v13.08.exe`
+- `v13.09.exe`
+
+Therefore APAC V40/V50 definitely existed, but the exact Internet Archive part
+containing the base `v12.0` / `v13.0` package has not yet been located.
+
+### Firmware packages the user already downloaded
+
+Visible in iOS Downloads screenshots:
+
+```text
+RM-356_APAC_52.0.007_v15.0      ~154.4 MB
+RM-356_EMEA_50.0.005_v13.0      ~174.3 MB
+RM-356_EMEA_40.0.005_v12.0      ~170.3 MB
+RM-356_EMEA_31.0.101_v9.44      ~21 MB
+RM-356_EMEA_31.0.101_v9.45      ~113.4 MB
+RM-356_EMEA_31.0.101_v9.46      ~92.4 MB
+```
+
+For the current B47/B48 comparison, the most important already-downloaded
+package is:
+`RM-356_APAC_52.0.007_v15.0`.
+
+The EMEA V40/V50 packages are still useful controls for common system binaries
+and TFX/ALF/ECom components.
+
+If APAC V40/V50 cannot be found easily, do **not** block the project on them.
+
+### Files/components to extract from control firmware
+
+Primary comparison set:
+
+```text
+private\10202BE9\102818E8.txt
+sys\bin\AknSkinSrv.exe
+sys\bin\AknSkinSrv.dll
+tfxsrvplugin.dll
+akntransitionutils.dll
+aknlistloadertfx.dll
+alfredserver*
+ALF/UI Accelerator resources
+ECom registration resources/SPI
+```
+
+For package-level mapping, VPL is useful:
+`RM356_<productcode>_<version>_*.vpl`
+
+Preferred Vietnam product codes when available:
+- `0573800` Vietnam Black
+- `0559962` Vietnam Blue
+- `0559676` Vietnam Red
+- `0591831` Vietnam Gun/Black
+
+### Immediate next actions in the new conversation
+
+1. If B47 device logs are available, analyze them first.
+2. If firmware package files are uploaded first, extract and compare V52/V50/V40
+   against the current V60 baseline.
+3. Continue Exa/web research only as needed to locate APAC V40/V50 archive
+   position; do not require them before progressing.
+4. Keep all project state updates in GitHub `docs/handoff/CURRENT.md` and
+   history snapshots.
