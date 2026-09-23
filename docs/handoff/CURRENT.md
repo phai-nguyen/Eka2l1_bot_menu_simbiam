@@ -3284,3 +3284,115 @@ the server remains alive through teardown. Do not patch FileServer semantics
 until the visual state and the first blocking call are correlated.
 
 B48 remains **NOT SELECTED** pending that next-boundary classification.
+
+
+## Latest build override — B48 XNTHEMEPOST1
+
+B48 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+B47 remains closed as stock behavior:
+native AknSkinSrv reads `0x102818E8:0x9 = 0x7FFFFFFF/KMaxTInt`, matching the
+real RM-356 V60 firmware and intentionally suppressing TFX startup.
+
+### Why B48
+
+The first post-B47 candidate is native Home screen theme traffic through
+`xnthemeserver[10207254]`.
+
+B47 logs show:
+- xnthemeserver launches and registers;
+- it remains alive through teardown;
+- repeated trapped `Leave(-5)` events occur near historical FileServer
+  `0x27` observations.
+
+Current FileServer ABI authority identifies hex `0x27` as decimal 39:
+`fs_msg_file_flush`.
+
+The old correlation does not prove FileFlush returns -5, so B48 only observes
+the exact request/completion boundary.
+
+### New B48 markers
+
+- `[NBOOT2][XNTHEME_IPC]`
+  - `phase=send`: caller/process/UID3/thread, xnthemeserver function/opcode,
+    sync mode and raw arguments;
+  - `phase=complete`: native xnthemeserver exact completion result to any
+    client, including Home screen.
+- `[NBOOT2][XNTHEME_FSFLUSH]`
+  - xnthemeserver FileFlush handle/path;
+  - actual `vfs_file->flush()` result;
+  - exact unchanged FileServer completion.
+
+### Semantic guard
+
+B48 does not change:
+- xnthemeserver IPC behavior;
+- completion values;
+- FileFlush behavior;
+- MENUUI13 FS-DIRUID1;
+- B47 CenRep/TFX state;
+- TfxServer/ECom/ALF;
+- WindowServer.
+
+### Canonical GREEN
+
+Implementation lineage:
+- initial B48: `c47a3ca4a81836a0d2c500ff618d176756943c41`
+- baseline-marker location fix:
+  `650fe61bf88292dff23b0781bfd7a3a5dabac194`
+- corrected test:
+  `174e00388a0aef1a02e07bb44b55b5f0488ca75e`
+
+Canonical run/job:
+- run `35879560705`
+- job `107244189576`
+- build HEAD `174e00388a0aef1a02e07bb44b55b5f0488ca75e`
+
+Result:
+- FASTBUILD1 manifest VALID
+- B29-B48 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- B48 binary invariants PASS
+- IPA package/upload PASS
+- compile requests/hits/misses `149/147/2`
+- actual compilations `2`
+- compilation failures `0`
+- NOJAVA/MANIC3 preserved
+
+Unsigned IPA SHA-256:
+
+`4b5c59119ceb5940cdefca8c52a3bd7545861511896659b3302c38e44b504a32`
+
+IPA artifact:
+- ID `10759779669`
+- ZIP digest
+  `sha256:f98d14ddb4f8f9b6b350d91d70ef9194717acc0382e6955d75897c196ec34c24`
+
+Audit artifact:
+- ID `10759379488`
+- digest
+  `sha256:03bc38b5504014e0a70215b3ea998718670152e6144784a429ac44da8f3169a7`
+
+Full snapshot:
+`docs/handoff/history/B48-XNTHEMEPOST1.md`
+
+### Device acceptance
+
+Use the exact same V60 RM-356 pair as B47 and send:
+- `EKA2L1.log`
+- `EKA2L1_Persistent.log`
+- `EKA2L1_TakeThis.log`
+
+Primary classification:
+
+```
+XNTHEME_IPC send
+ -> XNTHEME_FSFLUSH enter/result (if opcode 0x27 occurs)
+ -> XNTHEME_IPC complete exact result
+```
+
+If FileFlush reports `flush_ok=1 completion=0`, close the old FS27 hypothesis
+and move beyond theme storage. If FileFlush or xnthemeserver completion is
+nonzero, correlate the exact request/result with the subsequent guest Leave
+before selecting any functional fix.
