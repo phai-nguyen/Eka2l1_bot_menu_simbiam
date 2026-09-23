@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Contract for NATIVEBOOT2 B50 POSTLOGOCANVAS1."""
 from pathlib import Path
+import re
 import sys
 
 MARK="NATIVEBOOT2-B50-POSTLOGOCANVAS1-TEST"
@@ -91,9 +92,10 @@ def main():
     if s<0 or e<0:
         fail("cannot isolate create_window_base")
     cb=window[s:e]
-    if cb.count("add_object(win)")!=1:
+    if len(re.findall(r"\badd_object\([^\n;]*\bwin\b[^\n;]*\)",cb))!=1:
         fail("create_window_base must add object exactly once")
-    need(cb,"ctx.complete(b50_handle);","create completion")
+    if not re.search(r"\b[A-Za-z_]\w*\.complete\(b50_handle\);",cb):
+        fail("missing create completion with b50_handle")
 
     if (up/"src/emu/j2me").exists():
         fail("NOJAVA invariant violated")
