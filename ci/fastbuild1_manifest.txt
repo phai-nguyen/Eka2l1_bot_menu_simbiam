@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B43 TFXSERVERDIAG1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B48 XNTHEMEPOST1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -22,6 +22,7 @@ apply_nativeboot2_b44_alftfxstartdiag1.py|test_nativeboot2_b44_alftfxstartdiag1.
 apply_nativeboot2_b45_aknskinntfx1.py|test_nativeboot2_b45_aknskinntfx1.py
 apply_nativeboot2_b46_aknskinroute2.py|test_nativeboot2_b46_aknskinroute2.py
 apply_nativeboot2_b47_aknskintfxstate1.py|test_nativeboot2_b47_aknskintfxstate1.py
+apply_nativeboot2_b48_xnthemepost1.py|test_nativeboot2_b48_xnthemepost1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
@@ -32,6 +33,7 @@ test_nativeboot2_b25_fbssharedheap1.py
 test_nativeboot2_b26_ioslibraryexit1.py
 test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
+
 
 
 

@@ -177,6 +177,8 @@ jobs:
         grep -Fq '[NBOOT2][AKNSKIN_TFX_STATE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][AKNSKIN_TFX_WSERV]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][AKNSKIN_TFX_ECOM]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][XNTHEME_IPC]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][XNTHEME_FSFLUSH]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_PANIC_CONTEXT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
