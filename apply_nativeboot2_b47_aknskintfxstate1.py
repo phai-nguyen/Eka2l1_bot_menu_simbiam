@@ -226,7 +226,6 @@ def main():
     send_end="    BRIDGE_FUNC(std::int32_t, session_send_sync,"
 
     anchor='''        const std::string server_name = ss->get_server()->name();
-        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());
 '''
     block='''        const std::string server_name = ss->get_server()->name();
         const std::string b47_send_process =
@@ -266,7 +265,6 @@ def main():
                 b47_literal_server ? 1 : 0);
         }
 
-        kern->call_ipc_send_callbacks(server_name, ord, arg, status.ptr_address(), kern->crr_thread());
 '''
     s=rep_between(s,send_begin,send_end,anchor,block,"B47 ECom IPC")
 
