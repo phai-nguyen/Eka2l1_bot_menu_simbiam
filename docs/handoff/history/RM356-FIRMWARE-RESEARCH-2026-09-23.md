@@ -150,3 +150,33 @@ Priority remains unchanged:
 - otherwise extract APAC V52 and compare `102818E8.txt` key `0x9` plus the
   TFX/ALF/ECom component set against the current V60 firmware;
 - do not select B48 until the first missing stage is device-proven.
+
+
+## Reproducible firmware probe added
+
+Tool:
+`tools/rm356_firmware_probe.py`
+
+Test:
+`test_rm356_firmware_probe.py`
+
+Implementation commits:
+- initial probe: `37c2045010424497f688bbb32ecdb1089ed8bc3f`
+- initial tests: `3cfe14578674b0c3416743bdd5180fabd2460aed`
+- BOM-less UTF-16 CenRep fix: `5f8d6ccecc6cbdba5d3c0dd04eb699120d8e099b`
+- UTF-16 regression test: `58dcd1bbcb5ebff36837f06e0c2b803fb1d8df39`
+
+The probe accepts extracted firmware roots in `LABEL=/path` form and reports:
+- `private/10202BE9/102818E8.txt` key `0x9` value/classification;
+- SHA-256 and size for AknSkinSrv, TFX transition libraries and matching ALF files;
+- ECom paths containing `10282DBD` / `10282DBC`;
+- per-component presence and hash equality across firmware trees.
+
+Synthetic validation passed for:
+- UTF-8 CenRep text;
+- UTF-16LE without BOM;
+- UTF-16BE without BOM;
+- key `0x7FFFFFFF` / `0x8` classification;
+- identical/different AknSkinSrv SHA-256 comparison.
+
+This tool is diagnostic/research-only and changes no EKA2L1 runtime behavior.
