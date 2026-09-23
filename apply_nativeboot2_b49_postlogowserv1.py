@@ -184,19 +184,17 @@ def main():
         focus = find_group_to_focus(root.get());
         const bool is_me_currently_focus = (serv->get_current_focus_screen() == this);
 
-        if (serv->get_kernel_system()->get_config()->native_phone_boot) {
-            LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_FOCUS] phase=select screen={} old_id={} old_handle=0x{:08X} old_name={} new_id={} new_handle=0x{:08X} new_name={} closing_id={} current_focus_screen={} behavior=OBSERVE_ONLY",
-                number,
-                old_focus ? old_focus->id : 0,
-                old_focus ? old_focus->client_handle : 0,
-                old_focus ? common::ucs2_to_utf8(old_focus->name) : std::string("<null>"),
-                focus ? focus->id : 0,
-                focus ? focus->client_handle : 0,
-                focus ? common::ucs2_to_utf8(focus->name) : std::string("<null>"),
-                closing_group ? closing_group->id : 0,
-                is_me_currently_focus ? 1 : 0);
-        }
+        LOG_WARN(SERVICE_WINDOW,
+            "[NBOOT2][POSTLOGO_FOCUS] phase=select screen={} old_id={} old_handle=0x{:08X} old_name={} new_id={} new_handle=0x{:08X} new_name={} closing_id={} current_focus_screen={} behavior=OBSERVE_ONLY",
+            number,
+            old_focus ? old_focus->id : 0,
+            old_focus ? old_focus->client_handle : 0,
+            old_focus ? common::ucs2_to_utf8(old_focus->name) : std::string("<null>"),
+            focus ? focus->id : 0,
+            focus ? focus->client_handle : 0,
+            focus ? common::ucs2_to_utf8(focus->name) : std::string("<null>"),
+            closing_group ? closing_group->id : 0,
+            is_me_currently_focus ? 1 : 0);
 '''
     screen=rep_once(screen,old,new,"FOCUS select")
 
@@ -204,16 +202,14 @@ def main():
     }
 
     epoc::window_group *screen::get_group_chain'''
-    new='''        if (serv->get_kernel_system()->get_config()->native_phone_boot) {
-            epoc::window_group *b49_final_focus = new_focus_screen ? alternative_focus : focus;
-            LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_FOCUS] phase=final screen={} focus_id={} focus_handle=0x{:08X} focus_name={} switched_screen={} behavior=OBSERVE_ONLY",
-                number,
-                b49_final_focus ? b49_final_focus->id : 0,
-                b49_final_focus ? b49_final_focus->client_handle : 0,
-                b49_final_focus ? common::ucs2_to_utf8(b49_final_focus->name) : std::string("<null>"),
-                new_focus_screen ? 1 : 0);
-        }
+    new='''        epoc::window_group *b49_final_focus = new_focus_screen ? alternative_focus : focus;
+        LOG_WARN(SERVICE_WINDOW,
+            "[NBOOT2][POSTLOGO_FOCUS] phase=final screen={} focus_id={} focus_handle=0x{:08X} focus_name={} switched_screen={} behavior=OBSERVE_ONLY",
+            number,
+            b49_final_focus ? b49_final_focus->id : 0,
+            b49_final_focus ? b49_final_focus->client_handle : 0,
+            b49_final_focus ? common::ucs2_to_utf8(b49_final_focus->name) : std::string("<null>"),
+            new_focus_screen ? 1 : 0);
         return (new_focus_screen ? alternative_focus : focus);
     }
 
