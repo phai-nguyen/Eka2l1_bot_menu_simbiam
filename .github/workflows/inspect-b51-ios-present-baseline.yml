@@ -1,0 +1,36 @@
+name: Inspect B51 iOS Present Baseline
+
+"on":
+  push:
+    branches:
+      - nativeboot2-current
+    paths:
+      - .github/workflows/inspect-b51-ios-present-baseline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore stable B28 bootstrap
+        id: b28
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+      - name: Inspect iOS presentation sources
+        run: |
+          set -euo pipefail
+          test "${{ steps.b28.outputs.cache-hit }}" = "true"
+          UP="$GITHUB_WORKSPACE/upstream"
+          echo "=== ios tree ==="
+          find "$UP/src/emu/ios" -maxdepth 4 -type f | sort
+          echo "=== presentation/redraw matches ==="
+          grep -R -n -E 'submit_screen|screen_texture|redraw_callback|add_screen_redraw|present\(|draw_bitmap|rendered_frame|enqueue_frame|external_display|screen_redraw' "$UP/src/emu/ios" "$UP/src/emu/services/src/window" "$UP/src/emu/services/include/services/window" | head -n 800 || true
