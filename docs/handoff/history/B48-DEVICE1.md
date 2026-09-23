@@ -233,3 +233,43 @@ The next diagnostic should be chosen from the visible device state:
 
 A screenshot or short recording of the B48 device state should accompany the
 next step so the WindowServer trace is tied to the actual visual blocker.
+
+
+## Device video correlation
+
+The user supplied:
+
+`ScreenRecording_09-23-2026 22-38-23_1.mp4`
+
+Video duration is approximately 228.1 seconds at 30 fps, 510x1108.
+
+Observed visual timeline:
+
+- recording begins on the iOS Home Screen;
+- emulator launch enters a black display;
+- the display remains black through approximately 35 seconds;
+- the white Nokia startup screen with blue `NOKIA` logo appears at approximately
+  36 seconds;
+- the Nokia logo then remains visually unchanged for roughly three minutes;
+- at approximately 225 seconds the user opens the emulator exit UI;
+- Exit Emulator returns normally to the EKA2L1 library and then iOS Home
+  Screen.
+
+The recording filename/start time aligns the logo appearance with roughly
+22:38:59, which is the same boot interval in which the B48 log reaches active
+WindowServer traffic. The log later reaches native Home screen event-ready,
+while the video still shows the unchanged Nokia startup logo.
+
+This is the decisive visual classification for the next boundary:
+
+**rendering itself works, but the boot presentation never transitions away
+from the Nokia startup surface to the Home screen.**
+
+Therefore B49 should observe the post-logo WindowServer window-group/focus/
+activation/z-order path, rather than theme storage, TFX, or FileFlush.
+
+Project test protocol from this point forward:
+the user can provide a screen recording for every device-tested build. Request
+the three logs plus a screen recording whenever a new diagnostic build is
+device-tested, so log milestones can be correlated with the actual visual
+state.
