@@ -37,20 +37,24 @@ def main():
 
     up = Path(sys.argv[1]).resolve()
     svc_path = up / "src/emu/kernel/src/svc.cpp"
+    repo_path = up / "src/emu/services/src/centralrepo/repo.cpp"
     files_path = up / "src/emu/services/src/fs/files.cpp"
     dirs_path = up / "src/emu/services/src/fs/dirs.cpp"
 
-    for p in (svc_path, files_path, dirs_path):
+    for p in (svc_path, repo_path, files_path, dirs_path):
         if not p.is_file():
             fail(f"missing source: {p}")
 
     svc = svc_path.read_text(encoding="utf-8")
+    repo = repo_path.read_text(encoding="utf-8")
     files = files_path.read_text(encoding="utf-8")
     dirs = dirs_path.read_text(encoding="utf-8")
 
-    # Frozen authority from the validated predecessor chain.
+    # Frozen authority from the validated predecessor chain. B47's Themes
+    # state probe lives in centralrepo/repo.cpp; Wserv/ECom live in svc.cpp.
+    if "[NBOOT2][AKNSKIN_TFX_STATE]" not in repo:
+        fail("missing CenRep B47 baseline marker: [NBOOT2][AKNSKIN_TFX_STATE]")
     for marker in (
-        "[NBOOT2][AKNSKIN_TFX_STATE]",
         "[NBOOT2][AKNSKIN_TFX_WSERV]",
         "[NBOOT2][AKNSKIN_TFX_ECOM]",
         "SYMBIAN-SYSTEMAPPS1 MENUUI12 XNTHEME_COMPLETE:",
