@@ -38,6 +38,8 @@ jobs:
           sed -n '45,115p' "$UP/src/emu/ios/src/state.cpp"
           echo "=== ios launcher.cpp 1310-1385 ==="
           sed -n '1310,1385p' "$UP/src/emu/ios/src/launcher.cpp"
+          echo "=== screen.cpp 1-120 ==="
+          sed -n '1,120p' "$UP/src/emu/services/src/window/screen.cpp"
           echo "=== screen.cpp 145-230 ==="
           sed -n '145,230p' "$UP/src/emu/services/src/window/screen.cpp"
           echo "=== scheduler.cpp ==="
