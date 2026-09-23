@@ -116,8 +116,14 @@ def main():
     need(gb,"ss->send_receive_sync(ord, arg, status)","sync dispatch")
     need(gb,"ss->send_receive(ord, arg, status)","async dispatch")
     need(gb,"return result;","original dispatch result")
-    if "ord =" in gb[gb.find("[NBOOT2][AKNSKIN_TFX_ECOM]"):]:
-        fail("B47 appears to rewrite ECom function")
+    marker_pos=gb.find("[NBOOT2][AKNSKIN_TFX_ECOM]")
+    callback_pos=gb.find("kern->call_ipc_send_callbacks", marker_pos)
+    if marker_pos < 0 or callback_pos < 0:
+        fail("cannot isolate B47 ECom observe-only block")
+    b47_block=gb[marker_pos:callback_pos]
+    if "ord =" in b47_block or "arg.args[0] =" in b47_block or "arg.args[1] =" in b47_block \
+        or "arg.args[2] =" in b47_block or "arg.args[3] =" in b47_block:
+        fail("B47 appears to rewrite ECom request")
 
     if (up/"src/emu/j2me").exists():
         fail("NOJAVA invariant violated")
