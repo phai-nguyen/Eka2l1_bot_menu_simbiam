@@ -32,3 +32,5 @@ test_nativeboot2_b27_wservpanic13trace1.py
 test_nativeboot2_b28_wservlibtype1.py
 
 
+
+test_nativeboot2_b46_aknskinroute2.py
