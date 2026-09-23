@@ -180,3 +180,102 @@ Synthetic validation passed for:
 - identical/different AknSkinSrv SHA-256 comparison.
 
 This tool is diagnostic/research-only and changes no EKA2L1 runtime behavior.
+
+
+## V60 device-pair authority confirmed — 2026-09-23
+
+The user supplied the exact `SYM.ROM` currently paired with the previously
+stored `SYM.RPKG` for device testing.
+
+### Exact V60 identity from RPKG
+
+The RPKG version resources report:
+
+- `resource\\versions\\sw.txt`:
+  `V 60.0.003 / 22-09-2011 / RM-356`
+- `resource\\versions\\product.txt`:
+  `Manufacturer=Nokia`, `Model=5800 XpressMusic`, `Product=RM-356`
+- `resource\\versions\\platform.txt`:
+  `SymbianOSMajorVersion=9`, `SymbianOSMinorVersion=4`
+- `resource\\versions\\fwid1.txt`:
+  `id=core`, `version=RM-356_60.0.003`
+- `resource\\versions\\customersw.txt`:
+  `60.0.003.C04.01 / 22-09-2011`
+
+RPKG raw size:
+`134,540,934` bytes.
+
+RPKG SHA-256:
+`bc41496abc8d4c87de976b65cadfb922b4dfd9583a0dbcf35b7e4bff23eb008f`.
+
+### Exact V60 Themes gate
+
+The real V60 RPKG contains:
+
+`Z:\\private\\10202BE9\\102818E8.txt`
+
+SHA-256:
+`4aafb9dc1113a89a6ec3febb861d8e719ea936c050cfdfc0cedebb6838fb69fc`.
+
+Its exact key is:
+
+`0x9 int 0x7fffffff 16777216 cap_rd=alwayspass cap_wr=WriteDeviceData`
+
+This is direct firmware evidence, not web inference. It matches the B47
+source-level `KMaxTInt` suppression branch.
+
+### Exact ECom UID presence
+
+`Z:\\private\\10009d8f\\ecom-0-0.spi` contains both UIDs exactly once:
+
+- `0x10282DBC`
+- `0x10282DBD`
+
+Therefore the stock V60 firmware contains the ECom registrations even though
+the Themes key suppresses the transition-provider startup path.
+
+### Exact uploaded V60 ROM
+
+The corrected device-test `SYM.ROM` is:
+
+- size: `41,283,584` bytes
+- SHA-256:
+  `b4328dfa555d73e14a4bab2de46bbec702970e4b63c8ce878da589fa6b64c444`
+- ROM base: `0x80000000`
+- declared ROM size: `0x02800000` (40 MiB)
+
+The burn tree parses successfully and contains 2,161 file entries.
+
+The ROM itself contains these B47-relevant core binaries:
+
+- `aknlistloadertfx.dll`
+- `aknskinsrv.dll`
+- `aknskinsrv.exe`
+- `akntransitionutils.dll`
+- `TfxSrvPlugin.dll`
+- `tfxserverclient.dll`
+- `tfxserver.dll`
+- `tfxserveranim.dll`
+
+For all eight files, ROM size and SHA-256 are byte-identical to the copy in
+the paired RPKG.
+
+Important layout distinction:
+the CenRep repository, ECom SPI and ALF/Alfred components are supplied by the
+RPKG/ROFS side, while the ROM confirms the core AknSkin/TFX binaries.
+
+### B47 consequence
+
+The V60 device pair now proves simultaneously:
+
+1. TFX binaries are present.
+2. TFX ECom registrations are present.
+3. Themes key `0x102818E8:0x9` is `0x7FFFFFFF == KMaxTInt`.
+
+Therefore, if B47 device tracing reports the same value/result, the absence of
+native AknSkinSrv -> WindowServer/ECom/ALF/TfxServer startup is the expected
+stock-firmware branch. Do not synthesize a provider and do not choose a B48
+TFX-enablement workaround from firmware presence alone.
+
+The next runtime decision still requires the B47 device log to verify that
+EKA2L1 CenRep returns this exact stock value to native AknSkinSrv.
