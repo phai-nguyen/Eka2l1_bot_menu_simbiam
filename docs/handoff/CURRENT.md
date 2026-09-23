@@ -9,9 +9,10 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B42-DEVICE1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
-B42 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — diagnostic-only SAServer 0x2000000A HWRM ABI probe
+B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -1612,3 +1613,95 @@ Do not promote B42 to an immutable functional milestone.
 
 Full snapshot:
 - `docs/handoff/history/B42-SAHWRMABI1.md`
+
+
+## Latest override — B42 DEVICE1
+
+B42 SAHWRMABI1 is now **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+B41 remains the latest immutable functional milestone.
+
+The exact HWRM SAServer ABI is now captured:
+
+```text
+[NBOOT2][SA_HWRM_ABI]
+raw_func=0x2000000A
+logical_func=0xA
+transport_bits=0x20000000
+ipc_flag=0x924
+process=!HWRMServer
+thread=!HWRMServer
+session=808
+types=[4,4,4,4]
+sizes=[12,4,12,4]
+max=[12,4,12,4]
+slot0=[0x00010008,0x2000000A,0x00000000]
+slot1=[0x000000F3]
+slot2=[0x00010008,0x2000000B,0x00000000]
+slot3=[0x00700390]
+completion=UNCHANGED_PENDING
+```
+
+The request/response-template pairing is structurally consistent with the
+already proven SAClient transport shape from B14/B19: slot 0 carries the request
+envelope and slot 2 carries a prebuilt response envelope. B42 still does not
+assign semantic meaning to slot1 0xF3 or synthesize a slot3 response.
+
+The HWRM stall is now time-proven:
+
+- B42 HWRM request: `07:48:39.975`
+- SYSSTART HWRM kill attempt: `07:49:09.972`
+- delta: approximately `29.997 s`
+
+Startup nevertheless continues to healthy B40 System GUI registration:
+
+- `07:49:10.977 LOADER_PDD EUART1 result=0`
+- `07:49:11.356 !EikAppUiServer registered`
+
+Therefore HWRM is a real 30-second delay/recovery event but not the final boot
+stopper in this device run.
+
+A stronger repeated later family is now selected for the next diagnostic:
+
+```text
+07:49:10.788 eiksrvs -> MISSING_SERVER TfxServer
+07:49:10.971 ViewServerThread -> Leave(-1)
+
+07:49:11.396 akncapserver...0002 -> MISSING_SERVER TfxServer
+07:49:11.499 akncapserver -> Leave(-1)
+07:49:11.536 akncapserver self-kill reason=-1
+
+07:49:12.183 akncapserver...0003 -> MISSING_SERVER TfxServer
+07:49:12.276 akncapserver -> Leave(-1)
+07:49:12.308 akncapserver self-kill reason=-1
+```
+
+The second akncapserver failure is followed by SYSSTART shutdown handling and
+SAServer `0x71` / `EExecuteShutdown`.
+
+Runtime also loads/references transition-effects components:
+`akntransitionutils.dll`, `aknlistloadertfx.dll`, and
+`alfredserver_reg.rsc`, but no `TfxServer` registration is observed.
+
+B41 exit remains healthy in the same run:
+
+- two `[NBOOT2][WSERV_MESSAGEWIN_EXIT] phase=skip_restore_wipeout`
+- `os_join_done`
+- `graphics_join_done`
+- `shutdown_threads_done`
+- `state_reset_done`
+- `shutdown_done`
+- `normal_restart_done has_device=1`
+
+Preferred next candidate:
+
+**B43 TFXSERVERDIAG1**
+
+Scope should remain diagnostic:
+- trace TfxServer server-name/executable/plugin resolution;
+- capture CreateSession result/error for eiksrvs and akncapserver;
+- resolve the immediate Leave(-1) callsites;
+- do not fabricate a TfxServer session yet;
+- preserve B42 HWRM pending behavior and all B40/B41 invariants.
+
+Full device snapshot:
+- `docs/handoff/history/B42-DEVICE1.md`
