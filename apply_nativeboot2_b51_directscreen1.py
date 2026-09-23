@@ -112,6 +112,7 @@ def main():
         const std::uint64_t b51_frame =
             state->rendered_frame_count.load(std::memory_order_relaxed);
         if (state->conf.native_phone_boot) {
+            static const char b51_present_marker[] = "[NBOOT2][DIRECTSCREEN_PRESENT]";
             const int b51_phase = static_cast<int>(b51_frame & 3ULL);
             const int b51_box = common::max(8, common::min(18,
                 common::min(external_crop.size.x, external_crop.size.y) / 20));
@@ -137,8 +138,8 @@ def main():
             builder.draw_rectangle(b51_marker);
 
             LOG_WARN(eka2l1::FRONTEND_CMDLINE,
-                "[NBOOT2][DIRECTSCREEN_PRESENT] frame={} phase={} slot={} screen_texture=0x{:08X} screen_flags=0x{:08X} crop=[{},{},{},{}] marker=[{},{},{},{}] behavior=HOST_OVERLAY_ONLY",
-                b51_frame, b51_phase, slot,
+                "{} frame={} phase={} slot={} screen_texture=0x{:08X} screen_flags=0x{:08X} crop=[{},{},{},{}] marker=[{},{},{},{}] behavior=HOST_OVERLAY_ONLY",
+                b51_present_marker, b51_frame, b51_phase, slot,
                 static_cast<std::uint32_t>(scr->screen_texture),
                 static_cast<std::uint32_t>(scr->flags_),
                 external_crop.top.x, external_crop.top.y,
@@ -162,6 +163,7 @@ def main():
         if (!screen_texture) {
 '''
     entry_block='''    void screen::redraw(drivers::graphics_driver *driver) {
+        static const char b51_redraw_marker[] = "[NBOOT2][DIRECTSCREEN_REDRAW]";
         const std::uint32_t b51_flags_before = flags_;
         const bool b51_visible_recalc_before = need_update_visible_regions();
         const int b51_focus_id = focus ? focus->id : 0;
@@ -169,8 +171,8 @@ def main():
         const std::string b51_focus_name =
             focus ? common::ucs2_to_utf8(focus->name) : std::string("<null>");
         LOG_WARN(SERVICE_WINDOW,
-            "[NBOOT2][DIRECTSCREEN_REDRAW] phase=enter screen={} texture=0x{:08X} flags=0x{:08X} visible_recalc={} focus_id={} focus_handle=0x{:08X} focus_name={} behavior=OBSERVE_ONLY",
-            number, static_cast<std::uint32_t>(screen_texture),
+            "{} phase=enter screen={} texture=0x{:08X} flags=0x{:08X} visible_recalc={} focus_id={} focus_handle=0x{:08X} focus_name={} behavior=OBSERVE_ONLY",
+            b51_redraw_marker, number, static_cast<std::uint32_t>(screen_texture),
             b51_flags_before, b51_visible_recalc_before ? 1 : 0,
             b51_focus_id, b51_focus_handle, b51_focus_name);
 
@@ -191,8 +193,8 @@ def main():
         }
 
         LOG_WARN(SERVICE_WINDOW,
-            "[NBOOT2][DIRECTSCREEN_REDRAW] phase=result screen={} performed={} flags_before=0x{:08X} flags_after=0x{:08X} visible_recalc_after={} focus_id={} focus_handle=0x{:08X} focus_name={} callback_next=1 behavior=OBSERVE_ONLY",
-            number, performed ? 1 : 0,
+            "{} phase=result screen={} performed={} flags_before=0x{:08X} flags_after=0x{:08X} visible_recalc_after={} focus_id={} focus_handle=0x{:08X} focus_name={} callback_next=1 behavior=OBSERVE_ONLY",
+            b51_redraw_marker, number, performed ? 1 : 0,
             b51_flags_before, static_cast<std::uint32_t>(flags_),
             need_update_visible_regions() ? 1 : 0,
             focus ? focus->id : 0,
