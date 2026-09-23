@@ -3195,3 +3195,92 @@ before selecting any B48 behavior.
 
 Full evidence:
 `docs/handoff/history/RM356-FIRMWARE-RESEARCH-2026-09-23.md`.
+
+
+## Latest device override — B47 DEVICE1
+
+B47 is now **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Device logs:
+- `EKA2L1(8).log`
+- `EKA2L1_Persistent(8).log`
+- `EKA2L1_TakeThis(8).log`
+
+Full snapshot:
+`docs/handoff/history/B47-DEVICE1.md`
+
+### Decisive result
+
+Native `AknSkinSrv[10207114]` reads:
+
+```
+repo=0x102818E8
+key=0x00000009
+result=0
+value_valid=1
+value=0x7FFFFFFF
+enabled=0
+suppressed=1
+```
+
+This exactly matches the extracted stock RM-356 V60 firmware value.
+
+Native AknSkinSrv can reach `!Windowserver`:
+
+```
+AKNSKIN_TFX_WSERV phase=lookup found=1 server_hle=1
+```
+
+B47 also observes 22 AknSkinSrv IPC sends to `!ecomserver`, but all have:
+
+```
+literal_controller=0
+literal_server=0
+```
+
+No target TFX interface request is observed for `0x10282DBD` or
+`0x10282DBC`.
+
+No runtime `TFX_ECOM_RSC`, `TFX_ECOM_DLL`, `ALF_SESSION`,
+`ALF_SERVER_REGISTER` or `TFX_SERVER_REGISTER` marker appears.
+
+The stock V60 firmware contains the TFX binaries and both ECom registrations,
+so the runtime absence is now explained by the stock Themes gate rather than
+missing firmware content or an EKA2L1 routing failure.
+
+### Consequence
+
+Do not:
+- force key `0x9`;
+- fake `TfxServer`;
+- synthesize ECom implementation success;
+- force ALF/Alfred;
+- choose a B48 TFX-enablement workaround.
+
+The AknSkin/TFX hypothesis is closed as stock behavior.
+
+### Preserved milestones
+
+- B46 native AknSkin route remains healthy and clients bind
+  `!AknSkinServer` with `server_hle=0`.
+- B40 `EUART1` completes with result 0 and `!EikAppUiServer` registers.
+- no `KERN-EXEC 3`, `EIKFAULT_AV`, access violation or
+  `EXC_BAD_ACCESS` family appears in the current TakeThis log.
+- B41 Exit Emulator remains healthy:
+  `os_join_begin -> os_join_done` in about 46 ms, then
+  `shutdown_done -> normal_restart_done has_device=1`.
+
+### Next-boundary note
+
+The log proceeds into native Home screen theme infrastructure.
+
+`xnthemeserver` is launched by Home screen and successfully registers, but
+there are repeated trapped `Leave(-5)` events correlated with FileServer
+opcode `0x27` while theme cache files under
+`C:\Private\10207254\themes\sources\` are accessed.
+
+This is a candidate for the next diagnostic only, not yet a proven root cause:
+the server remains alive through teardown. Do not patch FileServer semantics
+until the visual state and the first blocking call are correlated.
+
+B48 remains **NOT SELECTED** pending that next-boundary classification.
