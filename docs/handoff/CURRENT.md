@@ -9,7 +9,7 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
-Latest device diagnostic snapshot: docs/handoff/history/B45-DEVICE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B46-DEVICE1.md
 Latest build diagnostic snapshot: docs/handoff/history/B46-AKNSKINROUTE2.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
@@ -17,7 +17,7 @@ B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI capt
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
 B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
 B45 status: DEVICE-OBSERVED; ROUTE NOT ACTIVATED — guard failed because runtime epoc enum=10 and Z-profile is mounted after services init
-B46 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — RM-356 native AknSkin route selected from device metadata, independent of epoc94 equality and pre-mount Z existence
+B46 status: DEVICE-OBSERVED; ROUTE SUCCESS — guest launches native AknSkinSrv.exe, !AknSkinServer registers, clients bind server_hle=0; TFX provider remains absent
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2609,3 +2609,182 @@ evidence; do not add fallback behavior until it is analyzed.
 
 Full snapshot:
 - `docs/handoff/history/B46-AKNSKINROUTE2.md`
+
+
+## Latest device override — B46 DEVICE1
+
+B46 **successfully crossed the HLE/native AknSkin boundary**.
+
+### Log integrity
+
+- `EKA2L1(7).log`
+  SHA-256 `15c5bff3997ee62c0332dc8ed0c0514c59ab6227cec06b6eb3009103ba10c902`
+- `EKA2L1_Persistent(7).log`
+  SHA-256 `802f308e0b562baa96319802bf62e25970962b1a31aac26c95a9a8fa4af4e132`
+- `EKA2L1_TakeThis(7).log`
+  SHA-256 `3be362dba20e5c07b96fb03f359aea149c5b9a8c845f4d359fe62428693dcb20`
+
+### Native route: fully validated
+
+At `16:24:00.897`:
+
+```text
+[AKNSKIN_ROUTE2] decision=skip_hle
+firmware_code=RM-356
+model=5800 XpressMusic
+native_phone_boot=1
+behavior=GUEST_NATIVE_ROUTE
+```
+
+At `16:24:32.583`, eiksrvs receives the intended real missing-server result:
+
+```text
+AKNSKIN_SESSION lookup found=0 server_hle=-1
+AKNSKIN_SESSION missing result=-1
+```
+
+The stock guest immediately executes its own startup path:
+
+```text
+Trying to summon: AknSkinSrv.exe
+AKNSKIN_NATIVE_PROC phase=request
+path=Z:\System\Programs\AknSkinSrv.exe
+```
+
+At `16:24:32.591`:
+
+```text
+AKNSKIN_NATIVE_PROC phase=result
+success=1
+spawned=AknSkinSrv[10207114]0001
+uid3=0x10207114
+```
+
+At `16:24:32.592`:
+
+```text
+AKNSKIN_NATIVE_REGISTER
+process=AknSkinSrv[10207114]0001
+server=!AknSkinServer
+process_hle=0
+```
+
+At `16:24:32.995`, eiksrvs retries successfully:
+
+```text
+AKNSKIN_SESSION found server_hle=0
+```
+
+Later akncapserver, Home screen, aknnfysrv, AknIconSrv and other clients also
+bind to the native server with `server_hle=0`.
+
+This validates the full B46 acceptance chain.
+
+### TFX provider is still absent
+
+Despite a working native AknSkinSrv:
+
+- `TFX_ECOM_RSC`: 0
+- `TFX_ECOM_DLL`: 0
+- `ALF_SESSION`: 0
+- `ALF_SERVER_REGISTER`: 0
+- `TFX_SERVER_REGISTER`: 0
+
+The TFX status P&S `0x10207218 / 0x2` remains undefined:
+`find_get` returns `KErrNotFound`.
+
+The first post-native-route TfxServer request still fails at
+`16:24:33.010`.
+
+Therefore HLE AknSkin interception was a real missing startup path, but **not
+the only blocker before TFX activation**.
+
+### CenRep 0x1028583D is not yet the root cause
+
+At `16:24:35.088`, native AknSkinSrv opens CenRep UID `0x1028583D`;
+EKA2L1 reports it missing and AknSkinSrv performs `Leave(-1)`.
+
+However:
+- the leave is trapped by the guest trap handler;
+- the native `!AknSkinServer` remains registered afterward;
+- later clients continue binding to `server_hle=0`;
+- AknSkinSrv still has live async requests during emulator teardown.
+
+EKA2L1's own HLE skin implementation names this UID `ICON_CAPTION_UID` and
+treats its absence as optional.
+
+Therefore do **not** synthesize repository `0x1028583D` yet.
+
+### Source-guided next TFX boundary
+
+Primary Symbian source identifies the exact gate before the ECom TFX provider:
+
+```text
+KCRUidThemes             = 0x102818E8
+KThemesTransitionEffects = 0x00000009
+```
+
+`CAknsSrvSettings::TransitionFxState()`:
+
+```cpp
+TInt value = KMaxTInt;
+TInt err = iThemesRepository->Get(KThemesTransitionEffects, value);
+if (err)
+    return KMaxTInt;
+return value;
+```
+
+Then `CAknsSrv::StartTransitionSrvL()` only calls
+`LoadTfxSrvPluginL()` when:
+
+```text
+TransitionFxState() != KMaxTInt
+```
+
+The B46 firmware definitely contains
+`Z:\private\10202BE9\102818E8.txt`, and B46 successfully opens repo
+`0x102818E8`; the unknown part is now the **key 0x9 result/value**.
+
+If key 0x9 returns an error or `KMaxTInt`, native AknSkinSrv intentionally
+skips TFX ECom, exactly matching the observed absence of
+`tfxsrvplugin.dll`.
+
+If key 0x9 is enabled, the next boundary is before/during
+`iWsSession.Connect()` or ECom implementation creation.
+
+### B47 candidate
+
+Preferred next milestone:
+
+`NATIVEBOOT2-B47-AKNSKINTFXSTATE1`
+
+Diagnostic-only goals:
+1. trace native AknSkinSrv CenRep open/get for UID `0x102818E8`, key `0x9`;
+2. capture Get result and integer value;
+3. trace AknSkinSrv Wserv session attempt immediately before the TFX path;
+4. trace native ECom CreateImplementation requests for
+   `0x10282DBD` and `0x10282DBC`;
+5. preserve all B46 routing and B44 TFX/ALF markers.
+
+Do not change CenRep values, do not force TFX enabled, and do not synthesize an
+ECom implementation until device evidence identifies the first missing stage.
+
+### Preserved milestones
+
+B42:
+- SA_HWRM_ABI at `16:24:01.803`;
+- SYSSTART HWRM kill failure at `16:24:31.801`;
+- ~29.998 s delay remains.
+
+B40:
+- EUART1 PDD enter/complete result 0 at `16:24:33.303`;
+- `!EikAppUiServer` registers at `16:24:33.677`.
+
+B41:
+- teardown reaches `shutdown_done` at `16:27:02.198`;
+- `normal_restart_done has_device=1` at `16:27:02.297`.
+
+No KERN-EXEC, EXC_BAD_ACCESS, or host access-violation family is present.
+
+Full snapshot:
+- `docs/handoff/history/B46-DEVICE1.md`
