@@ -175,15 +175,9 @@ def main():
 
     # 4) Trace client canvas activation and owning group.
     old='''    void canvas_base::activate(service::ipc_context &context, ws_cmd &cmd) {
-        flags |= flags_active;
-        on_activate();
-
-        if (is_visible()) {
 '''
     new='''    void canvas_base::activate(service::ipc_context &context, ws_cmd &cmd) {
-        flags |= flags_active;
-        on_activate();
-
+        // B49 observe-only: log activation before executing the pre-existing body.
         if (client->get_ws().get_kernel_system()->get_config()->native_phone_boot) {
             epoc::window_group *b49_group = get_group();
             kernel::thread *b49_act_thr = context.msg ? context.msg->own_thr : nullptr;
@@ -191,7 +185,7 @@ def main():
             const std::uint32_t b49_act_uid3 = b49_act_pr
                 ? static_cast<std::uint32_t>(std::get<2>(b49_act_pr->get_uid_type())) : 0;
             LOG_WARN(SERVICE_WINDOW,
-                "[NBOOT2][POSTLOGO_ACTIVATE] process={} uid3=0x{:08X} thread={} canvas_handle=0x{:08X} group_id={} group_client_handle=0x{:08X} group_name={} visible={} physically_seen={} behavior=OBSERVE_ONLY",
+                "[NBOOT2][POSTLOGO_ACTIVATE] process={} uid3=0x{:08X} thread={} canvas_handle=0x{:08X} group_id={} group_client_handle=0x{:08X} group_name={} visible_before={} physically_seen_before={} behavior=OBSERVE_ONLY",
                 b49_act_pr ? b49_act_pr->name() : std::string("<null>"),
                 b49_act_uid3,
                 b49_act_thr ? b49_act_thr->name() : std::string("<null>"),
@@ -202,8 +196,6 @@ def main():
                 is_visible() ? 1 : 0,
                 can_be_physically_seen() ? 1 : 0);
         }
-
-        if (is_visible()) {
 '''
     win=rep_once(win,old,new,"ACTIVATE")
 
