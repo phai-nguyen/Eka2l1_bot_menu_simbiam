@@ -3,19 +3,20 @@
 Updated: 2026-09-23
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
-Latest FASTBUILD1 CI implementation commit: d9f8e8fabecb3f5af4b28f10413166e6fa07d4f6
+Latest FASTBUILD1 CI implementation commit: 512f30981971f340dd45d2828754856782076122
 Latest immutable functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
 Latest device diagnostic snapshot: docs/handoff/history/B44-DEVICE1.md
-Latest build diagnostic snapshot: docs/handoff/history/B44-ALFTFXSTARTDIAG1.md
+Latest build diagnostic snapshot: docs/handoff/history/B45-AKNSKINNTFX1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
 B43 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — akncapserver TfxServer miss -> same-thread Leave(-1) proven twice; provider path still absent
 B44 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — TFX P&S object is initially undefined; HLE AknSkinServer active; native TFX provider startup absent
+B45 status: BUILD-VALIDATED; DEVICE TEST REQUIRED — guarded native AknSkinServer route experiment for RM-356/EPOC9.4
 FASTBUILD1 status: PROMOTED
 
 ## Objective
@@ -2153,3 +2154,173 @@ No KERN-EXEC or host access violation is present in the B44 test window.
 
 Full snapshot:
 - `docs/handoff/history/B44-DEVICE1.md`
+
+
+## Latest build override — B45 AKNSKINNTFX1
+
+B45 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+B41 remains the latest immutable functional milestone.
+B44 remains the latest device-observed diagnostic milestone.
+
+### Primary-source finding that justifies B45
+
+Symbian/Nokia source confirms that the native AknSkin server is not merely a
+skin-data service. It owns the transition-effects startup path.
+
+`AknSkinSrvMain.mmp`:
+- target: `AknSkinSrv.exe`
+- target path: `/system/programs`
+- UID3: `0x10207114`
+
+`AknSkinSrv.mmp`:
+- target: `AKNSKINSRV.dll`
+- UID3: `0x10005A35`
+- links `ecom.lib` and `ws32.lib`
+
+`RAknsSrvSession::Connect()`:
+- first calls `CreateSession("!AknSkinServer")`;
+- on `KErrNotFound` / `KErrServerTerminated`, calls `StartServer()`;
+- retries the session after server startup.
+
+`StartServer()`:
+- `RProcess::Create(KAknSkinSrvExe,...)`;
+- Rendezvous;
+- Resume;
+- WaitForRequest.
+
+Native `CAknsSrv::PrepareMergedSkinContentUnprotectedL()`:
+- merges skin/wallpaper state;
+- then calls `StartTransitionSrvL(tfxServerRunning)`.
+
+`LoadTfxSrvPluginL()`:
+- ECom controller implementation `0x10282DBD`;
+- ECom server implementation `0x10282DBC`.
+
+Therefore the B44 HLE/native boundary is source-confirmed.
+
+### B45 behavior
+
+For **native_phone_boot + EPOC9.4 only**, B45 checks for a native ROM server
+image:
+
+- `z:\sys\bin\aknskinsrv.exe`
+- legacy `z:\system\programs\aknskinsrv.exe`
+
+If either exists, B45 does **not** pre-create EKA2L1's HLE
+`akn_skin_server`. This intentionally restores the guest-visible
+`KErrNotFound` expected by the stock client so that **the guest client itself**
+may execute its normal `StartServer()` path.
+
+If no native image exists, or outside native_phone_boot/EPOC9.4, HLE behavior is
+unchanged.
+
+B45 does not directly launch AknSkinSrv.exe from host code.
+
+### B45 markers
+
+- `[NBOOT2][AKNSKIN_ROUTE]`
+  - `phase=hle_skip`
+  - `phase=hle_keep`
+- `[NBOOT2][AKNSKIN_SESSION]`
+  - request / lookup / missing / found
+  - reports `server_hle`
+- `[NBOOT2][AKNSKIN_NATIVE_PROC]`
+  - guest process-create request/result
+- `[NBOOT2][AKNSKIN_NATIVE_REGISTER]`
+  - native `!AknSkinServer` registration
+- `[NBOOT2][AKNSKIN_ROM]`
+  - native EXE/DLL existence snapshot
+  - expected EXE UID3 `0x10207114`
+  - expected DLL UID3 `0x10005A35`
+
+All B44 ALF/TFX probes remain present, so one device run can show whether the
+native AknSkin route reaches TFX ECom, P&S, ALF, and TfxServer.
+
+### Semantic guard
+
+B45 does not:
+- fabricate TfxServer;
+- force-run Alfred;
+- synthesize ECom resolution;
+- define/set TFX P&S on behalf of the guest;
+- synthesize unknown IPC completion;
+- alter B42 HWRM behavior;
+- alter non-native-phone-boot modes;
+- alter non-EPOC9.4 service routing;
+- remove HLE if native AknSkinSrv image is absent.
+
+### TDD/build
+
+RED:
+- test contract: `2c19fac5446e8e3fddf37a991094a927e184e23d`
+- RED manifest: `760df37fe003a3899b778c456c253a7aad67ce4c`
+- RED run/job: `35820882559 / 107052262345`
+- B29-B44: PASS
+- B20-B28 regressions: PASS
+- expected fail: missing `[NBOOT2][AKNSKIN_ROUTE]`
+
+Implementation:
+- initial: `b6873465a60f3d6eb1fe17e6e60efb99219274bc`
+- manifest activation: `6cdd56945ae6a0910c24ab6c253a2c8f2a8d1962`
+- final route-anchor/UID fix:
+  `512f30981971f340dd45d2828754856782076122`
+
+Binary invariant commit:
+- `956b3f4df2354af31c5ca017fd3b004f58b13b5e`
+
+Canonical GREEN:
+- run/job: `35821489397 / 107054091391`
+- B29-B45 apply/tests: PASS
+- B20-B28 regressions: PASS
+- iOS compile/link: PASS
+- B45 Mach-O marker invariants: PASS
+- IPA package/upload: PASS
+- compile requests: 149
+- cache hits: 149
+- cache misses: 0
+- hit rate: 100%
+- actual compilations: 0
+- compilation failures: 0
+
+Unsigned IPA SHA-256:
+
+`0a4f794ab29943d97cf5613ade8558852a482c07ca3931a07513adc5e7d361e6`
+
+IPA artifact:
+- ID: `10733511496`
+- size: 19,908,996 bytes
+- ZIP digest:
+  `sha256:f4d9da039f28db8038ba9e9f71f7442279c0096090beac77fa561f5b8c7e120b`
+
+Audit artifact:
+- ID: `10733377076`
+- digest:
+  `sha256:6586fdedc31ef93aab938353fbb5e2ec4c4dd8d0afacc64c5a8b4ad8a0e44917`
+
+Local artifact re-hash matches CI exactly.
+
+### Device-test expectations
+
+B45 can behave very differently from B44 because HLE AknSkinServer may no
+longer intercept the first client.
+
+The most valuable outcomes are:
+
+1. `AKNSKIN_ROUTE phase=hle_skip` and ROM artifact exists.
+2. First `AKNSKIN_SESSION phase=missing`.
+3. `AKNSKIN_NATIVE_PROC phase=request/result success=1`.
+4. `AKNSKIN_NATIVE_REGISTER server=!AknSkinServer`.
+5. Subsequent AknSkin sessions show `server_hle=0`.
+6. B44 markers begin appearing:
+   - `TFX_ECOM_RSC`
+   - `TFX_ECOM_DLL`
+   - `TFX_PS`
+   - `ALF_SESSION`
+   - `TfxServer` registration.
+
+If native server startup fails before registration, B45 still gives the exact
+new blocker via Loader/process/Leave traces. Do not add a fallback shim until
+that device evidence is read.
+
+Full snapshot:
+- `docs/handoff/history/B45-AKNSKINNTFX1.md`
