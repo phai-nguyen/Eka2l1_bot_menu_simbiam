@@ -5016,3 +5016,67 @@ Canonical GREEN:
 Primary device question: does valid self-test success move Starter
 `101 StartingCriticalApps -> 102 SelfTestOK` without entering
 `117 FatalStartupError`?
+
+
+## Latest device override — B64 SASELFTESTRESPONSE1 DEVICE1
+
+B64 is **DEVICE-OBSERVED; SELFTEST RESPONSE PASS; FATAL PATH REMOVED; STARTER STILL STUCK AT 101**.
+
+Full snapshot:
+
+`docs/handoff/history/B64-DEVICE1.md`
+
+B64's exact RM-356 EExecuteSelftests response succeeds:
+
+- template copied from slot 2;
+- header write succeeds;
+- slot-3 TInt payload write succeeds with KErrNone;
+- RMessage completes KErrNone.
+
+The B63 `101 -> 117 FatalStartupError` transition disappears completely.
+However Starter publishes no new global state after
+`101 StartingCriticalApps`; later AknCapServer, Startup and Home screen all
+continue reading 101.
+
+Startup private state remains `Wait=1`; there is still no
+`StartAnimations=2`.
+
+Video remains NOKIA -> blank-white Startup, with no Nokia hands, RTC/date-time
+or visible S60 Home/Menu before exit. Home receives focus only during teardown
+after Startup is destroyed, which is not boot progress.
+
+B61 wipeout protection remains healthy and shutdown completes normally.
+
+The blocker is now inside the remaining StartingCriticalApps work rather than
+the self-test transport itself.
+
+## Latest build override — B65 STARTERRENDEZVOUS1
+
+B65 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B65-STARTERRENDEZVOUS1.md`
+
+B65 adds diagnostic-only `[NBOOT2][STARTER_RENDEZVOUS]` tracing to SYSSTART
+UID3 `0x100059C9` process rendezvous/logon operations. It identifies the
+target process for each arm/queue/completion/cancel event while preserving all
+existing process semantics.
+
+Canonical GREEN:
+
+- run `36069095793` / run number 185
+- job `107865597224`
+- build HEAD `b9ef9ad46cd9092586b0d4254b81aa454f0228d6`
+- compile requests/hits/misses `150/149/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `9dc349c9674a0059fa9566a8eb3c9a61910b56e609151e2536fce7503d7a990f`
+- IPA artifact `10837880606`
+- audit artifact `10837930432`
+
+Recommended test: install B65 over B64 for the cleanest A/B comparison, run
+through NOKIA -> white for 2-3 minutes, then send logs. The key result is the
+exact critical-app rendezvous target that remains unresolved while global state
+stays at 101.
