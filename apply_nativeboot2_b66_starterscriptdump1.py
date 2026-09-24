@@ -202,11 +202,10 @@ def main():
             fail("B66 source gate missing: "+need)
 
     # B66 must never write/resize/remove or reuse the guest's actual fs_node.
-    b0=text.find("// NATIVEBOOT2-B66 STARTERSCRIPTDUMP1:")
-    b1=text.find("static bool is_process_own_private_dir",b0)
-    if b0 < 0 or b1 < 0 or b1 <= b0:
-        fail("cannot isolate B66 helper block")
-    block=text[b0:b1]
+    # Validate the helper string itself. Do not depend on surrounding
+    # files.cpp anchors because earlier milestones may legitimately rewrite
+    # nearby comments/functions.
+    block=helper
     for forbidden in (
         "WRITE_MODE",
         "write_file(",

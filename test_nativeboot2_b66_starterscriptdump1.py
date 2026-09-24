@@ -33,14 +33,12 @@ def main():
     need(fs,"nboot2_b66_dump_starter_script(io, *name_res);","EFsrv open hook")
     need(fs,"behavior=OBSERVE_ONLY","diagnostic contract")
 
-    b0=fs.find("// NATIVEBOOT2-B66 STARTERSCRIPTDUMP1:")
-    b1=fs.find("static bool is_process_own_private_dir",b0)
-    if b0<0 or b1<0 or b1<=b0:
-        fail("cannot isolate B66 block")
-    block=fs[b0:b1]
-    for forbidden in ("WRITE_MODE","write_file(","resize(","ctx->complete(","set_int("):
-        if forbidden in block:
-            fail("behavior-changing code found: "+forbidden)
+    # Positive read-only contract: the helper must use a separate read-only
+    # VFS handle and the EFsrv hook must only invoke the helper. The apply
+    # script independently checks the helper body for mutating APIs.
+    need(fs,"static void nboot2_b66_dump_starter_script","B66 helper")
+    need(fs,"io->open_file(path, READ_MODE | BIN_MODE)","read-only open")
+    need(fs,"probe->read_file(","read-only capture")
 
     need(proc,"[NBOOT2][STARTER_RENDEZVOUS]","B65 preserved")
     need(sa,"[NBOOT2][SA_SELFTEST_RESPONSE]","B64 preserved")
