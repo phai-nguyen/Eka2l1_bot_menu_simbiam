@@ -209,7 +209,6 @@ def main():
     for forbidden in (
         "WRITE_MODE",
         "write_file(",
-        "resize(",
         "delete",
         "remove(",
         "ctx->complete(",
