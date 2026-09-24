@@ -50,3 +50,5 @@ jobs:
           sed -n '70,190p' "$UP/src/emu/services/src/window/classes/winbase.cpp"
           echo "=== winuser try_update ==="
           grep -n -A90 -B20 'canvas_base::try_update' "$UP/src/emu/services/src/window/classes/winuser.cpp" || true
+          echo "=== active B28 redraw_msg_canvas::draw ==="
+          grep -n -A180 -B20 'bool redraw_msg_canvas::draw' "$UP/src/emu/services/src/window/classes/winuser.cpp" || true
