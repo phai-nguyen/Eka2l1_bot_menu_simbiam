@@ -4978,3 +4978,41 @@ transport:
 
 Primary acceptance is Starter `101 -> 102 SelfTestOK` without transition to
 117.
+
+
+## Latest build override — B64 SASELFTESTRESPONSE1
+
+B64 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B64-SASELFTESTRESPONSE1.md`
+
+B64 implements the now-proven RM-356 response for
+`StartupAdaptation::EExecuteSelftests / SAServer 0x67`:
+
+- echo the 12-byte slot-2 response envelope;
+- write `TInt(KErrNone)` to slot 3;
+- complete `KErrNone`;
+- no direct global-state or Startup-state injection.
+
+New marker:
+
+`[NBOOT2][SA_SELFTEST_RESPONSE]`
+
+Canonical GREEN:
+
+- run `36064120244` / run number 184
+- job `107849736732`
+- HEAD `8e5bf9c24b6f3583e34e76ed4d03c8363abbb711`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `400849d5f2109f4857881b98979d3d4a5740f97480f9d91079027685de450372`
+- IPA artifact `10835737543`
+- audit artifact `10835867300`
+
+Primary device question: does valid self-test success move Starter
+`101 StartingCriticalApps -> 102 SelfTestOK` without entering
+`117 FatalStartupError`?
