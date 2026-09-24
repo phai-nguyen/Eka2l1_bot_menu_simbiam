@@ -24,6 +24,7 @@ behavior is changed.
 """
 from pathlib import Path
 import sys
+import re
 
 MARK="NATIVEBOOT2-B58-STARTUPSTATEPS1"
 
@@ -54,39 +55,28 @@ def main():
         fail("property_find_set_int bounds not found")
 
     block=text[b:e]
-    old='''        const bool res = prop->set(value);
-
-        if (!res) {
-            return epoc::error_argument;
-        }
-
-        return epoc::error_none;
-'''
-    new='''        const std::int32_t nboot2_b58_before = prop->get_int();
-        const bool res = prop->set_int(value);
-        const std::int32_t nboot2_b58_after = prop->get_int();
-
-        if ((static_cast<std::uint32_t>(cage) == 0x100058F4U) &&
-            (static_cast<std::uint32_t>(key) == 0x00000001U)) {
-            LOG_WARN(KERNEL,
-                "[NBOOT2][STARTUP_STATE_PS] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} path=CATEGORY_KEY_INT behavior=FIX_SET_INT",
-                static_cast<std::uint32_t>(cage),
-                static_cast<std::uint32_t>(key),
-                nboot2_b58_before,
-                value,
-                nboot2_b58_after,
-                res ? 1 : 0);
-        }
-
-        if (!res) {
-            return epoc::error_argument;
-        }
-
-        return epoc::error_none;
-'''
-    if block.count(old)!=1:
-        fail(f"expected one buggy integer setter anchor, found {block.count(old)}")
-    block=block.replace(old,new,1)
+    m=re.search(r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*prop->set\(value\);\s*$', block)
+    if not m:
+        fail("buggy category/key integer setter call not found")
+    indent=m.group(1)
+    res_name=m.group(2)
+    new=(
+        indent + "const std::int32_t nboot2_b58_before = prop->get_int();\\n" +
+        indent + "const bool " + res_name + " = prop->set_int(value);\\n" +
+        indent + "const std::int32_t nboot2_b58_after = prop->get_int();\\n\\n" +
+        indent + "if ((static_cast<std::uint32_t>(cage) == 0x100058F4U) &&\\n" +
+        indent + "    (static_cast<std::uint32_t>(key) == 0x00000001U)) {\\n" +
+        indent + "    LOG_WARN(KERNEL,\\n" +
+        indent + "        \\\"[NBOOT2][STARTUP_STATE_PS] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} path=CATEGORY_KEY_INT behavior=FIX_SET_INT\\\",\\n" +
+        indent + "        static_cast<std::uint32_t>(cage),\\n" +
+        indent + "        static_cast<std::uint32_t>(key),\\n" +
+        indent + "        nboot2_b58_before,\\n" +
+        indent + "        value,\\n" +
+        indent + "        nboot2_b58_after,\\n" +
+        indent + "        " + res_name + " ? 1 : 0);\\n" +
+        indent + "}\\n"
+    )
+    block=block[:m.start()]+new+block[m.end():]
 
     if "prop->set(value)" in block:
         fail("binary-package integer setter still present")
