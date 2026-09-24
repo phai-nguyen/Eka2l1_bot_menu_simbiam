@@ -4774,3 +4774,38 @@ Canonical GREEN:
 Next device test: boot to white, choose `Thoát Emulator`, verify that the app
 returns normally and does not generate a new iOS .ips crash. After clean-exit
 validation, return to the boot blocker upstream of StartAnimations=2.
+
+
+## Latest device override — B61 GSTOREWIPEOUT2 DEVICE1
+
+B61 is **DEVICE-PASS FOR CLEAN EXIT; WIPEOUT GUARD CONFIRMED; NO NEW BOOT CHECKPOINT**.
+
+Full snapshot:
+
+`docs/handoff/history/B61-DEVICE1.md`
+
+This was a **clean install**, not installed over B60.
+
+The guest boot remains NOKIA -> stable blank-white Startup surface. Startup P&S
+still writes only `0x100058F4:1 = Wait(1)`; no handle-based writer and no
+StartAnimations=2 are observed.
+
+The teardown result is now strong:
+
+- `[NBOOT2][GSTORE_WIPEOUT_GUARD]` fires 27 times during final wipeout;
+- guarded segments include nonzero retained references, including
+  `font_refs=0 bitmap_refs=1` and `font_refs=1 bitmap_refs=4`;
+- shutdown reaches `os_join_done`, `graphics_join_done`,
+  `state_reset_done`, `shutdown_done`;
+- user returns normally to EKA2L1 UI;
+- no new iOS .ips crash is produced.
+
+This is materially stronger evidence than B59's clean exit because B61's guard
+is confirmed to execute on retained-FBS segments in the same teardown path that
+crashed B58/B60.
+
+B61 teardown track is accepted. Keep B61 in the chain.
+
+Next boot boundary: trace System Starter / startup-policy / command-list
+execution responsible for publishing `EStartupAppStateStartAnimations = 2`
+on the normal SIM-present RM-356 path.
