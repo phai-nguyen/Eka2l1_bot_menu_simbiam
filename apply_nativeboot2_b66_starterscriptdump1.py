@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NATIVEBOOT2 B66 STARTERSCRIPTDUMP1.
+r"""NATIVEBOOT2 B66 STARTERSCRIPTDUMP1.
 
 B65 DEVICE1 proves the only SYSSTART rendezvous armed after state 101 is
 profilesettingsmonitor and it completes with reason 0. Therefore the
@@ -59,7 +59,7 @@ def main():
     if "[NBOOT2][STARTER_GLOBAL_STATE]" not in svc.read_text(encoding="utf-8"):
         fail("B62 global-state trace missing")
 
-    helper_anchor='''    // Whether the directory is exactly the calling process's own private directory,
+    helper_anchor='''namespace eka2l1 {
 '''
     helper=r'''    // NATIVEBOOT2-B66 STARTERSCRIPTDUMP1:
     // Read the real RM-356 Starter scripts through a separate VFS handle so
@@ -176,7 +176,7 @@ def main():
     }
 
 '''
-    text=rep1(text,helper_anchor,helper+helper_anchor,"helper insertion")
+    text=rep1(text,helper_anchor,helper_anchor+helper,"helper insertion")
 
     open_anchor='''        LOG_INFO(SERVICE_EFSRV, "Opening file: {}, raw mode {}", name_utf8, open_mode_res.value());
         int handle = new_node(ctx->sys->get_io_system(), ctx->msg->own_thr, *name_res,
