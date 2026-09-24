@@ -5080,3 +5080,63 @@ Recommended test: install B65 over B64 for the cleanest A/B comparison, run
 through NOKIA -> white for 2-3 minutes, then send logs. The key result is the
 exact critical-app rendezvous target that remains unresolved while global state
 stays at 101.
+
+
+## Latest device override — B65 STARTERRENDEZVOUS1 DEVICE1
+
+B65 is **DEVICE-OBSERVED; RENDEZVOUS TARGETS RESOLVED; NO POST-101 PROCESS-WAIT BLOCKER FOUND**.
+
+Full snapshot:
+
+`docs/handoff/history/B65-DEVICE1.md`
+
+The global state remains `100 -> 101`; B64 self-test success remains healthy
+and Startup remains `Wait=1`.
+
+B65 resolves the process-wait ambiguity:
+
+- HWRMServer is armed before state 101 and cancelled after ~30 s, but Starter
+  continues and later publishes 101, so this is not the active post-101
+  blocker.
+- profilesettingsmonitor is armed after state 101 and completes with reason 0.
+- no other new SYSSTART process-rendezvous arm remains unresolved after 101.
+
+Do not patch profilesettingsmonitor/HWRM/cntsrv/dbrecovery based on this run.
+
+The investigation now moves to the real RM-356 Starter policy/configuration
+rather than guessing from generic startup order.
+
+## Latest build override — B66 STARTERSCRIPTDUMP1
+
+B66 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B66-STARTERSCRIPTDUMP1.md`
+
+B66 adds read-only `[NBOOT2][STARTER_SCRIPT_DUMP]` capture for:
+
+- `Z:\private\100059C9\ScriptInit.txt`
+- `Z:\private\100059C9\script0.txt`
+- `Z:\private\100059C9\script1.txt`
+- `C:\private\100059C9\plg_script*.txt`
+
+It uses a separate read-only VFS handle, capped at 65536 raw bytes, and does
+not alter the guest file cursor or startup state.
+
+Canonical GREEN:
+
+- run `36071875735` / run number 191
+- job `107874453544`
+- build HEAD `c28fe41d9646ee1e6d3144a91efb0c98d9a2ce64`
+- compile requests/hits/misses `150/149/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `91146a96cd7a37a94021971b89f8a6c7458a77647b9e73be30d50dbb97053ef3`
+- IPA artifact `10838543339`
+- audit artifact `10838548231`
+
+Recommended test: install B66 over B65, run through NOKIA -> white for 2-3
+minutes, exit normally, and send all logs. Video is only needed if visual
+behavior changes.
