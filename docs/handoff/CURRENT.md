@@ -4737,3 +4737,40 @@ guard is therefore not a complete fix; its clean B59 exit was timing-dependent.
 
 Temporary focus transfer to Home screen at 20:03:03 occurs only while Startup's
 WindowGroup is destroyed during wipeout and is NOT a new boot checkpoint.
+
+
+## Latest build override — B61 GSTOREWIPEOUT2
+
+B61 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B61-GSTOREWIPEOUT2.md`
+
+B61 strengthens the B59 teardown fix only during `kernel_system::wipeout()`.
+
+All redraw-store segments, including direct `pending_segment_`, capture the
+kernel pointer. During wipeout their destructor returns before touching any
+retained FBS font/bitmap pointer and logs:
+
+`[NBOOT2][GSTORE_WIPEOUT_GUARD]`
+
+Normal-runtime refcount/deref behavior and all guest boot behavior remain
+unchanged.
+
+Canonical GREEN:
+
+- run `36007760773` / run number 180
+- job `107660254711`
+- HEAD `24e84ad10c53e85216343728699f2af2ffc09f27`
+- compile requests/hits/misses `149/110/39`
+- actual compilations `39`
+- compilation failures `0`
+- IPA SHA-256
+  `f07178925ea6b92e063d74856daf3a9e10a02f5cf477c27305042a30cc0910b1`
+- IPA artifact `10811377565`
+- audit artifact `10811596815`
+
+Next device test: boot to white, choose `Thoát Emulator`, verify that the app
+returns normally and does not generate a new iOS .ips crash. After clean-exit
+validation, return to the boot blocker upstream of StartAnimations=2.
