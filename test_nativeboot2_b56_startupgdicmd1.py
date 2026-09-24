@@ -26,7 +26,7 @@ def main():
     need(winuser, "[NBOOT2][STARTUP_GDI_SEGMENT]", "B56 segment marker")
     need(winuser, "[NBOOT2][STARTUP_GDI_CMD]", "B56 command marker")
     need(winuser, "[NBOOT2][STARTUP_GDI_DETAIL]", "B56 detail marker")
-    need(winuser, "gdi_store_command_draws_pixels(b56_cmd.opcode_)", "actual pixel-op classification")
+    need(winuser, "case gdi_store_command_draw_rect:", "pixel-op classification")\n    need(winuser, "case gdi_store_command_update_texture:", "pixel-op classification")
     need(winuser, "b56_seg.commands_.size()", "stored command enumeration")
     need(winuser, "kind=DRAW_RECT", "draw-rect detail")
     need(winuser, "kind=DRAW_BITMAP", "draw-bitmap detail")
