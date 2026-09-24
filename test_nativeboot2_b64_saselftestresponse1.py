@@ -36,7 +36,7 @@ def main():
     need(block,"write_data_to_descriptor_argument<std::int32_t>","TInt payload write")
     need(block,"3, b64_response","slot3 payload destination")
     need(block,"ctx.complete(epoc::error_none);","successful RMessage completion")
-    need(block,"payload=TInt_KErrNone","response log semantics")
+    need(block,"const std::int32_t b64_response = epoc::error_none;","TInt KErrNone payload")
 
     if "ctx.complete(epoc::error_not_supported);" in block:
         fail("old B63 KErrNotSupported completion remains in selftest path")
