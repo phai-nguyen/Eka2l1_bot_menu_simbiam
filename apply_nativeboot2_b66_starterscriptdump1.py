@@ -104,8 +104,8 @@ def main():
         const std::uint64_t raw_size = probe->size();
         constexpr std::size_t max_capture = 65536;
         const std::size_t capture_size =
-            static_cast<std::size_t>(common::min<std::uint64_t>(
-                raw_size, max_capture));
+            static_cast<std::size_t>(
+                (raw_size > max_capture) ? max_capture : raw_size);
 
         std::string raw;
         raw.resize(capture_size);
@@ -203,7 +203,9 @@ def main():
 
     # B66 must never write/resize/remove or reuse the guest's actual fs_node.
     b0=text.find("// NATIVEBOOT2-B66 STARTERSCRIPTDUMP1:")
-    b1=text.find("// Whether the directory is exactly",b0)
+    b1=text.find("static bool is_process_own_private_dir",b0)
+    if b0 < 0 or b1 < 0 or b1 <= b0:
+        fail("cannot isolate B66 helper block")
     block=text[b0:b1]
     for forbidden in (
         "WRITE_MODE",
