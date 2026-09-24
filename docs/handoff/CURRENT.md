@@ -4930,3 +4930,51 @@ Canonical GREEN:
 Next device decision: if the RM-356 0x67 request matches the standard
 TResponsePckg envelope, implement a narrow self-test success response and test
 whether Starter advances `101 -> 102`.
+
+
+## Latest device override — B63 SASELFTESTABI1 DEVICE1
+
+B63 is **DEVICE-OBSERVED; ABI PROVEN; FAILURE PATH IDENTIFIED**.
+
+Full snapshot:
+
+`docs/handoff/history/B63-DEVICE1.md`
+
+Exact SAServer `0x67` is confirmed as
+`StartupAdaptation::EExecuteSelftests`, sent by `SYSSTART / StarterServer`.
+
+RM-356 ABI:
+
+- types `[4,6,4,4]`
+- sizes `[12,0,12,0]`
+- max `[12,0,12,16]`
+- slot 2 template `[0x00010004,0x01000067,txn]`
+- slot 3 writable response buffer
+
+B63 returns `KErrNotSupported (-5)`. Starter subsequently publishes:
+
+`101 StartingCriticalApps -> 117 FatalStartupError`.
+
+Thus the self-test boundary is causal and the next correct behavior is to
+return the documented TResponsePckg/TInt success envelope, not to force state
+102 directly.
+
+B63 also later exposes the Home screen after Splash drops: Home group 76 gains
+focus and its 360x640 canvas is `physically_seen=1 draw_result=1`. This is
+useful compositor evidence but is NOT normal boot progress because it occurs
+on the FatalStartupError path.
+
+B61 clean-exit protection remains healthy.
+
+## Selected next build — B64 SASELFTESTRESPONSE1
+
+B64 narrowly implements EExecuteSelftests success using the proven RM-356 SA
+transport:
+
+- echo slot-2 12-byte response envelope;
+- write TInt(KErrNone) to slot 3;
+- complete KErrNone;
+- no direct P&S state injection.
+
+Primary acceptance is Starter `101 -> 102 SelfTestOK` without transition to
+117.
