@@ -4888,3 +4888,45 @@ diagnostic is an exact SAServer 0x67 probe that preserves current
 KErrNotSupported behavior.
 
 B61 wipeout guard remains device-confirmed and shutdown completes cleanly.
+
+
+## Latest build override — B63 SASELFTESTABI1
+
+B63 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B63-SASELFTESTABI1.md`
+
+B62 proved Starter stalls at `StartingCriticalApps=101`. The first
+unimplemented SAServer request immediately after that transition is opcode
+`0x67`.
+
+Public Symbian source identifies `0x67 / 103` as
+`StartupAdaptation::EExecuteSelftests`, with response type
+`TResponsePckg (TInt)`. This is the adaptation self-test boundary preceding
+`SelfTestOK=102`.
+
+B63 registers only exact opcode 0x67 and logs:
+
+`[NBOOT2][SA_SELFTEST_ABI]`
+
+including caller process/thread/session and full 4-slot IPC ABI. It deliberately
+preserves `KErrNotSupported`; no state or descriptor is modified.
+
+Canonical GREEN:
+
+- run `36022003611` / run number 182
+- job `107708966701`
+- HEAD `68cf65b983850f614f046158db278ebd6feb3eac`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `89528414195d1b93d1aabcb2b342c8a262ce93c547a08ca45fc200415339f59b`
+- IPA artifact `10816504737`
+- audit artifact `10817586261`
+
+Next device decision: if the RM-356 0x67 request matches the standard
+TResponsePckg envelope, implement a narrow self-test success response and test
+whether Starter advances `101 -> 102`.
