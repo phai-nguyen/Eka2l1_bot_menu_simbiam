@@ -4249,3 +4249,63 @@ FASTBUILD run:
 
 Status at handoff update: build in progress; apply/regression stage PASS and iOS
 target compilation underway.
+
+
+## Latest build override — B55 STARTUPREPLAY1
+
+B55 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+B54 DEVICE1 proved that the one-shot Startup transition clear removes the stale
+Nokia pixels: the display changes to black at the natural Splash -> Startup
+handoff. Therefore retained splash color in guest `screen_texture` is
+confirmed.
+
+B55 targets the next missing stage: replaying Startup's stored redraw content.
+At the same one-shot Startup-focus edge, B55 sets
+`FLAG_SERVER_REDRAW_PENDING` for that compositor pass so the existing B28
+`redraw_msg_canvas::draw()` path can replay stored redraw segments.
+
+Markers:
+- `[NBOOT2][STARTUP_REPLAY]`
+- `[NBOOT2][STARTUP_REPLAY_CANVAS]`
+
+No extra redraw, present, focus, z-order, visibility, activation, or timer is
+introduced.
+
+### Canonical GREEN
+
+- run ID `35946065875`
+- run number `157`
+- job `107464155547`
+- HEAD `14fd6f27fee6940173fa07401389709c7ded524a`
+- B29-B55 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- NOJAVA / MANIC3 preserved
+- compile requests/hits/misses `149/147/2`
+- actual compilations `2`
+- compilation failures `0`
+
+Unsigned IPA:
+- size `20,000,520` bytes
+- SHA-256
+  `8dbeb5361570be9dd28fad1d9f8269411f79484514e4d91c17c492d6abcac578`
+
+Library path:
+
+`/Eka2l1 Boot menu/EKA2L1-NATIVEBOOT2-B55-STARTUPREPLAY1-unsigned.ipa`
+
+### Next-chat device test
+
+Use the same RM-356 V60 pair. Keep the emulator running through the natural
+~120 s Splash -> Startup transition.
+
+Primary acceptance:
+- if Startup pixels/UI appear after the transition: replay path is confirmed;
+- if the screen remains black: inspect STARTUP_REPLAY_CANVAS segment counts and
+  actual drawable stored content, then move to the next narrow replay/content
+  boundary.
+
+Send 3 logs + full video.
