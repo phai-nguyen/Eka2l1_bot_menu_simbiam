@@ -4704,3 +4704,36 @@ Boot semantics are unchanged between B58 and B59:
 - no observed StartAnimations(2)
 
 B59's confirmed progress is clean teardown/exit only.
+
+
+## Latest device override — B60 STARTUPSTATEWRITER1 DEVICE1
+
+B60 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS; NO NEW VISUAL BOOT CHECKPOINT;
+EXIT CRASH REPRODUCED**.
+
+Full snapshot:
+
+`docs/handoff/history/B60-DEVICE1.md`
+
+B60 confirms:
+
+- category/key Startup state still writes `0 -> Wait(1)`;
+- zero `[NBOOT2][STARTUP_STATE_HANDLE]` events target 0x100058F4:1;
+- therefore neither observed integer P&S writer path publishes
+  `StartAnimations(2)`;
+- visual output remains NOKIA -> stable blank-white Startup surface;
+- Startup still requests missing TfxServer after handoff.
+
+This closes the handle-writer ambiguity from B58/B59. The next boot boundary is
+upstream SSM/Starter command-list execution responsible for publishing value 2.
+
+B60 also reproduces the exit crash. Shutdown stops at `os_join_begin`, and the
+Apple .ips again faults in
+`gdi_store_command_segment::~gdi_store_command_segment()` during
+`kernel_system::wipeout()`, with EXC_BAD_ACCESS at 0x18.
+
+No `[NBOOT2][GSTORE_EXIT_GUARD]` marker fires. B59's narrow ownerless-final-ref
+guard is therefore not a complete fix; its clean B59 exit was timing-dependent.
+
+Temporary focus transfer to Home screen at 20:03:03 occurs only while Startup's
+WindowGroup is destroyed during wipeout and is NOT a new boot checkpoint.
