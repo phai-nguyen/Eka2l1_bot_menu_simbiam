@@ -32,8 +32,9 @@ def main():
     need(s,"[NBOOT2][GSTORE_EXIT_GUARD]","B59 guard preserved")
     need(w,"pending_segment_->kern_ = client->get_ws().get_kernel_system();","direct pending segment coverage")
 
-    if w.count("client->get_ws().get_kernel_system());") < 3:
-        fail("not all redraw-store segment creation sites capture the kernel")
+    need(w,"redraw_segments_.add_new_segment(redraw_rect_curr, epoc::gdi_store_command_segment_pending_redraw,","pending-redraw collection capture")
+    need(w,"redraw_segments_.add_new_segment(full_size_rect, gdi_store_command_segment_non_redraw,","non-redraw collection capture")
+    need(w,"pending_segment_->kern_ = client->get_ws().get_kernel_system();","direct pending segment capture")
 
     db=s.find("gdi_store_command_segment::~gdi_store_command_segment()")
     de=s.find("void gdi_store_command_segment::add_command",db)
