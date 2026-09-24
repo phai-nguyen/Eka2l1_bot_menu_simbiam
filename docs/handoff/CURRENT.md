@@ -4854,3 +4854,37 @@ Canonical GREEN:
 Device test: install B62 over B61, run normal SIM-present boot through NOKIA ->
 white, then send logs. The key decision is the final value and writer of
 0x101F8766:0x41.
+
+
+## Latest device override — B62 STARTERGLOBALSTATE1 DEVICE1
+
+B62 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS; GLOBAL STARTUP STATE STALL IDENTIFIED**.
+
+Full snapshot:
+
+`docs/handoff/history/B62-DEVICE1.md`
+
+Clean-install B62 proves `KPSGlobalSystemState 0x101F8766:0x41` follows:
+
+- `0 -> 100` by `SYSSTART / StarterServer`
+- `100 -> 101` by `SYSSTART / StarterServer`
+- then no further write
+
+Startup, AknCapServer and Home screen all later read `101`.
+
+Thus Starter is stuck at `ESwStateStartingCriticalApps = 101`; it never reaches
+102/103/104, so Startup's critical block never completes and private
+`KPSStartupAppState` remains `Wait=1`.
+
+Immediately around the 100 -> 101 edge:
+- two SYSSTART LocaleData files are absent;
+- StarterServer hits SVC miss `0xE3`;
+- state 101 is still successfully published;
+- a single SAServer IPC `0x67` is unimplemented immediately afterward.
+
+These are candidates, not yet proven causes. Because 0x67 occurs directly after
+the transition and its caller/ABI are not logged, the recommended next
+diagnostic is an exact SAServer 0x67 probe that preserves current
+KErrNotSupported behavior.
+
+B61 wipeout guard remains device-confirmed and shutdown completes cleanly.
