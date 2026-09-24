@@ -4067,3 +4067,110 @@ natural Splash -> Startup handoff
 
 Do not add a forced clear until B53 proves whether Startup/Home frames fail to
 cover the stale splash pixels.
+
+
+## Latest device override — B53 COMPOSITORTREE1 DEVICE1
+
+B53 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B53-DEVICE1.md`
+
+The natural Splash -> Startup transition is fully captured.
+
+At 07:36:42.166 focus changes to Startup group 63
+(name contains `100058f4 Startup`).
+
+B53 captures four immediate Startup compositor frames 173-176. Every frame has:
+
+- `server_redraw_pending=0`
+- `client_redraw_pending=0`
+- `color_clear=0`
+- visible-region recalculation performed
+- one physically-visible canvas
+- one `draw_result=1`
+
+The only physically-visible/drawn canvas is Startup
+`0x100058F4`, handle `0x00807AA8`, full-screen
+`[0,0,360,640]`.
+
+Home screen exists behind Startup but is not physically visible in those
+frames.
+
+The splash WindowGroup is absent from the traced post-focus group chain.
+
+The iOS host presents the Startup frames, but the video remains pixel-identical
+to the Nokia splash.
+
+An exact B28-source inspection then establishes that
+`redraw_msg_canvas::draw()` returns true for a physically-visible, non-zero
+window even when both SERVER and CLIENT redraw-pending flags are zero. In that
+state `draw_result=1` can occur without any pixel-writing command.
+
+Therefore B53 narrows the stale-pixel mechanism to retained color in
+`screen_texture`.
+
+## Latest build override — B54 TRANSITIONCLEAR1
+
+B54 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B54-TRANSITIONCLEAR1.md`
+
+B54 is a controlled experiment, not a permanent fix.
+
+At the first primary-screen edge into Startup `0x100058F4`, only when normal
+`FLAG_SERVER_REDRAW_PENDING` is absent, B54 adds the color-buffer bit to the
+existing compositor clear call.
+
+Marker:
+
+`[NBOOT2][TRANSITION_CLEAR]`
+
+No extra clear command is added. B54 does not force redraw, present, focus,
+z-order, visibility, activation, or scheduler timing.
+
+### Canonical GREEN
+
+- run ID `35940100239`
+- run number `156`
+- job `107445895276`
+- HEAD `4f8629aa182b1de8d1c952733bfa49a6e1fc1040`
+- B29-B54 apply/tests PASS
+- B20-B28 regressions PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA package/upload PASS
+- NOJAVA / MANIC3 preserved
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+
+Unsigned IPA:
+
+- size `19,996,203` bytes
+- SHA-256
+  `e22acd144bac8fc9f455df176fc650d708aa38ce27ba4fde8caaf4aa4c5f27b7`
+
+Library path:
+
+`/Eka2l1 Boot menu/EKA2L1-NATIVEBOOT2-B54-TRANSITIONCLEAR1-unsigned.ipa`
+
+### B54 device-test rule
+
+Use the same RM-356 pair and run at least **150 seconds after Nokia first
+appears**.
+
+Send 3 logs + full video.
+
+Classification:
+
+- Nokia disappears to black/blank:
+  stale screen_texture retention confirmed; Startup provides no useful pixels.
+- real UI appears:
+  retained splash was the blocking presentation artifact.
+- Nokia remains even with TRANSITION_CLEAR and host present:
+  reject the screen_texture color-retention hypothesis and inspect another
+  surface/render path.
