@@ -4667,41 +4667,40 @@ StartAnimations=2? If neither P&S write path does, move upstream to the
 SSM/Starter command-list writer responsible for publishing value 2.
 
 
-## Visual note — B58/B59 top colour-state indicator
+## Visual note — B58/B59 top debug marker phase
 
-Frame-by-frame review of both device recordings corrects the earlier simplified
-classification.
+Re-review of the device videos against the logs resolves the yellow/cyan
+difference exactly.
 
-The small coloured square is outside the fitted 360x640 Symbian framebuffer,
-so it is still a host-side overlay/indicator rather than a Nokia guest pixel.
-However it is NOT a fixed decorative colour: it changes through a discrete
-state sequence and stabilizes differently between B58 and B59.
+The coloured square is the B51+ iOS host-only DIRECTSCREEN_PRESENT diagnostic
+marker. Every present frame rotates through four phases/positions:
 
-B58 recording (256.63 s, 510x1108):
-- ~42-43 s: magenta, slot x≈12
-- ~44 s: cyan, slot x≈56
-- ~45 s: yellow, slot x≈98
-- ~46 s: magenta
-- ~47 s: cyan
-- ~48 s until emulator exit: stable yellow, slot x≈98
-- core RGB of stable yellow ≈ [253,253,1]
+- phase 0 -> marker [24,128,72,72]
+- phase 1 -> marker [120,128,72,72]
+- phase 2 -> marker [216,128,72,72]
+- phase 3 -> marker [312,128,72,72]
 
-B59 recording (340.83 s, 510x1108):
-- ~64-65 s: green, slot x≈142
-- ~66-68 s: yellow, slot x≈98
-- ~69 s: magenta, slot x≈12
-- ~70 s until emulator exit: stable cyan, slot x≈56
-- core RGB of stable cyan ≈ [2,254,255]
+The video colours map to those four phases (magenta/cyan/yellow/green).
 
-The four colours map to four fixed horizontal slots (magenta/cyan/yellow/green),
-which strongly suggests a discrete host diagnostic/state indicator rather than
-random video colour noise.
+B58:
+- total DIRECTSCREEN_PRESENT count: 175
+- final present: frame 174, phase 2, marker [216,128,72,72]
+- therefore the frozen host marker is yellow
 
-Therefore B58 -> B59 contains a real host-side state difference:
-stable YELLOW -> stable CYAN.
+B59:
+- total DIRECTSCREEN_PRESENT count: 174
+- final present: frame 173, phase 1, marker [120,128,72,72]
+- therefore the frozen host marker is cyan
 
-Do not count this alone as Nokia guest boot progress because the guest
-framebuffer remains at the same white Startup checkpoint. But do preserve it as
-a diagnostic signal and trace its source before dismissing it. B59's teardown
-guard is not expected to execute during normal boot, so causality between the
-guard and this colour-state change is not yet established.
+This is not a new boot-state signal. It is simply the modulo-4 debug marker
+left visible by the final host present before the guest stalls on the white
+Startup surface.
+
+Boot semantics are unchanged between B58 and B59:
+- Startup state remains 0 -> Wait(1)
+- same 5-command Startup white redraw store is replayed
+- Startup still requests missing TfxServer after handoff
+- Home screen exists in the compositor tree but is not physically visible
+- no observed StartAnimations(2)
+
+B59's confirmed progress is clean teardown/exit only.
