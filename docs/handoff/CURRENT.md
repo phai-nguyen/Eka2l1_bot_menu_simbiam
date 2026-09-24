@@ -4174,3 +4174,78 @@ Classification:
 - Nokia remains even with TRANSITION_CLEAR and host present:
   reject the screen_texture color-retention hypothesis and inspect another
   surface/render path.
+
+
+## Latest device override — B54 TRANSITIONCLEAR1 DEVICE1
+
+B54 is **DEVICE-OBSERVED; CONTROLLED EXPERIMENT SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B54-DEVICE1.md`
+
+B54 proves the retained Nokia image is stale guest color-buffer content.
+
+At the natural Splash -> Startup transition:
+
+```
+08:35:49.576 TRANSITION_CLEAR frame=173
+focus=Startup 0x100058F4
+server_redraw_pending=0
+action=ADD_COLOR_BIT_TO_EXISTING_CLEAR
+```
+
+The same frame reports:
+
+```
+color_clear=1
+server_redraw_pending=0
+client_redraw_pending=0
+```
+
+The B54 video changes from the white Nokia splash to black at approximately the
+same instant. Full-frame mean brightness drops from ~205.9 at t=154.3 s to
+~2.5 at t=154.4 s and remains black afterward.
+
+Therefore the old Nokia pixels were retained in the guest screen texture and
+the one-shot clear removes them successfully.
+
+Startup remains focus and its full-screen 360x640 canvas remains physically
+visible with `draw_result=1`, but no Startup pixels replace black.
+
+Active B28 `redraw_msg_canvas::draw()` only emits stored redraw content when
+`FLAG_SERVER_REDRAW_PENDING` is set, or queued client content when
+`FLAG_CLIENT_REDRAW_PENDING` is set. At the B54 transition both are zero, so
+`draw_result=1` does not guarantee any pixel-writing command.
+
+## Latest selected milestone — B55 STARTUPREPLAY1
+
+B55 is a controlled functional experiment selected directly from B54.
+
+At the exact same proven one-shot Startup-focus edge, B55 sets:
+
+`FLAG_SERVER_REDRAW_PENDING`
+
+for that compositor pass.
+
+This uses the existing B28 WindowServer path to replay stored redraw segments
+for the physically visible Startup canvas. B55 does not force a new redraw,
+present, focus, z-order, visibility or activation.
+
+New markers:
+
+- `[NBOOT2][STARTUP_REPLAY]`
+- `[NBOOT2][STARTUP_REPLAY_CANVAS]`
+
+The canvas marker records stored segment count and drawable segment count.
+
+Implementation commit:
+
+`14fd6f27fee6940173fa07401389709c7ded524a`
+
+FASTBUILD run:
+
+`35946065875`
+
+Status at handoff update: build in progress; apply/regression stage PASS and iOS
+target compilation underway.
