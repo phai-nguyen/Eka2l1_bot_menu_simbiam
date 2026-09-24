@@ -4363,3 +4363,62 @@ Canonical GREEN:
 Device test: use the same RM-356 V60 path through the natural Splash -> Startup
 handoff and send the 3 logs plus recording. The next change must be selected
 from the exact Startup stored opcodes; do not force Home focus/redraw/timers.
+
+
+## Latest device override — B56 STARTUPGDICMD1 DEVICE1
+
+B56 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B56-DEVICE1.md`
+
+The visible Startup 0x100058F4 canvas replays one REDRAW segment containing five
+commands in exact order:
+
+- CLIP_SINGLE [0,0,360,640]
+- DRAW_BITMAP BLIT, source [0,0,360,640], destination auto-sized full-screen
+- CLIP_SINGLE [0,0,360,640]
+- DRAW_RECT [0,0,360,640] RGBA 255,255,255,255
+- DRAW_RECT [0,0,360,640] RGBA 255,255,255,255
+
+Therefore the B55/B56 white screen is real stored Startup content: two opaque
+white full-screen rectangles are replayed after the bitmap.
+
+The target canvas is created at 11:40:05.217 and becomes visible through the
+natural replay at 11:42:01.492, about 116.3 s later. The firmware opens
+`z:\\resource\\apps\\startup.mbm` near canvas creation, but B56 does not yet
+prove that file owns the BLIT.
+
+## Latest build override — B57 STARTUPGDIORIGIN1
+
+B57 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B57-STARTUPGDIORIGIN1.md`
+
+B57 adds diagnostic-only marker:
+
+`[NBOOT2][STARTUP_GDI_ORIGIN]`
+
+It traces the record-time guest GC source of the B56 command stream, including
+GDI_BLT, CLEAR, CLEAR_RECT, DRAW_RECT and brush state, with process/thread,
+guest GC opcode, canvas/group identity and bounded geometry/state.
+
+Canonical GREEN:
+
+- run `35957525692` / run number 163
+- job `107498900591`
+- HEAD `de2d65ce0333f7b5335e0b1f6ca7f6aaa4730ee0`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `803c02aa2db4bb49454329452d57e1da37a519e979f6954a71d6edc4b9e7b6fd`
+- IPA artifact `10791615213`
+- audit artifact `10790719138`
+
+Next device question: identify exactly which guest operations record the
+full-screen bitmap and the two opaque white rectangles, and whether any later
+Startup draw attempts target the same canvas before the natural handoff.
