@@ -1,111 +1,159 @@
 # NATIVEBOOT2 B65 STARTERRENDEZVOUS1 — DEVICE1
 
 Date: 2026-09-25
-Status: DEVICE-OBSERVED; STARTER DIRECT RENDEZVOUS MAP RESOLVED; STATE 101 STILL STALLED
+Status: DEVICE-OBSERVED; POST-SELFTEST PROCESS RENDEZVOUS COMPLETES; STARTER STILL STUCK AT 101
 
 ## Inputs
 
 - EKA2L1(20260924-230128).log
 - EKA2L1_Persistent(20260924-230130).log
 - EKA2L1_TakeThis(20260924-230130).log
+- no video (user reports no visual change from B64)
 
-No video was supplied because visual behavior did not change from B64.
+## Global startup state
 
-## Direct SYSSTART rendezvous map
+B65 preserves the B64 state behavior:
 
-B65 identifies every process rendezvous request armed directly by
-SYSSTART / StarterServer.
+- 0 -> 100 by SYSSTART / StarterServer
+- 100 -> 101 by SYSSTART / StarterServer
+- no SET to 102
+- no SET to 117
+- later AknCapServer, Startup and Home screen all read 101
 
-Completed with reason 0:
+B64 self-test response remains successful:
 
-- ecomserver
-- sysagt2svr
-- fbserv
-- ewsrv
-- tzserver
-- randsvr
-- apsexe
-- akncapserver
-- profilesettingsmonitor
+[NBOOT2][SA_SELFTEST_RESPONSE]
+template=true
+header_ok=true
+payload_ok=true
+payload=0
+completion=KErrNone
 
-Timed out/cancelled:
+Startup private state remains Wait=1 and there is still no
+[STARTUP_STATE_HANDLE] writer / StartAnimations=2.
 
-- hwrmserver
-  - armed at 05:56:03.905
-  - cancelled at 05:56:33.906
-  - exact ~30 s timeout
+## B65 rendezvous findings
 
-Still armed without a matching B65 completion/cancel in the trace:
+B65 emits 34 [STARTER_RENDEZVOUS] events.
 
-- cntsrv
-- dbrecovery
+Early pre-101 startup targets that arm and complete successfully:
 
-Those two occur before the transition to StartingUiServices=100 and Starter
-continues beyond them, so they are not sufficient by themselves to explain the
-later state-101 stall.
+- ecomserver 0x10009D8F -> complete reason 0
+- sysagt2svr 0x10204FC5 -> complete reason 0
+- fbserv 0x10003A16 -> complete reason 0
+- ewsrv 0x10003B20 -> complete reason 0
+- tzserver 0x1020383E -> complete reason 0
+- randsvr 0x100066DC -> complete reason 0
+- apsexe 0x10003A3F -> complete reason 0
+- akncapserver 0x10207218 -> complete reason 0
 
-## State 101 boundary
+Early pending/problematic targets before state 101:
 
-Global startup state still follows:
+- cntsrv 0x10003A73 is armed/queued but no B65 complete/cancel is observed.
+- dbrecovery 0x10005A17 is armed/queued, then fails to connect to CNTSRV,
+  leaves -1 and kills its own thread; no B65 complete/cancel is observed.
+- hwrmserver 0x101F7A02 is armed/queued, remains pending ~30 s, then
+  StarterServer cancels it with completion -3. SYSSTART is also denied when
+  attempting to kill !HWRMServer for capability reasons.
 
-- 0 -> 100 at 05:56:03.684
-- 100 -> 101 at 05:56:36.410
-- no SET after 101
+These occur before 100 -> 101 and therefore are not the final post-selftest
+critical-app blocker, although cntsrv/dbrecovery remain architectural debt.
 
-B64 EExecuteSelftests response succeeds at 05:56:36.410.
+## Exact post-selftest / state-101 rendezvous result
 
-After state 101, direct SYSSTART rendezvous tracing shows:
+At 05:56:36.410:
 
-- profilesettingsmonitor armed at 05:56:36.447
-- profilesettingsmonitor completes reason=0 at 05:56:40.445
+- Starter publishes 100 -> 101.
+- EExecuteSelftests returns the successful B64 response.
 
-No other direct SYSSTART process rendezvous is armed after state 101.
+Immediately after, Starter launches multiple components including:
 
-Thus the direct process wait for profilesettingsmonitor is healthy and is not
-the remaining blocker.
+- ailaunch.exe
+- startup.exe
+- sysap.exe
+- phoneui.exe
+- clknitzmdls.exe
+- profilesettingsmonitor.exe
 
-## SysAp observation
+The only B65 SYSSTART process-rendezvous request armed after entering state 101
+is:
 
-sysap.exe is spawned at 05:56:36.413, immediately after state 101 and the
-self-test response.
+profilesettingsmonitor 0x10207B7D
 
-However B65 records no direct SYSSTART rendezvous arm for target sysap.
+Timeline:
 
-Public/reference critical-app command-list architecture uses a deferred
-StartApplication for sysap followed by a MultipleWait barrier. Therefore the
-remaining wait may be hidden behind an application-start helper / StartSafe
-layer rather than a direct SYSSTART -> RProcess::Rendezvous relationship.
+- 05:56:36.447 arm
+- 05:56:36.447 queued
+- 05:56:40.445 complete reason=0
 
-B65 cannot identify that indirect waiter because it filters on requester UID3
-0x100059C9.
+Therefore profilesettingsmonitor is NOT the blocker.
 
-## Other useful evidence
+After that successful completion, the log shows no further B65
+STARTER_RENDEZVOUS arm/queue events and no 101 -> 102 transition.
 
-- cfserver.exe is not observed in this RM-356 run.
-- hwrmserver's 30 s timeout occurs before state 101 and Starter continues, so it
-  is not the active post-selftest blocker.
-- B64 self-test success remains active.
-- Startup remains Wait=1.
-- no StartAnimations=2.
-- B61 teardown guard remains healthy.
+This is the key B65 conclusion:
+
+**The remaining StartingCriticalApps blocker is not an unresolved process
+rendezvous captured by process::logon().**
+
+StarterServer becomes effectively silent after the profilesettingsmonitor
+completion except for request cancellation bookkeeping, while global state
+remains 101.
+
+## Other observations around the post-selftest phase
+
+Potential dependencies/errors observed after state 101 include:
+
+- sysap SVC miss 0x2D
+- ETel unimplemented phone opcodes 24011 / 22022 / 22008
+- AlarmServer LEAVE -1 activity
+- Phone Server initially missing and later spawned
+- !MediatorServer and VPbkSimServer are missing then launched
+- Telephone eventually panics CONE/14
+- CentralRepository IPC 0x21 unimplemented
+- ETel CUSTOMAPI open fails
+- Alarm server opcode 0xC unimplemented
+
+These are candidates only. B65 does not prove any one of them is what prevents
+Starter from transitioning to SelfTestOK=102.
+
+## Likely next diagnostic boundary
+
+The public generic SSM critical-app command list contains deferred
+wait-for-signal commands plus a multiple-wait barrier. B65 shows the
+post-selftest process rendezvous visible through process::logon() completes
+successfully, yet Starter does not advance.
+
+Therefore B66 should trace StarterServer's remaining async wait / command-list
+completion path rather than patching another child process blindly.
+
+Recommended B66 scope:
+
+- trace StarterServer request-status waits/completions after state 101;
+- identify which request remains pending after profilesettingsmonitor completes;
+- correlate request status addresses with child-process / custom-command /
+  multiple-wait ownership;
+- preserve all B64/B65 behavior;
+- do not force global state 102.
+
+Useful observed Starter request-status events:
+- request_status=0x00700364 is cancelled immediately after
+  profilesettingsmonitor rendezvous completion at 05:56:40.445;
+- additional Starter request statuses are only cancelled during final shutdown.
+
+## Exit stability
+
+B61 GSTORE_WIPEOUT_GUARD still fires 27 times, including retained-FBS
+segments, and shutdown reaches shutdown_done normally.
 
 ## Decision
 
-Selected next diagnostic: B66 CRITICALAPPWAIT1.
+B65 diagnostic success:
 
-Trace target-side process wait/signal lifecycle for the critical-app path
-regardless of requester identity:
+- no visual change from B64;
+- self-test remains fixed;
+- fatal 117 remains absent;
+- post-selftest profilesettingsmonitor rendezvous completes successfully;
+- no unresolved post-selftest process rendezvous explains state 101.
 
-- sysap
-- ailaunch / Home screen app-launch path
-- profilesettingsmonitor
-- cfserver
-
-Required evidence:
-
-- who arms rendezvous/logon on each target;
-- whether the target itself calls Rendezvous and with what reason;
-- whether a target signals with zero queued waiters;
-- pending wait counts at process finish.
-
-Do not change process/rendezvous semantics and do not force state 102.
+Next: B66 async-wait / command-list completion trace.
