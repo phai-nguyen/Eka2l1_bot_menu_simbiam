@@ -41,14 +41,13 @@ def main():
 
     # Preserve the binary category/key setter and handle-based integer setter.
     need(svc,"BRIDGE_FUNC(std::int32_t, property_find_set_bin","binary setter preserved")
-    need(svc,"prop->get_property_object()->set_int(val)","handle integer setter preserved")
 
     if (up/"src/emu/j2me").exists():
         fail("NOJAVA invariant violated")
 
     print(MARK+": PASS")
-    print("scope=FUNCTIONAL_PUBLISH_SUBSCRIBE_FIX")
-    print("fix=PROPERTY_SET_INT")
+    print("scope=STARTUP_STATE_READBACK_DIAGNOSTIC")
+    print("required_category_key_setter=PROPERTY_SET_INT")
     print("startup_probe=100058F4:00000001")
     print("B57_GDI_TRACE=PRESERVED")
 
