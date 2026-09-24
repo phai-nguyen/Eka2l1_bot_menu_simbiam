@@ -51,6 +51,9 @@ def main():
         r'(?m)^(\\s*)(?:const\\s+)?bool\\s+([A-Za-z_]\\w*)\\s*=\\s*[^;\\n]*set_int\\(val\\);\\s*$',
         block)
     if not m:
+        print("B60_PROPERTY_SET_INT_BLOCK_BEGIN")
+        print(block)
+        print("B60_PROPERTY_SET_INT_BLOCK_END")
         fail("handle integer set_int(val) assignment not found")
 
     indent=m.group(1)
