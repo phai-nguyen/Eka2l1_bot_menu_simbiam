@@ -55,19 +55,29 @@ def main():
         fail("property_find_set_int bounds not found")
 
     block=text[b:e]
-    m=re.search(r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*prop->set\(value\);\s*$', block)
+    fixed_existing=False
+    m=re.search(r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*prop->set_int\(value\);\s*$', block)
+    if m:
+        fixed_existing=True
+    else:
+        m=re.search(r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*prop->set\(value\);\s*$', block)
+
     if not m:
-        fail("buggy category/key integer setter call not found")
+        fail("category/key integer setter call not found")
+
     indent=m.group(1)
     res_name=m.group(2)
+    behavior="PRESERVE_EXISTING_SET_INT" if fixed_existing else "FIX_SET_INT"
+    setter_expr="prop->set_int(value)"
+
     new=(
         indent + "const std::int32_t nboot2_b58_before = prop->get_int();\\n" +
-        indent + "const bool " + res_name + " = prop->set_int(value);\\n" +
+        indent + "const bool " + res_name + " = " + setter_expr + ";\\n" +
         indent + "const std::int32_t nboot2_b58_after = prop->get_int();\\n\\n" +
         indent + "if ((static_cast<std::uint32_t>(cage) == 0x100058F4U) &&\\n" +
         indent + "    (static_cast<std::uint32_t>(key) == 0x00000001U)) {\\n" +
         indent + "    LOG_WARN(KERNEL,\\n" +
-        indent + "        \\\"[NBOOT2][STARTUP_STATE_PS] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} path=CATEGORY_KEY_INT behavior=FIX_SET_INT\\\",\\n" +
+        indent + "        \\\"[NBOOT2][STARTUP_STATE_PS] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} path=CATEGORY_KEY_INT behavior=" + behavior + "\\\",\\n" +
         indent + "        static_cast<std::uint32_t>(cage),\\n" +
         indent + "        static_cast<std::uint32_t>(key),\\n" +
         indent + "        nboot2_b58_before,\\n" +
@@ -89,9 +99,9 @@ def main():
     p.write_text(text,encoding="utf-8")
 
     print(MARK+": applied")
-    print("scope=FUNCTIONAL_PUBLISH_SUBSCRIBE_FIX")
-    print("bug=CATEGORY_KEY_INT_USED_BINARY_TEMPLATE_SETTER")
-    print("fix=PROPERTY_SET_INT")
+    print("scope=" + ("DIAGNOSTIC_READBACK" if fixed_existing else "FUNCTIONAL_PUBLISH_SUBSCRIBE_FIX"))
+    print("baseline_setter=" + ("SET_INT_ALREADY_PRESENT" if fixed_existing else "BINARY_TEMPLATE_SET"))
+    print("fix=" + ("NONE" if fixed_existing else "PROPERTY_SET_INT"))
     print("startup_probe=100058F4:00000001")
     print("redraw_behavior=UNCHANGED")
     print("focus_behavior=UNCHANGED")
