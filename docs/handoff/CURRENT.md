@@ -4490,3 +4490,28 @@ Next device question: does 100058F4:1 successfully enter Wait=1, and does any
 component later advance it to StartAnimations=2? Do not patch TfxServer,
 ClearRedrawStore, focus or redraw ordering until this synchronization state is
 observed.
+
+
+## Real-device RM-356 visual oracle — 2026-09-24
+
+Full reference:
+
+`docs/handoff/history/REAL5800-BOOT-REFERENCE-2026-09-24.md`
+
+User supplied a real Nokia 5800 normal-boot recording plus a no-SIM screenshot.
+
+The real visual chain is now an acceptance oracle:
+
+power-on -> white/NOKIA -> Nokia hands/welcome animation -> first-boot
+date/time UI when applicable -> S60 Idle/home.
+
+When no SIM is installed, the real RM-356 presents a continue-without-SIM /
+offline-mode question. The user's real-device observation is that Yes continues
+boot and No powers the phone off.
+
+B55-B57's blank white Startup surface is therefore a legitimate intermediate
+phase but not completion. Future builds must progress beyond white to the
+no-SIM query and/or welcome animation, then ultimately first-boot UI / Idle.
+
+Use the real RM-356 behavior as authoritative when it differs from generic open
+Symbian Startup source.
