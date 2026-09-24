@@ -61,7 +61,19 @@ def main():
 
                     for (std::size_t b56_cmd_i = 0; b56_cmd_i < b56_seg.commands_.size(); b56_cmd_i++) {
                         const gdi_store_command &b56_cmd = b56_seg.commands_[b56_cmd_i];
-                        const bool b56_draws_pixels = gdi_store_command_draws_pixels(b56_cmd.opcode_);
+                        bool b56_draws_pixels = false;
+                        switch (b56_cmd.opcode_) {
+                        case gdi_store_command_draw_rect:
+                        case gdi_store_command_draw_line:
+                        case gdi_store_command_draw_polygon:
+                        case gdi_store_command_draw_bitmap:
+                        case gdi_store_command_draw_text:
+                        case gdi_store_command_update_texture:
+                            b56_draws_pixels = true;
+                            break;
+                        default:
+                            break;
+                        }
 
                         b56_total_commands++;
                         if (b56_draws_pixels) {
