@@ -4665,3 +4665,25 @@ Canonical GREEN:
 Next device question: does any handle-based writer advance Startup state to
 StartAnimations=2? If neither P&S write path does, move upstream to the
 SSM/Starter command-list writer responsible for publishing value 2.
+
+
+## Visual note — host overlay colour change B58 -> B59
+
+User reports the small top-left host-side square was yellow on B58 and cyan/blue
+on B59.
+
+Inspection of the B59 screenshot (1125x2436) shows:
+
+- cyan square bounds approximately x=120..191, y=128..199;
+- the scaled 360x640 guest framebuffer begins around y=219 and occupies about
+  1125x2000 pixels.
+
+Therefore the coloured square is outside the Symbian guest framebuffer. It is a
+host-app overlay/UI element, not Nokia Startup pixels.
+
+Do not count yellow -> cyan as NATIVEBOOT2 boot progress. The guest visual
+checkpoint remains the same white Startup surface until the 0x100058F4:1 state
+machine advances beyond Wait=1.
+
+The exact host overlay source is not yet identified; avoid coupling boot fixes
+to this colour indicator without a source-level mapping.
