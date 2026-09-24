@@ -70,22 +70,22 @@ def main():
     behavior="PRESERVE_EXISTING_SET_INT" if fixed_existing else "FIX_SET_INT"
     setter_expr="prop->set_int(value)"
 
-    new=(
-        indent + "const std::int32_t nboot2_b58_before = prop->get_int();\\n" +
-        indent + "const bool " + res_name + " = " + setter_expr + ";\\n" +
-        indent + "const std::int32_t nboot2_b58_after = prop->get_int();\\n\\n" +
-        indent + "if ((static_cast<std::uint32_t>(cage) == 0x100058F4U) &&\\n" +
-        indent + "    (static_cast<std::uint32_t>(key) == 0x00000001U)) {\\n" +
-        indent + "    LOG_WARN(KERNEL,\\n" +
-        indent + "        \\\"[NBOOT2][STARTUP_STATE_PS] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} path=CATEGORY_KEY_INT behavior=" + behavior + "\\\",\\n" +
-        indent + "        static_cast<std::uint32_t>(cage),\\n" +
-        indent + "        static_cast<std::uint32_t>(key),\\n" +
-        indent + "        nboot2_b58_before,\\n" +
-        indent + "        value,\\n" +
-        indent + "        nboot2_b58_after,\\n" +
-        indent + "        " + res_name + " ? 1 : 0);\\n" +
-        indent + "}\\n"
-    )
+    new=f'''{indent}const std::int32_t nboot2_b58_before = prop->get_int();
+{indent}const bool {res_name} = {setter_expr};
+{indent}const std::int32_t nboot2_b58_after = prop->get_int();
+
+{indent}if ((static_cast<std::uint32_t>(cage) == 0x100058F4U) &&
+{indent}    (static_cast<std::uint32_t>(key) == 0x00000001U)) {{
+{indent}    LOG_WARN(KERNEL,
+{indent}        "[NBOOT2][STARTUP_STATE_PS] category=0x{{:08X}} key=0x{{:08X}} before={{}} requested={{}} after={{}} set_result={{}} path=CATEGORY_KEY_INT behavior={behavior}",
+{indent}        static_cast<std::uint32_t>(cage),
+{indent}        static_cast<std::uint32_t>(key),
+{indent}        nboot2_b58_before,
+{indent}        value,
+{indent}        nboot2_b58_after,
+{indent}        {res_name} ? 1 : 0);
+{indent}}}
+'''
     block=block[:m.start()]+new+block[m.end():]
 
     if "prop->set(value)" in block:
