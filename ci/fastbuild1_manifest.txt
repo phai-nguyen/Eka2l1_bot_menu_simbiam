@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B61 GSTOREWIPEOUT2 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B62 STARTERGLOBALSTATE1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -36,6 +36,7 @@ apply_nativeboot2_b58_startupstateps1.py|test_nativeboot2_b58_startupstateps1.py
 apply_nativeboot2_b59_gstoreexitguard1.py|test_nativeboot2_b59_gstoreexitguard1.py
 apply_nativeboot2_b60_startupstatewriter1.py|test_nativeboot2_b60_startupstatewriter1.py
 apply_nativeboot2_b61_gstorewipeout2.py|test_nativeboot2_b61_gstorewipeout2.py
+apply_nativeboot2_b62_starterglobalstate1.py|test_nativeboot2_b62_starterglobalstate1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
