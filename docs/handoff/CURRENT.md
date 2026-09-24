@@ -4515,3 +4515,38 @@ no-SIM query and/or welcome animation, then ultimately first-boot UI / Idle.
 
 Use the real RM-356 behavior as authoritative when it differs from generic open
 Symbian Startup source.
+
+
+## Boot-path decision — SIM present / normal startup
+
+Project direction confirmed by user: NATIVEBOOT2 will target the **normal Nokia 5800 RM-356 boot path with a SIM present**.
+
+This is now the primary acceptance path.
+
+The no-SIM/offline-mode branch remains only as a real-device reference and must
+not drive the next implementation decisions.
+
+Primary expected visual/state sequence:
+
+power-on
+ -> Nokia splash
+ -> Startup white transition surface
+ -> welcome/Nokia-hands animation
+ -> operator/startup continuation when configured
+ -> first-boot/RTC UI only when genuinely required
+ -> S60 Idle/home screen
+
+For the main test path, an offline/no-SIM confirmation dialog is **not**
+expected and must not be synthesized.
+
+B58/B59 selection rules under the SIM-present baseline:
+
+- First verify KPSStartupAppState progresses from Wait=1 to
+  StartAnimations=2.
+- If state 2 never appears, trace the normal critical-block / Starter
+  synchronization component responsible for advancing Startup.
+- If state 2 appears but the screen remains white, trace the Startup property
+  subscription callback into WaitingStartupAnimationStartL() and
+  DoStartupShowWelcomeAnimationL(), then the startup animation controller/assets.
+- Do not force the offline query, no-SIM state, Home focus, or a synthetic
+  animation.
