@@ -4610,3 +4610,58 @@ Next: device-test clean exit on B59. Once teardown is stable, add a separate
 Startup-state writer probe covering the handle-based integer P&S setter so the
 normal SIM-present path can identify who should advance 0x100058F4:1 from
 Wait=1 to StartAnimations=2.
+
+
+## Latest device override — B59 GSTOREEXITGUARD1 DEVICE1
+
+B59 is **DEVICE-PASS FOR CLEAN EXIT**.
+
+Full snapshot:
+
+`docs/handoff/history/B59-DEVICE1.md`
+
+The user reproduced NOKIA -> Startup white, selected `Thoát Emulator`, and
+returned normally without an iOS process crash. Logs complete the shutdown path
+through graphics join, state reset and shutdown_done.
+
+No `[NBOOT2][GSTORE_EXIT_GUARD]` marker appears in this run, so clean exit is
+device-confirmed but the guard branch is not independently proven to be the
+unique causal fix.
+
+Boot state remains:
+
+`0x100058F4:1 0 -> 1`
+
+with no category/key StartAnimations=2 write observed.
+
+## Latest build override — B60 STARTUPSTATEWRITER1
+
+B60 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B60-STARTUPSTATEWRITER1.md`
+
+B60 adds diagnostic-only handle-based writer marker:
+
+`[NBOOT2][STARTUP_STATE_HANDLE]`
+
+for Startup state property 0x100058F4:1. Existing B58 category/key tracing and
+B59 exit guard remain active.
+
+Canonical GREEN:
+
+- run `35999937174` / run number 178
+- job `107633834377`
+- HEAD `5a51e6a749e8d7fa357f7a747cc0156db55322c9`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `e456da3b8a8269666b3a0e1f92be7b74440512e1b5e50b804950b4ee36e86295`
+- IPA artifact `10808270519`
+- audit artifact `10807427655`
+
+Next device question: does any handle-based writer advance Startup state to
+StartAnimations=2? If neither P&S write path does, move upstream to the
+SSM/Starter command-list writer responsible for publishing value 2.
