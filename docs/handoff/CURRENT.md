@@ -4422,3 +4422,71 @@ Canonical GREEN:
 Next device question: identify exactly which guest operations record the
 full-screen bitmap and the two opaque white rectangles, and whether any later
 Startup draw attempts target the same canvas before the natural handoff.
+
+
+## Latest device override — B57 STARTUPGDIORIGIN1 DEVICE1
+
+B57 is **DEVICE-OBSERVED; DIAGNOSTIC SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B57-DEVICE1.md`
+
+The Startup 0x100058F4 process itself records the entire B56 white waiting
+frame at 13:57:39.894 on canvas 0x00807AA8:
+
+- SET_BRUSH_STYLE
+- GDI_BLT full-screen from FBS handle 0x8A
+- CLEAR_RECT full-screen with 0xFFFFFFFF
+- SET_BRUSH_STYLE
+- SET_BRUSH_COLOR 0xFFFFFFFF
+- CLEAR full-screen with 0xFFFFFFFF
+
+No later STARTUP_GDI_ORIGIN event targets that visible canvas before the
+natural handoff ~116 s later. Therefore the white screen is a genuine guest
+Startup waiting frame, not host/compositor-generated output.
+
+Startup also defines integer P&S category/key 0x100058F4:1. Official Startup
+source identifies this as KPSStartupAppState: 1=Wait, 2=StartAnimations,
+3=Finished.
+
+## Latest build override — B58 STARTUPSTATEPS1
+
+B58 is **BUILD-VALIDATED; DEVICE TEST REQUIRED; DIAGNOSTIC ONLY**.
+
+Full snapshot:
+
+`docs/handoff/history/B58-STARTUPSTATEPS1.md`
+
+B58 build-time classification proves the current B28-derived baseline already
+uses the correct category/key integer setter:
+
+`baseline_setter=SET_INT_ALREADY_PRESENT`
+
+Thus the older binary-template setter bug is not present in this project
+baseline and B58 changes no P&S behavior.
+
+B58 adds only:
+
+`[NBOOT2][STARTUP_STATE_PS]`
+
+around the existing set_int path for category 0x100058F4 key 1, logging
+before/requested/after and set result.
+
+Canonical GREEN:
+
+- run `35969142523` / run number 168
+- job `107534490446`
+- HEAD `9a7a47a37d95c3d4ddecc29e26f5edbcd3c4037e`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `49ff189c66556f77184041edf341a2ba1fbad72803eb98e084e7fc1bb18dfe8f`
+- IPA artifact `10795800813`
+- audit artifact `10795451320`
+
+Next device question: does 100058F4:1 successfully enter Wait=1, and does any
+component later advance it to StartAnimations=2? Do not patch TfxServer,
+ClearRedrawStore, focus or redraw ordering until this synchronization state is
+observed.
