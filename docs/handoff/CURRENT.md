@@ -4667,23 +4667,41 @@ StartAnimations=2? If neither P&S write path does, move upstream to the
 SSM/Starter command-list writer responsible for publishing value 2.
 
 
-## Visual note — host overlay colour change B58 -> B59
+## Visual note — B58/B59 top colour-state indicator
 
-User reports the small top-left host-side square was yellow on B58 and cyan/blue
-on B59.
+Frame-by-frame review of both device recordings corrects the earlier simplified
+classification.
 
-Inspection of the B59 screenshot (1125x2436) shows:
+The small coloured square is outside the fitted 360x640 Symbian framebuffer,
+so it is still a host-side overlay/indicator rather than a Nokia guest pixel.
+However it is NOT a fixed decorative colour: it changes through a discrete
+state sequence and stabilizes differently between B58 and B59.
 
-- cyan square bounds approximately x=120..191, y=128..199;
-- the scaled 360x640 guest framebuffer begins around y=219 and occupies about
-  1125x2000 pixels.
+B58 recording (256.63 s, 510x1108):
+- ~42-43 s: magenta, slot x≈12
+- ~44 s: cyan, slot x≈56
+- ~45 s: yellow, slot x≈98
+- ~46 s: magenta
+- ~47 s: cyan
+- ~48 s until emulator exit: stable yellow, slot x≈98
+- core RGB of stable yellow ≈ [253,253,1]
 
-Therefore the coloured square is outside the Symbian guest framebuffer. It is a
-host-app overlay/UI element, not Nokia Startup pixels.
+B59 recording (340.83 s, 510x1108):
+- ~64-65 s: green, slot x≈142
+- ~66-68 s: yellow, slot x≈98
+- ~69 s: magenta, slot x≈12
+- ~70 s until emulator exit: stable cyan, slot x≈56
+- core RGB of stable cyan ≈ [2,254,255]
 
-Do not count yellow -> cyan as NATIVEBOOT2 boot progress. The guest visual
-checkpoint remains the same white Startup surface until the 0x100058F4:1 state
-machine advances beyond Wait=1.
+The four colours map to four fixed horizontal slots (magenta/cyan/yellow/green),
+which strongly suggests a discrete host diagnostic/state indicator rather than
+random video colour noise.
 
-The exact host overlay source is not yet identified; avoid coupling boot fixes
-to this colour indicator without a source-level mapping.
+Therefore B58 -> B59 contains a real host-side state difference:
+stable YELLOW -> stable CYAN.
+
+Do not count this alone as Nokia guest boot progress because the guest
+framebuffer remains at the same white Startup checkpoint. But do preserve it as
+a diagnostic signal and trace its source before dismissing it. B59's teardown
+guard is not expected to execute during normal boot, so causality between the
+guard and this colour-state change is not yet established.
