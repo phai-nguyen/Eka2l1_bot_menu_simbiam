@@ -18,6 +18,7 @@ No P&S semantics or guest behavior changes.
 """
 from pathlib import Path
 import sys
+import re
 
 MARK="NATIVEBOOT2-B60-STARTUPSTATEWRITER1"
 
@@ -46,47 +47,39 @@ def main():
         fail("property_set_int bounds not found")
 
     block=text[b:e]
-    old='''        bool res = prop->get_property_object()->set_int(val);
+    m=re.search(
+        r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*prop->get_property_object\(\)->set_int\(val\);\s*$',
+        block)
+    if not m:
+        fail("handle integer setter call not found")
 
-        if (!res) {
-            return epoc::error_argument;
-        }
+    indent=m.group(1)
+    res_name=m.group(2)
+    new=f'''{indent}service::property *b60_obj = prop->get_property_object();
+{indent}const std::int32_t b60_before = b60_obj->get_int();
+{indent}const bool {res_name} = b60_obj->set_int(val);
+{indent}const std::int32_t b60_after = b60_obj->get_int();
 
-        return epoc::error_none;
+{indent}if ((static_cast<std::uint32_t>(b60_obj->first) == 0x100058F4U) &&
+{indent}    (static_cast<std::uint32_t>(b60_obj->second) == 0x00000001U)) {{
+{indent}    kernel::thread *b60_thr = kern->crr_thread();
+{indent}    kernel::process *b60_pr = kern->crr_process();
+{indent}    LOG_WARN(KERNEL,
+{indent}        "[NBOOT2][STARTUP_STATE_HANDLE] category=0x{{:08X}} key=0x{{:08X}} before={{}} requested={{}} after={{}} set_result={{}} process={{}} uid3=0x{{:08X}} thread={{}} handle=0x{{:08X}} path=HANDLE_INT behavior=OBSERVE_ONLY",
+{indent}        static_cast<std::uint32_t>(b60_obj->first),
+{indent}        static_cast<std::uint32_t>(b60_obj->second),
+{indent}        b60_before,
+{indent}        val,
+{indent}        b60_after,
+{indent}        {res_name} ? 1 : 0,
+{indent}        b60_pr ? b60_pr->name() : std::string("<null>"),
+{indent}        b60_pr ? static_cast<std::uint32_t>(std::get<2>(b60_pr->get_uid_type())) : 0,
+{indent}        b60_thr ? b60_thr->name() : std::string("<null>"),
+{indent}        static_cast<std::uint32_t>(h));
+{indent}}}
 '''
-    if block.count(old)!=1:
-        fail(f"handle integer setter anchor mismatch: {block.count(old)}")
+    block=block[:m.start()]+new+block[m.end():]
 
-    new='''        service::property *b60_obj = prop->get_property_object();
-        const std::int32_t b60_before = b60_obj->get_int();
-        bool res = b60_obj->set_int(val);
-        const std::int32_t b60_after = b60_obj->get_int();
-
-        if ((static_cast<std::uint32_t>(b60_obj->first) == 0x100058F4U) &&
-            (static_cast<std::uint32_t>(b60_obj->second) == 0x00000001U)) {
-            kernel::thread *b60_thr = kern->crr_thread();
-            kernel::process *b60_pr = kern->crr_process();
-            LOG_WARN(KERNEL,
-                "[NBOOT2][STARTUP_STATE_HANDLE] category=0x{:08X} key=0x{:08X} before={} requested={} after={} set_result={} process={} uid3=0x{:08X} thread={} handle=0x{:08X} path=HANDLE_INT behavior=OBSERVE_ONLY",
-                static_cast<std::uint32_t>(b60_obj->first),
-                static_cast<std::uint32_t>(b60_obj->second),
-                b60_before,
-                val,
-                b60_after,
-                res ? 1 : 0,
-                b60_pr ? b60_pr->name() : std::string("<null>"),
-                b60_pr ? static_cast<std::uint32_t>(std::get<2>(b60_pr->get_uid_type())) : 0,
-                b60_thr ? b60_thr->name() : std::string("<null>"),
-                static_cast<std::uint32_t>(h));
-        }
-
-        if (!res) {
-            return epoc::error_argument;
-        }
-
-        return epoc::error_none;
-'''
-    block=block.replace(old,new,1)
     text=text[:b]+block+text[e:]
 
     if text.count("[NBOOT2][STARTUP_STATE_HANDLE]")!=1:
