@@ -4550,3 +4550,63 @@ B58/B59 selection rules under the SIM-present baseline:
   DoStartupShowWelcomeAnimationL(), then the startup animation controller/assets.
 - Do not force the offline query, no-SIM state, Home focus, or a synthetic
   animation.
+
+
+## Latest device override — B58 STARTUPSTATEPS1 DEVICE1
+
+B58 is **DEVICE-OBSERVED; STATE READBACK SUCCESS; EXIT CRASH OBSERVED**.
+
+Full snapshot:
+
+`docs/handoff/history/B58-DEVICE1.md`
+
+Startup state marker proves category/key integer P&S works:
+
+`0x100058F4:1 before=0 requested=1 after=1 set_result=1`
+
+No category/key request for StartAnimations=2 appears in this run. The visible
+result remains Nokia splash -> stable Startup white surface.
+
+The supplied Apple .ips attributes the exit crash to host teardown:
+
+`gdi_store_command_segment::~gdi_store_command_segment`
+ -> `redraw_msg_canvas::~redraw_msg_canvas`
+ -> `window_server_client::~window_server_client`
+ -> `window_server::disconnect`
+ -> `kernel_system::wipeout`
+
+Exception is EXC_BAD_ACCESS / SIGSEGV at address 0x18 on the Symbian OS thread.
+
+## Latest build override — B59 GSTOREEXITGUARD1
+
+B59 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B59-GSTOREEXITGUARD1.md`
+
+B59 changes only redraw-store teardown. It avoids unsafe final deref of retained
+FBS font/bitmap refs when the object has ref_count==1 and owner==nullptr, and
+adds:
+
+`[NBOOT2][GSTORE_EXIT_GUARD]`
+
+B58 Startup-state diagnostics remain unchanged.
+
+Canonical GREEN:
+
+- run `35995597677` / run number 169
+- job `107619640241`
+- HEAD `656303d83d23efaf2a877a3ce2e69eb60ad9b652`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `e77367744136b20ece0e0d93eca34ca0540b29b496f09d2fd5f6af26a76c191f`
+- IPA artifact `10806605340`
+- audit artifact `10806047606`
+
+Next: device-test clean exit on B59. Once teardown is stable, add a separate
+Startup-state writer probe covering the handle-based integer P&S setter so the
+normal SIM-present path can identify who should advance 0x100058F4:1 from
+Wait=1 to StartAnimations=2.
