@@ -36,12 +36,8 @@ def main():
 
     text = path.read_text(encoding="utf-8")
 
-    for marker in (
-        "[NBOOT2][STARTUP_REPLAY_CANVAS]",
-        "[NBOOT2][STARTUP_REPLAY]",
-    ):
-        if marker not in text:
-            fail("missing predecessor marker: " + marker)
+    if "[NBOOT2][STARTUP_REPLAY_CANVAS]" not in text:
+        fail("missing predecessor marker: [NBOOT2][STARTUP_REPLAY_CANVAS]")
 
     if "[NBOOT2][STARTUP_GDI_SEGMENT]" in text:
         if "[NBOOT2][STARTUP_GDI_CMD]" in text and "[NBOOT2][STARTUP_GDI_DETAIL]" in text:
