@@ -48,7 +48,8 @@ def main():
 
     block=text[b:e]
     m=re.search(
-        r'(?m)^(\s*)(?:const\s+)?bool\s+([A-Za-z_]\w*)\s*=\s*[^;\n]*set_int\(val\);\s*        block)
+        r'(?m)^(\\s*)(?:const\\s+)?bool\\s+([A-Za-z_]\\w*)\\s*=\\s*[^;\\n]*set_int\\(val\\);\\s*$',
+        block)
     if not m:
         fail("handle integer set_int(val) assignment not found")
 
