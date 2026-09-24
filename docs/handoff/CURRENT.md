@@ -4309,3 +4309,57 @@ Primary acceptance:
   boundary.
 
 Send 3 logs + full video.
+
+
+## Latest device override — B55 STARTUPREPLAY1 DEVICE1
+
+B55 is **DEVICE-OBSERVED; CONTROLLED EXPERIMENT SUCCESS**.
+
+Full snapshot:
+
+`docs/handoff/history/B55-DEVICE1.md`
+
+At the natural Splash -> Startup transition, B55 sets
+`FLAG_SERVER_REDRAW_PENDING` exactly once. The Startup 0x100058F4 full-screen
+canvas owns one stored non-pending segment. The B55 video advances from the
+Nokia-logo splash to a stable blank white guest surface at the same transition,
+where B54 previously became black.
+
+This proves the Startup replay changes real guest output. However B55's
+`drawable_segments=1` field counts segment state, not actual pixel-writing
+commands, so the exact stored GDI content remains unresolved.
+
+## Latest build override — B56 STARTUPGDICMD1
+
+B56 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B56-STARTUPGDICMD1.md`
+
+B56 is diagnostic-only and adds:
+
+- `[NBOOT2][STARTUP_GDI_SEGMENT]`
+- `[NBOOT2][STARTUP_GDI_CMD]`
+- `[NBOOT2][STARTUP_GDI_DETAIL]`
+
+It enumerates the exact stored GDI command stream replayed by the visible
+Startup canvas and records bounded geometry/color/bitmap/text/texture details.
+B55 behavior is unchanged.
+
+Canonical GREEN:
+
+- run `35955643932` / run number 162
+- job `107493277047`
+- HEAD `1c0d14f9ab5a890f409a407d9075ea08ec14ac89`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `8f935d4a06ccb019ac97f0df3607c3ab90993ab352d0c8bcbf25944d16ef414a`
+- IPA artifact `10790611306`
+- audit artifact `10790198741`
+
+Device test: use the same RM-356 V60 path through the natural Splash -> Startup
+handoff and send the 3 logs plus recording. The next change must be selected
+from the exact Startup stored opcodes; do not force Home focus/redraw/timers.
