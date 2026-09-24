@@ -4809,3 +4809,48 @@ B61 teardown track is accepted. Keep B61 in the chain.
 Next boot boundary: trace System Starter / startup-policy / command-list
 execution responsible for publishing `EStartupAppStateStartAnimations = 2`
 on the normal SIM-present RM-356 path.
+
+
+## Latest build override — B62 STARTERGLOBALSTATE1
+
+B62 is **BUILD-VALIDATED; DEVICE TEST REQUIRED** and should be **installed over
+B61**.
+
+Full snapshot:
+
+`docs/handoff/history/B62-STARTERGLOBALSTATE1.md`
+
+B62 moves upstream from Startup's private Wait=1 property and traces the Starter
+critical-phase property:
+
+`KPSGlobalSystemState = 0x101F8766:0x41`
+
+New diagnostic marker:
+
+`[NBOOT2][STARTER_GLOBAL_STATE]`
+
+It covers category/key Get, category/key Set, and handle-based integer Set with
+before/requested/after values plus process/thread identity. It changes no P&S
+value.
+
+Nokia/Symbian Startup source uses this property to decide whether Starter's
+critical phase has ended. Important values are 100..104 for the early startup
+sequence, with 104 = CriticalPhaseOK; normal SIM-present terminal states include
+109 = NormalRfOn and 110 = NormalRfOff.
+
+Canonical GREEN:
+
+- run `36016936055` / run number 181
+- job `107691773271`
+- HEAD `bc8da2307427095d20bfd5d21c7b5b67fe958b8c`
+- compile requests/hits/misses `149/148/1`
+- actual compilations `1`
+- compilation failures `0`
+- IPA SHA-256
+  `d4800eec71e1d353ecfcb28fec2a73823f8bd06af706cada10cd3ddd3e36fb11`
+- IPA artifact `10814674270`
+- audit artifact `10814927913`
+
+Device test: install B62 over B61, run normal SIM-present boot through NOKIA ->
+white, then send logs. The key decision is the final value and writer of
+0x101F8766:0x41.
