@@ -5562,3 +5562,33 @@ B72 must be selected from the exact B71 resource bytes plus caller
 stack/module evidence. Do not synthesize SIM success or suppress Telephone
 panic.
 
+
+
+## Parallel exit-crash track — B70 host teardown
+
+A separate B70 issue is now recorded:
+
+`docs/handoff/history/B70-EXIT-IPCMSG-CRASH1.md`
+
+Symptom:
+after choosing Emulator exit, the iOS app can crash to the iPhone Home screen.
+
+The supplied .ips proves this is a host teardown crash:
+- EXC_BAD_ACCESS / SIGSEGV
+- invalid address `0x0000000100000041`
+- faulting thread: `Symbian OS thread`
+- top frame: `eka2l1::ipc_msg::~ipc_msg() + 104`
+- caller: `eka2l1::kernel_system::wipeout()`
+- lifecycle queue simultaneously waits in `shutdown_threads()`
+
+This is independent of the B71 PhoneUI CONE14 guest failure.
+
+Current upstream commit
+`437b29006bd8a0186f4070c9445f43e98e5c7435`
+contains explicit IPC-message lifetime and teardown-order fixes matching this
+crash class. Do not apply them to B71 pre-emptively.
+
+B71 DEVICE1 should also repeat the same Exit Emulator action. If the iOS host
+crash reproduces, B72 should use the .ips stack + upstream teardown fix as the
+separate host-exit target while preserving B71 PhoneUI diagnostics. If B71
+exits cleanly, do not introduce an unnecessary teardown patch.
