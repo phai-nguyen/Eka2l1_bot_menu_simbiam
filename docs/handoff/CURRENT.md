@@ -5237,3 +5237,59 @@ firmware resource itself is already available from the matching RPKG.
 Do not force state 102. The next diagnostic should trace whether StarterServer
 is actually resumed after the final profilesettingsmonitor rendezvous and which
 request/wait object or first operation follows that wakeup.
+
+
+## Latest build override — B68 STARTERWAKE1
+
+B68 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B68-STARTERWAKE1.md`
+
+RM-356 RPKG analysis resolved the normal StartingCriticalApps list as RID6.
+The final process item is `profilesettingsmonitor.exe`, and B66 DEVICE1 proves
+it rendezvouses successfully with reason 0. Starter nevertheless never requests
+global state 102.
+
+B68 is diagnostic-only and traces the exact continuation boundary with:
+
+- `[NBOOT2][STARTER_WAKE]`
+- `[NBOOT2][STARTER_NOTIFY_WAKE]`
+- `[NBOOT2][STARTER_WAIT_ANY]`
+- `[NBOOT2][STARTER_SCHED]`
+- `[NBOOT2][STARTER_SVC]`
+
+The recurring SYSSTART KErrCancel on request status `0x00700364` is not treated
+as causal by itself because the same pattern follows earlier successful
+WaitForStart cycles. B68 compares request count/thread state and proves whether
+StarterServer is signaled, scheduled, resumes guest code, and which SVC/wait
+comes next.
+
+B68 does not modify request results, signal counts, scheduler behavior,
+rendezvous behavior, SAServer responses, P&S state, graphics or teardown. It
+does not force state 102.
+
+Canonical GREEN:
+
+- run `36081287241` / run number 206
+- job `107903597467`
+- build HEAD `4f4f03648498c2511e35d941fbc2d003adbfbe99`
+- manifest/apply/contract/regression PASS
+- iOS compile/link + binary invariants PASS
+- compile requests/hits/misses `150/145/5`
+- cache hit rate `96.67%`
+- compilation failures `0`
+- IPA SHA-256
+  `45809eea0e6bce81b2822ebeaca2021330791b378c9b65e7930454f1f5ab0e57`
+- IPA artifact `10841699589`
+- audit artifact `10841769277`
+- NOJAVA / MANIC3 preserved
+
+Next: install B68 over B67 if B67 was installed, otherwise over B66. Boot
+normally through NOKIA -> blank-white Startup, exit normally and send the three
+logs. Video is needed only if visible behavior changes.
+
+Primary DEVICE1 decision is whether the final profilesettingsmonitor rendezvous
+differs from earlier successful WaitForStart cycles at notify -> wait ->
+scheduler -> first resumed SVC.
