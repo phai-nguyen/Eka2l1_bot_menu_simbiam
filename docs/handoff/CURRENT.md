@@ -5204,3 +5204,36 @@ logs. Video is needed only if visual behavior changes. Acceptance is a complete
 STARTER_SSC_DUMP begin/data/end sequence with captured==raw_size and
 truncated=false. Reconstruct/decode the real SSC before selecting any B68
 functional change; do not force state 102 directly.
+
+
+## Firmware-policy override — RM-356 SYM.RPKG STARTER MAP
+
+The user supplied the matching `SYM.RPKG`. It has now been parsed directly.
+
+Full snapshot:
+
+`docs/handoff/history/RM356-RPKG-STARTER-MAP1.md`
+
+Key result:
+
+- RPKG contains 8030 Z-drive entries.
+- Exact `Z:\\resource\\Starter_Arm.rsc` extracted:
+  SHA-256 `d29b88c93023f201e0b647e248036049ea4fce87acdb511d3e1450b491a05d92`.
+- The normal-mode StartingCriticalApps command list is resolved as RID6:
+  `ailaunch -> startup -> sysap -> phoneui -> clknitzmdls -> conditional touchscreen/plugin -> profilesettingsmonitor`.
+- B66 device execution matches this list.
+- `profilesettingsmonitor` is the final process item and successfully
+  rendezvouses at 06:50:48.282.
+- After that completion SYSSTART makes no global-state request for 102 and emits
+  no further StarterServer activity until teardown.
+
+Therefore the current blocker boundary is no longer an unknown critical app or
+process-rendezvous dependency. It is the Starter state-machine continuation /
+async-request wakeup path after the final RID6 WaitForStart completion.
+
+B67 remains useful only as a device-side byte-for-byte VFS verification. The
+firmware resource itself is already available from the matching RPKG.
+
+Do not force state 102. The next diagnostic should trace whether StarterServer
+is actually resumed after the final profilesettingsmonitor rendezvous and which
+request/wait object or first operation follows that wakeup.
