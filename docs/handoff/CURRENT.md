@@ -5496,61 +5496,69 @@ Also determine whether SIM P&S keys are touched and whether SAServer reaches
 
 B71 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
 
-Full snapshot:
+Full snapshots:
+- `docs/handoff/history/B70-DEVICE1.md`
 - `docs/handoff/history/B71-PHONEUICONE14RES1.md`
 
-B70 DEVICE1 is closed; no repeat is needed.
+B70 DEVICE1 is closed; no repeat is required.
 
-New proven first-fatal chain:
-`Telephone[0x100058B3] opens phoneui.r01 -> CONE 14 -> Starter result 14
-(request_status 0x00701684) -> SAServer 0x64 -> global state 101 -> 116
+Proven first-fatal chain:
+
+`Telephone[0x100058B3] opens phoneui.r01 -> CONE 14
+-> Starter result 14 -> global state 101 -> 116
 -> native Phone start-up failed UI`.
 
-The official Symbian meaning of CONE 14 is a requested resource not being
-found in any resource file.
+Authoritative Symbian Classic UI defines CONE 14 as
+`ECoePanicNoResourceFileForId`.
 
-Matching RM-356 SYM.RPKG evidence:
-- phoneui.r01 exists, size 28134;
-- SHA-256
-  `05c419086de5710d361f7d8c910ef5284006b5ee879cb0acb448b8090a7ce9a1`;
-- resource signature base `0x4E738000`;
-- 368 resources, indices `0x001..0x170`.
+Canonical B71 traces only this exact Telephone/PhoneUI failure and adds:
 
-B71 traces only Telephone self-panic CONE14 and logs:
 - `[NBOOT2][CONE14_PHONEUI]`
 - `[NBOOT2][CONE14_FRAME]`
 - `[NBOOT2][CONE14_STACK]`
-- `[NBOOT2][CONE14_RESID_CANDIDATE]`
+- `[NBOOT2][CONE14_CODE16]`
+- `[NBOOT2][CONE14_FP]`
 - `[NBOOT2][CONE14_SUMMARY]`
+- `[NBOOT2][PHONEUI_RSC_DUMP]`
 
-It scans 128 stack words and tags 0x4E738xxx resource-ID candidates while
-preserving the original panic.
+It scans 128 stack words, resolves code candidates, dumps bounded callsite code,
+and captures the exact
+`z:\resource\apps\phoneui.r01`
+through a separate read-only VFS handle.
 
-B71 does not force SIM/state 102, suppress CONE14, ignore the critical-app
-failure, or alter Starter/SAServer/P&S/rendezvous behavior.
+Important evidence rule:
+canonical B71 uses `resource_range_assumption=NONE`.
+Do not use the earlier unverified 0x4E738xxx resource-range draft as evidence.
+Decode the exact B71 PHONEUI_RSC_DUMP bytes first.
+
+B71 does not force SIM/state 102, suppress CONE14, rewrite Starter result 14,
+or alter resource/SAServer/P&S/rendezvous behavior.
 
 Canonical GREEN:
-- run `36107522682` / #222
-- job `107983353265`
-- build HEAD `0b1ba9911c1ec09d163921b92d6ba4600e8e7f02`
+
+- run `36107741479` / #224
+- job `107984034152`
+- build HEAD `e5a6c3a55d448cbdc56e8b3a16b397451d84ebe4`
 - manifest/apply/contract/regression PASS
 - iOS compile/link PASS
 - binary invariants PASS
 - IPA package/upload PASS
-- compile requests/hits/misses `151/150/1`
-- cache hit rate `99.34%`
+- compile requests/hits/misses `151/149/2`
+- cache hit rate `98.68%`
 - compilation failures `0`
 - IPA SHA-256
-  `ef5f92ce12387ee9e4a80d71ac5514945fe193b9d69f5ba7ca7c49508f870678`
-- IPA artifact `10851761787`
-- audit artifact `10851357336`
+  `de93877fb12c33e1b35840a4dd108c5ebd2f1b6fc104812753e630d269aef9cc`
+- IPA artifact `10851856967`
+- audit artifact `10851452716`
 - NOJAVA / MANIC3 preserved
 
 Next device test:
-install B71 over B70, run normal Emulator boot, wait until either the same
-Phone start-up failed UI appears or visible behavior changes. If the same
-failure appears, leave it stable 5-10 seconds, exit normally, and send the
-three EKA2L1 logs. Video only if visible behavior differs.
+install B71 over B70, run normal Emulator boot, and wait until the same
+Phone start-up failed UI appears. Leave that screen stable for 5-10 seconds,
+then exit normally and send the three EKA2L1 logs. Video only if visible
+behavior differs.
 
-B72 must be selected from B71's exact resource-ID/caller evidence. Do not
-synthesize SIM success or suppress Telephone panic.
+B72 must be selected from the exact B71 resource bytes plus caller
+stack/module evidence. Do not synthesize SIM success or suppress Telephone
+panic.
+
