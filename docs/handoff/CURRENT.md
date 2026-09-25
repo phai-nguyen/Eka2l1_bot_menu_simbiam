@@ -5592,3 +5592,60 @@ B71 DEVICE1 should also repeat the same Exit Emulator action. If the iOS host
 crash reproduces, B72 should use the .ips stack + upstream teardown fix as the
 separate host-exit target while preserving B71 PhoneUI diagnostics. If B71
 exits cleanly, do not introduce an unnecessary teardown patch.
+
+
+## Latest device override — B71 PHONEUICONE14RES1 DEVICE1
+
+B71 is **DEVICE-OBSERVED; CONE14 REPRODUCED; PANIC STACK CAPTURED; B70 EXIT CRASH NOT REPRODUCED**.
+
+Full snapshot:
+- `docs/handoff/history/B71-DEVICE1.md`
+
+Key results:
+
+- Telephone UID3 `0x100058B3` again self-panics `CONE 14`.
+- panic PC/LR resolve to `euser.dll`; the captured stack contains real frames
+  in `bafl.dll`, `cone.dll` and `PhoneUIUtils.dll`.
+- 128 stack words were scanned.
+- no register/stack value matches `0x4E738xxx`;
+  `stack_candidates=0`.
+- therefore the logical PhoneUI resource ID has already been consumed before
+  the final panic path; do not keep widening the thread_kill stack probe.
+
+Matching SYM.RPKG was re-checked:
+- `phoneui.r01` size 28134;
+- index table offset 27396;
+- 368 resources, signature base `0x4E738000`.
+- PhoneUIUtils.dll contains five aligned PhoneUI resource IDs
+  `0x160,0x00A,0x019,0x156,0x0C9`; all five records exist.
+- phoneui.exe contains `0xE2`; that record also exists.
+
+This weakens the simple "missing record in RPKG" hypothesis and moves the
+investigation toward CONE/BAFL resource registration/signature/lookup routing.
+
+State path in B71:
+- P&S 0 -> 100 -> 101 -> 116.
+- after Telephone panic, Starter completion result=14 at
+  request_status `0x00701684`.
+- SAServer 0x64 input is `0x75 = 117`.
+- here the dual enums agree semantically on **FatalStartupError**:
+  StartupAdaptation 117 -> P&S 116.
+
+SIM keys remain initialized at 100; no ESimUsable is observed before the
+Telephone failure.
+
+Exit result:
+the user exited through the game-menu/Emulator exit path and the iOS app did
+NOT crash. Logs reach `shutdown_threads_done`, `shutdown_done`,
+`normal_restart_begin`, then a fresh log records
+`normal_restart_done has_device=1`.
+
+Therefore the B70 `ipc_msg::~ipc_msg()` host crash is not reproduced on B71.
+Do not apply the proposed teardown backport as B72 without another
+reproduction.
+
+Selected next diagnostic:
+B72 PHONEUIRSCIO1 traces Telephone read/seek activity for exactly
+`Z:\resource\apps\phoneui.r01`, so the exact matching RPKG index table can
+map the last pre-CONE14 access back to a resource record or prove the lookup
+fails before record access.
