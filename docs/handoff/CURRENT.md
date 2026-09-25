@@ -6154,3 +6154,71 @@ B79 is selected only from B78 validated call-chain evidence.
 
 Start a fresh chat with:
 docs/handoff/NEWCHAT-B78-2026-09-25.md
+
+
+## Latest device override — B78 PHONEUICALLCHAIN1 DEVICE1
+
+B78 is **DEVICE-OBSERVED; REAL CALLSITES PROVEN; BLX TARGETS UNRESOLVED**.
+
+Full snapshot:
+- docs/handoff/history/B78-DEVICE1.md
+
+B78 proves 13 real Thumb BL/BLX callsites.
+
+FileServer deep-stack:
+- +0x1B70 BLX, B78 target unresolved
+- +0x1B78 BLX, B78 target unresolved
+
+CONE14 near-stack:
+- +0x3A34 BLX, B78 target unresolved
+- +0x3B48 BL -> +0x3A28
+- +0x1BBC BL -> +0x3B2E
+
+CONE14 remains reason 14 / r6=0x1099B02D.
+No callhandlingui.r01 registration/open occurs.
+
+Host normal restart remains clean.
+
+## Latest build override — B79 PHONEUICALLCHAIN2
+
+B79 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B79-PHONEUICALLCHAIN2.md
+
+B79 adds architecture-correct Thumb BLX target decoding plus stack locality.
+
+Validated B78 vectors:
+- +0x1B70 F002 EDC0 -> +0x4274
+- +0x1B78 F002 ED8C -> +0x41AC
+- +0x3A34 F000 EE46 -> +0x4350
+
+Markers:
+- [NBOOT2][PHONEUI_BLX_TARGET]
+- [NBOOT2][PHONEUI_CALLCHAIN_EDGE]
+
+Diagnostic-only; no guest or host behavior changes.
+
+Canonical GREEN:
+- run 36151562614 / #248
+- job 108125827530
+- functional HEAD ab66e3d33fc39b2a0f2fe326971056e72cdf0f0d
+- compile requests/hits/misses 152/150/2
+- cache hit 98.68%
+- compilation failures 0
+- IPA SHA-256 eb62a6e7a49438ee8cce42dfba04bc494efece657de34667c5bf48c06c0f8f90
+- IPA artifact 10871089877
+- audit artifact 10871269583
+- Mach-O UUID 462E23A0-2CCC-3C5A-B7BA-0D19D1BF0AD6
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B79, boot to current Phone startup failure, wait 5-10 s, exit normally,
+send standard logs.
+
+B80 is selected only from B79 DEVICE1 call-chain evidence.
+
+## New-chat checkpoint — B79
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B79-2026-09-25.md
