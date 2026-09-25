@@ -1,7 +1,8 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
 Updated: 2026-09-25
-Latest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — BUILD-VALIDATED; DEVICE TEST REQUIRED\nLatest diagnostic build HEAD: 42ca0136983714b01fd259120921188066c71af4
+Latest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — BUILD-VALIDATED; DEVICE TEST REQUIRED
+Latest diagnostic build HEAD: 42ca0136983714b01fd259120921188066c71af4
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
