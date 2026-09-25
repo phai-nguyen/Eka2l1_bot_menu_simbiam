@@ -5709,3 +5709,72 @@ exit through the same game-menu/Emulator path, and send the three standard logs
 plus Persistent-prev if present. Video only if visible behavior changes.
 
 Also report whether Exit Emulator remains clean or the host crash returns.
+
+
+## Latest device override — B72 PHONEUIRSCIO1 DEVICE1
+
+B72 is **DEVICE-OBSERVED; PHONEUI RSC OPEN PROVEN; ZERO READ/SEEK MARKERS; CLEAN EXIT**.
+
+Full snapshot:
+- `docs/handoff/history/B72-DEVICE1.md`
+
+Key evidence:
+- phoneui.r01 is opened four times.
+- final open: `17:24:53.938`, handle `1114122`.
+- Telephone CONE14: `17:24:53.939`, about 1 ms later.
+- `[NBOOT2][PHONEUI_RSC_READ]` count = 0.
+- `[NBOOT2][PHONEUI_RSC_SEEK]` count = 0.
+- no Unknown FSServer opcode occurs at that boundary.
+
+Therefore the CONE14 path does not pass through the B72
+`fs_server_client::file_read/file_seek` instrumentation after the observed
+open. The next layer must identify caller/open ownership and alternate
+FileServer opcodes / ReadFileSection, or prove failure is above EFsrv in
+CONE/BAFL registration/search.
+
+Exit Emulator is clean again:
+`shutdown_threads_done -> shutdown_done -> normal_restart_begin ->
+normal_restart_done has_device=1`.
+
+Do not patch the old B70 ipc_msg teardown crash unless it reproduces again.
+
+## Latest build override — B73 PHONEUIFSFLOW1
+
+B73 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- `docs/handoff/history/B73-PHONEUIFSFLOW1.md`
+
+B73 adds diagnostic-only:
+- `[NBOOT2][PHONEUI_FS_FLOW]`: every Telephone FileServer request with raw
+  and translated opcode, argument types/raw args, and arg3 file-path
+  resolution.
+- `[NBOOT2][PHONEUI_RSC_OPEN]`: exact phoneui.r01 caller process/UID/thread,
+  handle and open mode.
+- `[NBOOT2][PHONEUI_READ_SECTION]`: Telephone direct ReadFileSection path.
+
+B72 read/seek probes remain preserved.
+
+No FileServer/resource/SIM/Starter behavior is changed.
+
+Canonical GREEN:
+- run `36125160546` / #237
+- job `108039473244`
+- build HEAD `80e46d162bb17ccc71b325e830607d49f625aed4`
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- compile requests/hits/misses `151/149/2`
+- cache hit rate `98.68%`
+- compilation failures `0`
+- IPA SHA-256
+  `c36cfe695a0c4fc5475b197fa7a30c26036a076c277d5f9d302db4997c67ad0e`
+- IPA artifact `10859887042`
+- audit artifact `10858947250`
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B73 over B72, reproduce the same startup-failure boundary, wait 5-10
+seconds, exit via game-menu/Emulator, and send the standard logs plus
+Persistent-prev if present. Video only if visible behavior changes.
