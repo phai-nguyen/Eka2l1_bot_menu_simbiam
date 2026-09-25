@@ -5293,3 +5293,82 @@ logs. Video is needed only if visible behavior changes.
 Primary DEVICE1 decision is whether the final profilesettingsmonitor rendezvous
 differs from earlier successful WaitForStart cycles at notify -> wait ->
 scheduler -> first resumed SVC.
+
+
+## Latest device override — B68 STARTERWAKE1 DEVICE1
+
+B68 is **DEVICE-OBSERVED; FINAL RID6 WAKE/SCHEDULER PATH PASS; ALARM OPCODE 0x0C IDENTIFIED AS NEXT BLOCKER**.
+
+Full snapshot:
+
+`docs/handoff/history/B68-DEVICE1.md`
+
+The final RM-356 RID6 process `profilesettingsmonitor.exe` completes
+rendezvous with reason 0. Its request status changes request_count `-1 -> 0`,
+StarterServer becomes runnable, the scheduler selects SYSSTART/StarterServer,
+and guest code resumes immediately.
+
+Therefore do not patch profilesettingsmonitor, notify signaling, the request
+semaphore or scheduler based on this run.
+
+Starter continues past the final WaitForStart and then reaches:
+
+`Unimplemented opcode for Alarm server 0xC`
+
+Immediately afterward it blocks in WaitForAnyRequest. A later KErrNone
+completion wakes Starter once, Starter resumes at SVC 0x800000, then calls
+WaitForAnyRequest again and remains blocked until exit.
+
+Global state remains `0 -> 100 -> 101`; B64 self-test remains KErrNone and
+B61 teardown remains healthy.
+
+Current EKA2L1 upstream identifies Alarm opcode 12 / 0x0C as
+`EASShdOpCodeGetAlarmIdList`. Upstream commit
+`127823a47b76c7edd50ef8e0b52ddb9b71a18782` adds the missing response for
+opcodes 9/11/12. This exact upstream fix is selected for B69.
+
+## Latest build override — B69 ALARMIDLIST1
+
+B69 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B69-ALARMIDLIST1.md`
+
+B69 narrowly backports EKA2L1 upstream commit
+`127823a47b76c7edd50ef8e0b52ddb9b71a18782` for Alarm ID-list requests.
+
+It adds:
+- Alarm opcode 9 = GetAlarmIdListForCategory
+- Alarm opcode 12 / 0x0C = GetAlarmIdList
+- shared serializer/completion for opcodes 9/11/12
+- marker `[NBOOT2][ALARM_ID_LIST]`
+
+The request now serializes the current (empty) alarm ID list, writes transfer
+size to descriptor slot 1 and completes KErrNone instead of remaining
+unanswered.
+
+No global-state injection, scheduler change, rendezvous change or SAServer
+change is made.
+
+Canonical GREEN:
+
+- run `36094691714` / run number 209
+- job `107944359982`
+- build HEAD `7902d36459ddc3d6aea09e11ecd120f8ded27e11`
+- manifest/apply/contract/regression PASS
+- iOS compile/link + binary invariants PASS
+- compile requests/hits/misses `150/148/2`
+- cache hit rate `98.67%`
+- compilation failures `0`
+- IPA SHA-256
+  `dede20f7b4392d236c0fc71d0b57ec5150de791bf6beca896baf2b073e18ac58`
+- IPA artifact `10846748557`
+- audit artifact `10846684036`
+- NOJAVA / MANIC3 preserved
+
+Next: install B69 over B68 and boot normally. Acceptance is
+`[NBOOT2][ALARM_ID_LIST] opcode=0xC ... completion=KErrNone`, disappearance
+of the old unimplemented-opcode log, and evidence that Starter advances beyond
+the former post-0xC wait. Check whether global state moves beyond 101; otherwise
+take the first new post-0xC blocker as the next evidence.
