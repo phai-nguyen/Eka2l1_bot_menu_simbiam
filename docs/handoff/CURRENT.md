@@ -6459,3 +6459,24 @@ unverified export labels.
 
 Start a fresh chat with:
 `docs/handoff/NEWCHAT-B81-2026-09-25.md`
+
+
+
+### B81 offline veneer-pointer correlation
+
+The literal pointers in the B81 64-byte fingerprints can be assigned to
+already-loaded modules using their exact B81 runtime code bases:
+- `+0x46F4` veneer literal `0x8038AD15` -> BAFL base
+  `0x80387898`, Thumb code offset `+0x346C`.
+- `+0x4694` fingerprint includes literals `0x806EC875`,
+  `0x806EC941`, `0x806ECF37`, `0x806EC205`; CONE base
+  `0x806E8E68` maps these to Thumb code offsets
+  `+0x3A0C / +0x3AD8 / +0x40CE / +0x339C`.
+- `+0x46C4` veneer literal `0x806ECA17` -> CONE Thumb code offset
+  `+0x3BAE`. This falls between the active CONE stack frames
+  `+0x3B96` and `+0x3BBA` recorded at CONE14.
+
+These are address-to-module mappings only; export/function names remain
+unverified. Next offline work is to inspect exact RM-356 BAFL/CONE export
+boundaries and disassembly at the mapped offsets. Do not infer a functional
+resource-registration fix solely from proximity.
