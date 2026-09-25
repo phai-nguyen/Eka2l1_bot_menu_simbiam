@@ -5861,3 +5861,11 @@ Next:
 install B74 over B73, reproduce startup failure, wait 5-10 seconds, exit via
 game-menu/Emulator and send standard logs plus Persistent-prev if present.
 Video only if visible behavior changes.
+
+
+## New-chat checkpoint — B74
+
+For a fresh conversation, start with:
+`docs/handoff/NEWCHAT-B74-2026-09-25.md`
+
+This compact checkpoint points to the full B73 DEVICE1 and B74 build evidence and must be treated as the latest continuation point. Do not re-investigate B65-B73.
