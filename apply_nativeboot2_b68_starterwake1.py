@@ -46,11 +46,10 @@ def main():
     svc=up/"src/emu/kernel/src/svc.cpp"
     sched=up/"src/emu/kernel/src/scheduler.cpp"
     lib=up/"src/emu/kernel/src/libmanager.cpp"
-    timer=up/"src/emu/kernel/src/timer.cpp"
     sa=up/"src/emu/services/src/sms/sa/sa.cpp"
     fs=up/"src/emu/services/src/fs/files.cpp"
 
-    for p in (proc,thr,svc,sched,lib,timer,sa,fs):
+    for p in (proc,thr,svc,sched,lib,sa,fs):
         if not p.is_file():
             fail(f"missing source: {p}")
 
@@ -59,9 +58,8 @@ def main():
     sv=svc.read_text(encoding="utf-8")
     sc=sched.read_text(encoding="utf-8")
     lm=lib.read_text(encoding="utf-8")
-    ti=timer.read_text(encoding="utf-8")
 
-    combined="\n".join((pr,th,sv,sc,lm,ti))
+    combined="\n".join((pr,th,sv,sc,lm))
     if "[NBOOT2][STARTER_WAKE]" in combined:
         print(MARK+": already applied")
         return
@@ -74,7 +72,6 @@ def main():
         ("[NBOOT2][STARTER_GLOBAL_STATE]",sv,"B62"),
         ("[NBOOT2][SA_SELFTEST_RESPONSE]",sa.read_text(encoding="utf-8"),"B64"),
         ("[NBOOT2][STARTER_SSC_DUMP]",fs.read_text(encoding="utf-8"),"B67"),
-        ("info.done_nof.complete(epoc::error_cancel);",ti,"timer cancel baseline"),
     )
     for needle,text,name in gates:
         if needle not in text:
@@ -299,117 +296,14 @@ def main():
 '''
     lm=rep1(lm,old,new,"B68 SYSSTART SVC trace")
 
-    # 6) Timer source: patch inside the two timer functions by semantic
-    # statements. The bootstrap timer implementation carries older race guards,
-    # so surrounding source differs from upstream while these operations remain.
-    schedule_sig="        bool timer::schedule_at("
-    schedule_start=ti.find(schedule_sig)
-    if schedule_start < 0:
-        fail("B68 timer::schedule_at signature missing")
-    schedule_end=ti.find("\n        bool timer::after(",schedule_start)
-    if schedule_end < 0:
-        fail("B68 timer::schedule_at end missing")
-    schedule_region=ti[schedule_start:schedule_end]
-
-    arm_stmt="            info.done_nof = epoc::notify_info(sts, requester);"
-    if schedule_region.count(arm_stmt) != 1:
-        fail(f"B68 timer arm statement: expected one anchor, found {schedule_region.count(arm_stmt)}")
-
-    arm_new=arm_stmt+'''
-            kernel::process *nboot2_b68_timer_pr =
-                requester ? requester->owning_process() : nullptr;
-            if (nboot2_b68_timer_pr &&
-                (nboot2_b68_timer_pr->get_uid() == 0x100059C9U)) {
-                LOG_WARN(KERNEL,
-                    "[NBOOT2][STARTER_TIMER] phase=arm timer_id={} "
-                    "request_status=0x{:08X} requester_thread={} "
-                    "request_count={} thread_state={} deadline={} "
-                    "behavior=OBSERVE_ONLY",
-                    unique_id(), sts.ptr_address(),
-                    requester ? requester->name() : std::string("<null>"),
-                    requester ? requester->request_count() : -9999,
-                    requester
-                        ? static_cast<int>(requester->current_state())
-                        : -1,
-                    deadline);
-            }'''
-    schedule_region=schedule_region.replace(arm_stmt,arm_new,1)
-    ti=ti[:schedule_start]+schedule_region+ti[schedule_end:]
-
-    cancel_sig="        bool timer::cancel_request()"
-    cancel_start=ti.find(cancel_sig)
-    if cancel_start < 0:
-        fail("B68 timer::cancel_request signature missing")
-    cancel_end=ti.find("\n        bool timer::",cancel_start+len(cancel_sig))
-    if cancel_end < 0:
-        fail("B68 timer::cancel_request end missing")
-    cancel_region=ti[cancel_start:cancel_end]
-
-    cancel_stmt="            info.done_nof.complete(epoc::error_cancel);"
-    if cancel_region.count(cancel_stmt) != 1:
-        fail(f"B68 timer cancel statement: expected one anchor, found {cancel_region.count(cancel_stmt)}")
-
-    cancel_new='''            kernel::thread *nboot2_b68_timer_requester =
-                info.done_nof.requester;
-            kernel::process *nboot2_b68_timer_pr =
-                nboot2_b68_timer_requester
-                    ? nboot2_b68_timer_requester->owning_process()
-                    : nullptr;
-            const bool nboot2_b68_starter_timer =
-                nboot2_b68_timer_pr &&
-                (nboot2_b68_timer_pr->get_uid() == 0x100059C9U);
-            const std::uint32_t nboot2_b68_timer_sts =
-                info.done_nof.sts.ptr_address();
-            const int nboot2_b68_timer_count_before =
-                nboot2_b68_timer_requester
-                    ? nboot2_b68_timer_requester->request_count()
-                    : -9999;
-            const int nboot2_b68_timer_state_before =
-                nboot2_b68_timer_requester
-                    ? static_cast<int>(
-                        nboot2_b68_timer_requester->current_state())
-                    : -1;
-
-            if (nboot2_b68_starter_timer) {
-                LOG_WARN(KERNEL,
-                    "[NBOOT2][STARTER_TIMER] phase=cancel_before timer_id={} "
-                    "request_status=0x{:08X} requester_thread={} "
-                    "request_count={} thread_state={} behavior=OBSERVE_ONLY",
-                    unique_id(), nboot2_b68_timer_sts,
-                    nboot2_b68_timer_requester->name(),
-                    nboot2_b68_timer_count_before,
-                    nboot2_b68_timer_state_before);
-            }
-
-            info.done_nof.complete(epoc::error_cancel);
-
-            if (nboot2_b68_starter_timer) {
-                LOG_WARN(KERNEL,
-                    "[NBOOT2][STARTER_TIMER] phase=cancel_after timer_id={} "
-                    "request_status=0x{:08X} requester_thread={} "
-                    "request_count_before={} request_count_after={} "
-                    "thread_state_before={} thread_state_after={} "
-                    "behavior=OBSERVE_ONLY",
-                    unique_id(), nboot2_b68_timer_sts,
-                    nboot2_b68_timer_requester->name(),
-                    nboot2_b68_timer_count_before,
-                    nboot2_b68_timer_requester->request_count(),
-                    nboot2_b68_timer_state_before,
-                    static_cast<int>(
-                        nboot2_b68_timer_requester->current_state()));
-            }'''
-    cancel_region=cancel_region.replace(cancel_stmt,cancel_new,1)
-    ti=ti[:cancel_start]+cancel_region+ti[cancel_end:]
-
     # Diagnostic-only scope guards.
-    patched="\n".join((pr,th,sv,sc,lm,ti))
+    patched="\n".join((pr,th,sv,sc,lm))
     for need in (
         "[NBOOT2][STARTER_WAKE]",
         "[NBOOT2][STARTER_NOTIFY_WAKE]",
         "[NBOOT2][STARTER_WAIT_ANY]",
         "[NBOOT2][STARTER_SCHED]",
         "[NBOOT2][STARTER_SVC]",
-        "[NBOOT2][STARTER_TIMER]",
         "0x100059C9U",
         "behavior=OBSERVE_ONLY",
     ):
@@ -436,10 +330,9 @@ def main():
     svc.write_text(sv,encoding="utf-8")
     sched.write_text(sc,encoding="utf-8")
     lib.write_text(lm,encoding="utf-8")
-    timer.write_text(ti,encoding="utf-8")
 
     print(MARK+": applied")
-    print("scope=SYSSTART_REQUEST_WAKE_TIMER_SCHED_SVC_DIAGNOSTIC")
+    print("scope=SYSSTART_REQUEST_WAKE_SCHED_SVC_DIAGNOSTIC")
     print("target_process_uid3=0x100059C9")
     print("state_injection=NONE")
     print("signal_count_change=NONE")
