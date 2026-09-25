@@ -164,21 +164,21 @@ def main():
 '''
     se=rep1(se,old,new,"session sync SendReceive")
 
-    # Helper source snippet repeated in stable request-producing SVCs. We log
-    # only SYSSTART UID3 and do not inspect/change the request itself.
-    def inject_after(block_begin, block_end, anchor, injection, label):
-        nonlocal sv
-        b=sv.find(block_begin)
-        e=sv.find(block_end,b)
-        if b<0 or e<0:
-            fail(label+" bounds not found")
-        block=sv[b:e]
-        if block.count(anchor)!=1:
-            fail(f"{label} anchor mismatch: {block.count(anchor)}")
-        block=block.replace(anchor,anchor+injection,1)
-        sv=sv[:b]+block+sv[e:]
-
-    arm_code='''
+    # Stable request-producing timer SVC calls. Earlier NativeBoot patches can
+    # change surrounding function bodies, so patch the unique semantic call
+    # statements rather than whole-function text.
+    timer_specs=(
+        ("        timer->after_tick_queue(kern->crr_thread(), req_sts, us_after);\n",
+         "TIMER_AFTER"),
+        ("        timer->after_high_res(kern->crr_thread(), req_sts, us_after);\n",
+         "TIMER_AFTER_HIGH_RES"),
+        ("        timer->after(kern->crr_thread(), req_sts, common::microsecs_per_sec * second_fraction_enum / 12);\n",
+         "TIMER_LOCK"),
+    )
+    for call,source in timer_specs:
+        if sv.count(call)!=1:
+            fail(f"B70 {source} semantic call: expected one anchor, found {sv.count(call)}")
+        arm='''
 
         kernel::process *nboot2_b70_arm_pr = kern->crr_process();
         if (nboot2_b70_arm_pr &&
@@ -186,7 +186,7 @@ def main():
                 std::get<2>(nboot2_b70_arm_pr->get_uid_type())) ==
                 0x100059C9U)) {
             LOG_WARN(KERNEL,
-                "[NBOOT2][STARTER_ASYNC_ARM] source={SOURCE} "
+                "[NBOOT2][STARTER_ASYNC_ARM] source=SOURCE_TOKEN "
                 "request_status=0x{:08X} handle=0x{:08X} "
                 "thread={} behavior=OBSERVE_ONLY",
                 req_sts.ptr_address(),
@@ -194,35 +194,8 @@ def main():
                 kern->crr_thread() ? kern->crr_thread()->name()
                                    : std::string("<null>"));
         }
-'''
-    for fn,call,source,nextsig in (
-        ("timer_after",
-         "        timer->after_tick_queue(kern->crr_thread(), req_sts, us_after);\n",
-         "TIMER_AFTER",
-         "\n    BRIDGE_FUNC(void, timer_after_high_res"),
-        ("timer_after_high_res",
-         "        timer->after_high_res(kern->crr_thread(), req_sts, us_after);\n",
-         "TIMER_AFTER_HIGH_RES",
-         "\n    BRIDGE_FUNC(void, timer_lock"),
-        ("timer_lock",
-         "        timer->after(kern->crr_thread(), req_sts, common::microsecs_per_sec * second_fraction_enum / 12);\n",
-         "TIMER_LOCK",
-         "\n    BRIDGE_FUNC(void, timer_after_eka1"),
-    ):
-        inject_after(
-            f"    BRIDGE_FUNC(void, {fn}",
-            nextsig,
-            call,
-            arm_code.replace("{SOURCE}",source),
-            "B70 "+fn)
-
-    # timer_at_utc uses a dereferenced absolute target but the same status.
-    inject_after(
-        "    BRIDGE_FUNC(void, timer_at_utc",
-        "\n    BRIDGE_FUNC(void, timer_at_eka1",
-        "        epoc::request_status *sts_real = req_sts.get(kern->crr_process());\n",
-        arm_code.replace("{SOURCE}","TIMER_AT_UTC"),
-        "B70 timer_at_utc")
+'''.replace("SOURCE_TOKEN",source)
+        sv=sv.replace(call,call+arm,1)
 
     # Property subscriptions are another common async Starter wait source.
     prop_sub_begin="    BRIDGE_FUNC(void, property_subscribe, kernel::handle h, eka2l1::ptr<epoc::request_status> sts) {\n"
