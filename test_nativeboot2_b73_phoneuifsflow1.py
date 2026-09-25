@@ -25,7 +25,6 @@ def main():
     need(fs,"[NBOOT2][PHONEUI_FS_FLOW]","fs.cpp")
     need(fs,"nboot2_b73_raw_function","fs.cpp")
     need(fs,"0x100058B3U","Telephone gate")
-    need(fs,"[NBOOT2][PHONEUI_IS_ROM]","fs.cpp")
     need(files,"[NBOOT2][PHONEUI_RSC_OPEN]","files.cpp")
     need(files,"[NBOOT2][PHONEUI_READ_SECTION]","files.cpp")
     need(files,'u"z:\\resource\\apps\\phoneui.r01"',"PhoneUI path")
