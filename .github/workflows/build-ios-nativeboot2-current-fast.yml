@@ -215,6 +215,9 @@ jobs:
         grep -Fq '[NBOOT2][PHONEUI_CALLSITE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_BLX_TARGET]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_CALLCHAIN_EDGE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][PHONEUI_TARGET_FINGERPRINT]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][PHONEUI_EXPORT_IDENTITY_CAUTION]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][PHONEUI_EXPORT_SURFACE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][STARTUP_REPLAY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][STARTUP_REPLAY_CANVAS]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'marker_size=72x72' "$RUNNER_TEMP/fastbuild1.strings" || true
