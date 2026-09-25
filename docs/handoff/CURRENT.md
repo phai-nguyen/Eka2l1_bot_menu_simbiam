@@ -5869,3 +5869,76 @@ For a fresh conversation, start with:
 `docs/handoff/NEWCHAT-B74-2026-09-25.md`
 
 This compact checkpoint points to the full B73 DEVICE1 and B74 build evidence and must be treated as the latest continuation point. Do not re-investigate B65-B73.
+
+
+## Latest device override — B74 PHONEUIRESCALLER1 DEVICE1
+
+B74 is **DEVICE-OBSERVED; PROBE PATH-MATCH DEFECT PROVEN; CONE14 REPRODUCED; HOST EXIT CRASH REPRODUCED**.
+
+Full snapshot:
+- docs/handoff/history/B74-DEVICE1.md
+
+B74 guest behavior is unchanged from B73:
+final phoneui.r01 parse/FileSubClose is immediately followed by Telephone
+CONE14 with r6=0x1099B02D, and no callhandlingui.r01 registration/open occurs.
+
+None of the B74 PHONEUI_RES_* markers fired. This was not an IPA mix-up:
+the supplied .ips slice UUID and canonical B74 artifact Mach-O UUID both equal
+5aa2782d-5e23-3984-86c2-8f1de58fc662.
+
+The B74 apply script emitted single-backslash C++ path literals. In the binary,
+\r and \a became control characters, so the exact path predicate could never
+match z:\resource\apps\phoneui.r01.
+
+B74 also reproduces the known host teardown crash:
+EXC_BAD_ACCESS/SIGSEGV at 0x0000000100000041 on Symbian OS thread,
+ipc_msg::~ipc_msg()+104 -> kernel_system::wipeout()+1192.
+
+Per user decision, do not fix that crash in B75. Fix it only if B75 reproduces
+the Home-screen crash again.
+
+## Latest build override — B75 PHONEUIRESCALLER2
+
+B75 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B75-PHONEUIRESCALLER2.md
+
+B75 is diagnostic-only:
+- corrects B74 escaped C++ path literals;
+- adds [NBOOT2][PHONEUI_RES_MATCH2];
+- preserves B74 caller/register/stack capture;
+- does not register callhandlingui;
+- does not alter CONE14/SIM/state/Starter;
+- does not apply the host teardown fix.
+
+Canonical GREEN:
+- run 36134635918 / #242
+- job 108069661366
+- build HEAD a461caf279ee0bdb426ca0b9148fcc93a11262c7
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS, including PHONEUI_RES_CALLER and PHONEUI_RES_MATCH2
+- package/upload PASS
+- compile requests/hits/misses 151/150/1
+- cache hit rate 99.34%
+- compilation failures 0
+- IPA SHA-256 781d3aec89ad6739af29564081e9c59d16a2b6dc7894cbd422dee47cd32822e4
+- IPA artifact 10862314528
+- audit artifact 10862144734
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B75 over B74 and repeat the normal boot. The first acceptance question
+is whether PHONEUI_RES_MATCH2 and PHONEUI_RES_CALLER now fire at the final
+phoneui.r01 boundary. Only then select the resource-registration fix.
+
+If B75 again exits by crashing to iOS Home with ipc_msg::~ipc_msg() ->
+kernel_system::wipeout(), promote the deferred teardown fix on the next step.
+
+## New-chat checkpoint — B75
+
+For a fresh conversation, start with:
+docs/handoff/NEWCHAT-B75-2026-09-25.md
+
+Do not re-investigate B65-B73.
