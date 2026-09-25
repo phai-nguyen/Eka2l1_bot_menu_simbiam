@@ -194,11 +194,23 @@ def main():
 '''
     th=rep1(th,old,new,"B68 notify wake accounting")
 
-    # 3) WaitForAnyRequest: patch the stable semantic call rather than the
-    # whole function body because earlier diagnostics may already wrap it.
+    # 3) WaitForAnyRequest: scope the semantic patch to the actual bridge
+    # function. Another path also calls wait_for_any_request(), so a whole-file
+    # count is intentionally not used here.
+    wait_sig='    BRIDGE_FUNC(void, wait_for_any_request)'
+    wait_sig_pos=sv.find(wait_sig)
+    if wait_sig_pos < 0 or sv.find(wait_sig,wait_sig_pos+1) >= 0:
+        fail("B68 WaitForAnyRequest bridge signature is missing or ambiguous")
+
+    wait_func_end=sv.find('\n    }',wait_sig_pos)
+    if wait_func_end < 0:
+        fail("B68 WaitForAnyRequest bridge end not found")
+    wait_func_end += len('\n    }')
+    wait_region=sv[wait_sig_pos:wait_func_end]
+
     wait_call='        kern->crr_thread()->wait_for_any_request();'
-    if sv.count(wait_call) != 1:
-        fail(f"B68 WaitForAnyRequest semantic call: expected one anchor, found {sv.count(wait_call)}")
+    if wait_region.count(wait_call) != 1:
+        fail(f"B68 WaitForAnyRequest in-function call: expected one anchor, found {wait_region.count(wait_call)}")
 
     wait_new='''        kernel::thread *nboot2_b68_thr = kern->crr_thread();
         kernel::process *nboot2_b68_pr = kern->crr_process();
@@ -224,7 +236,8 @@ def main():
                 nboot2_b68_thr->request_count(),
                 static_cast<int>(nboot2_b68_thr->current_state()));
         }'''
-    sv=sv.replace(wait_call,wait_new,1)
+    wait_region=wait_region.replace(wait_call,wait_new,1)
+    sv=sv[:wait_sig_pos]+wait_region+sv[wait_func_end:]
 
     # 4) Scheduler: prove whether StarterServer is selected again after a notify
     # completion. This does not alter the selected thread.
