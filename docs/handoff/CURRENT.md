@@ -6283,3 +6283,72 @@ Do not build a functional resource-registration B80 from ordinal 182 alone.
 
 B79 DEVICE1 remains required. Prefer code-window/fingerprint correlation for
 +0x4274/+0x41AC/+0x4350/+0x3A28/+0x3B2E.
+
+
+## Latest device override — B79 PHONEUICALLCHAIN2 DEVICE1
+
+B79 is **DEVICE-OBSERVED; BLX TARGETS RESOLVED; NEAR-SP CHAIN PROVEN**.
+
+Full snapshot:
+- docs/handoff/history/B79-DEVICE1.md
+
+Telephone remains CONE 14 with r6=0x1099B02D.
+
+Near-SP PhoneUIUtils chain:
+- SP+0x5C: +0x3A34 BLX -> ARM +0x4350
+- SP+0x8C: +0x3B48 BL -> Thumb +0x3A28
+- SP+0xBC: +0x1BBC BL -> Thumb +0x3B2E
+
+FileServer deep saved context:
+- +0x1B70 BLX -> ARM +0x4274
+- +0x1B78 BLX -> ARM +0x41AC
+
+Host normal exit remains clean.
+
+C6 RM-612 control evidence means public SymbianSource ordinal labels must be
+treated as unverified until exact RM-356 production export identity is known.
+
+## Latest build override — B80 PHONEUITARGETFP1
+
+B80 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B80-PHONEUITARGETFP1.md
+
+Diagnostic-only.
+
+New markers:
+- [NBOOT2][PHONEUI_TARGET_FINGERPRINT]
+- [NBOOT2][PHONEUI_EXPORT_IDENTITY_CAUTION]
+- [NBOOT2][PHONEUI_EXPORT_SURFACE]
+
+Purpose:
+- exact 64-byte target fingerprints;
+- exact RM-356 production PhoneUIUtils export count;
+- raw export surface 170..190 / 290..310;
+- no cross-build symbol assumption.
+
+Canonical GREEN:
+- run 36159350296 / #250
+- job 108151750155
+- runtime commit 66c12f809fa41f565e33fa669d47da9984c329d7
+- build HEAD 547807cfba57e7725852cf9e004bf7953c31c5e5
+- IPA SHA-256 55bb024694a85707909af9a2964b7c46e3547c2cb1e489e4f3f52af5a02b10d2
+- IPA artifact 10875137070
+- audit artifact 10875072074
+- UUID CB0EC858-8549-30AF-927B-88DB7450656F
+- compile 152/150/2
+- cache hit 98.68%
+- failures 0
+- NOJAVA / MANIC3 preserved
+
+Next:
+device-test B80 to current Phone startup failure, wait 5-10 seconds, exit
+normally, send standard logs.
+
+Do not implement a functional B81 until B80 DEVICE1 is analyzed.
+
+## New-chat checkpoint — B80
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B80-2026-09-25.md
