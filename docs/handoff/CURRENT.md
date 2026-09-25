@@ -1,6 +1,6 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-25
+Updated: 2026-09-25\nLatest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — BUILD-VALIDATED; DEVICE TEST REQUIRED\nLatest diagnostic build HEAD: 42ca0136983714b01fd259120921188066c71af4
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
@@ -6348,7 +6348,56 @@ normally, send standard logs.
 
 Do not implement a functional B81 until B80 DEVICE1 is analyzed.
 
-## New-chat checkpoint — B80
+
+## Latest build override — B81 PHONEUIBLXDECODE1
+
+B81 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- `docs/handoff/history/B81-PHONEUIBLXDECODE1.md`
+
+B81 is diagnostic-only. It corrects the Thumb-2 BLX `imm10L` extraction in
+the PhoneUI FileServer and CONE14 call-chain diagnostics. It does not alter
+resource registration, panic behavior, guest behavior, or host behavior.
+
+Exact RM-356 ROM evidence supersedes the B79/B80 inferred BLX targets:
+- callsite `+0x1B70`: `F002 EDC0` -> ARM veneer `+0x46F4`
+- callsite `+0x1B78`: `F002 ED8C` -> ARM veneer `+0x4694`
+- callsite `+0x3A34`: `F000 EE46` -> ARM veneer `+0x46C4`
+
+The former logged `+0x4274 / +0x41AC / +0x4350` targets came from extracting
+the second-halfword bits incorrectly. The correction is
+`((lo >> 1) & 0x03FF) << 2`; these veneers begin with ARM
+`LDR pc, [pc, #-4]` instructions.
+
+Canonical GREEN:
+- run `36168367449` / #251
+- job `108181574451`
+- B81 build HEAD `42ca0136983714b01fd259120921188066c71af4`
+- B28 restore, B20-B81 apply/regression chain PASS
+- iOS compile/link PASS
+- binary invariants PASS; Mach-O contains the B81 decoder marker and B76 menu marker
+- IPA packaging/upload PASS
+- IPA SHA-256 `f733443c48e5c6acde57e3e66d5dc706050a12e37afe0f7eb0f97cde427e5b16`
+- IPA artifact `10879995790` (expires 2026-10-09)
+- audit artifact `10880155635` (expires 2026-10-09)
+- compile requests/hits/misses `152/150/2`
+- cache hit rate `98.68%`; compilation failures `0`
+- bootstrap restore `41 s`; patch/regression `5 s`; CMake build `78 s`; package `2 s`; total `158 s`
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B81 over B80 on the same device, reproduce the same Telephone
+startup failure, wait 5-10 seconds, exit normally, and send
+`EKA2L1.log`, `EKA2L1_Persistent.log`, `EKA2L1_TakeThis.log`, plus
+`EKA2L1_Persistent-prev.log` if generated. Use video only if visible behavior
+changes.
+
+Do not implement a resource-registration behavior change from the corrected
+targets alone. Analyze B81 DEVICE1 fingerprints and exact RM-356 code/export
+identity first.
+
+## New-chat checkpoint — B81
 
 Start a fresh chat with:
-docs/handoff/NEWCHAT-B80-2026-09-25.md
+`docs/handoff/NEWCHAT-B81-2026-09-25.md`
