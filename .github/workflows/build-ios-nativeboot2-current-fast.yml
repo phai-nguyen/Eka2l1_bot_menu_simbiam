@@ -89,6 +89,16 @@ jobs:
         python3 ci/fastbuild1_manifest.py regress "$GITHUB_WORKSPACE" "$UPSTREAM"
         echo "FASTBUILD_PATCH_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
+    - name: B76 dump GameMenuView crash source
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/upstream/src/emu/ios/app/GameMenuView.mm"
+        test -f "$SRC"
+        echo "B76_GAMEMENU_SOURCE_DUMP_BEGIN"
+        nl -ba "$SRC" | sed -n '1,280p'
+        echo "B76_GAMEMENU_SOURCE_DUMP_END"
+        exit 86
+
     - name: Configure compiler cache
       run: |
         set -euo pipefail
