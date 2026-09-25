@@ -273,8 +273,7 @@ def main():
                                                     }
                                                 }
                                                 LOG_WARN(SERVICE_EFSRV,
-                                                    "[NBOOT2]"
-                                                    "[PHONEUI_VENEER_DEST_FP] "
+                                                    "[NBOOT2][PHONEUI_VENEER_DEST_FP] "
                                                     "phase=FILESERVER "
                                                     "module={} "
                                                     "dest_offset=0x{:08X} "
@@ -517,8 +516,7 @@ def main():
                                                 }
                                             }
                                             LOG_WARN(KERNEL,
-                                                "[NBOOT2]"
-                                                "[PHONEUI_VENEER_DEST_FP] "
+                                                "[NBOOT2][PHONEUI_VENEER_DEST_FP] "
                                                 "phase=CONE14 module={} "
                                                 "dest_offset=0x{:08X} "
                                                 "thumb={} mapped={} "
