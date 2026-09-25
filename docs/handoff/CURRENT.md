@@ -5649,3 +5649,63 @@ B72 PHONEUIRSCIO1 traces Telephone read/seek activity for exactly
 `Z:\resource\apps\phoneui.r01`, so the exact matching RPKG index table can
 map the last pre-CONE14 access back to a resource record or prove the lookup
 fails before record access.
+
+
+## Latest build override — B72 PHONEUIRSCIO1
+
+B72 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- `docs/handoff/history/B72-PHONEUIRSCIO1.md`
+
+B71 DEVICE1 proved:
+- Telephone CONE14 still reproduces;
+- panic stack reaches bafl.dll, cone.dll and PhoneUIUtils.dll;
+- no 0x4E738xxx resource ID survives at thread_kill;
+- all known PhoneUIUtils/phoneui.exe PhoneUI resource constants found in the
+  matching binaries map to records that actually exist in phoneui.r01;
+- B70 host exit crash does NOT reproduce on B71; clean exit reaches
+  normal_restart_done has_device=1.
+
+Therefore B72 does not patch teardown and does not patch SIM.
+
+B72 traces Telephone-only I/O for exactly:
+`Z:\resource\apps\phoneui.r01`
+
+Markers:
+- `[NBOOT2][PHONEUI_RSC_READ]`
+- `[NBOOT2][PHONEUI_RSC_SEEK]`
+
+The matching RPKG geometry is embedded in the diagnostic context:
+- size 28134
+- resource index table offset 27396
+- 368 resources
+- signature base 0x4E738000
+
+After DEVICE1, read/seek offsets can be mapped exactly against the RPKG index
+table to identify the final resource lookup before CONE14 or prove failure
+happens before resource-data access.
+
+Canonical GREEN:
+- run `36117855635` / #227
+- job `108016063287`
+- build HEAD `dd76bf33827e56f1731f45810885410d1405d6d4`
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- compile requests/hits/misses `151/150/1`
+- cache hit rate `99.34%`
+- compilation failures `0`
+- IPA SHA-256
+  `ef4bb8c5c32c958a6e2a2531524a661eb3e222e12e23535682886094d625c03e`
+- IPA artifact `10855129639`
+- audit artifact `10856435156`
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B72 over B71, reproduce the same startup failure, wait 5-10 seconds,
+exit through the same game-menu/Emulator path, and send the three standard logs
+plus Persistent-prev if present. Video only if visible behavior changes.
+
+Also report whether Exit Emulator remains clean or the host crash returns.
