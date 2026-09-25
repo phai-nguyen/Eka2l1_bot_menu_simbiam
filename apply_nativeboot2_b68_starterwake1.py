@@ -194,14 +194,13 @@ def main():
 '''
     th=rep1(th,old,new,"B68 notify wake accounting")
 
-    # 3) WaitForAnyRequest: show whether Starter consumes an already queued
-    # request signal or actually blocks on its private request semaphore.
-    old='''    BRIDGE_FUNC(void, wait_for_any_request) {
-        kern->crr_thread()->wait_for_any_request();
-    }
-'''
-    new='''    BRIDGE_FUNC(void, wait_for_any_request) {
-        kernel::thread *nboot2_b68_thr = kern->crr_thread();
+    # 3) WaitForAnyRequest: patch the stable semantic call rather than the
+    # whole function body because earlier diagnostics may already wrap it.
+    wait_call='        kern->crr_thread()->wait_for_any_request();'
+    if sv.count(wait_call) != 1:
+        fail(f"B68 WaitForAnyRequest semantic call: expected one anchor, found {sv.count(wait_call)}")
+
+    wait_new='''        kernel::thread *nboot2_b68_thr = kern->crr_thread();
         kernel::process *nboot2_b68_pr = kern->crr_process();
         const bool nboot2_b68_starter =
             nboot2_b68_pr && (nboot2_b68_pr->get_uid() == 0x100059C9U);
@@ -224,10 +223,8 @@ def main():
                 nboot2_b68_thr->name(),
                 nboot2_b68_thr->request_count(),
                 static_cast<int>(nboot2_b68_thr->current_state()));
-        }
-    }
-'''
-    sv=rep1(sv,old,new,"B68 WaitForAnyRequest trace")
+        }'''
+    sv=sv.replace(wait_call,wait_new,1)
 
     # 4) Scheduler: prove whether StarterServer is selected again after a notify
     # completion. This does not alter the selected thread.
