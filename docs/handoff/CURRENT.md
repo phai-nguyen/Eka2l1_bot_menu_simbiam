@@ -5372,3 +5372,44 @@ Next: install B69 over B68 and boot normally. Acceptance is
 of the old unimplemented-opcode log, and evidence that Starter advances beyond
 the former post-0xC wait. Check whether global state moves beyond 101; otherwise
 take the first new post-0xC blocker as the next evidence.
+
+
+## Latest device override — B69 ALARMIDLIST1 DEVICE1
+
+B69 is **DEVICE-OBSERVED; ALARM 0x0C FIX PASS; STARTER ADVANCES; NEXT FAILURE IS FATALSTARTUP -> SHUTDOWN**.
+
+Full snapshot:
+
+`docs/handoff/history/B69-DEVICE1.md`
+
+Device/video result:
+
+- B69 handles Alarm opcode `0xB` and `0xC` with
+  `[NBOOT2][ALARM_ID_LIST] ... completion=KErrNone`.
+- the old `Unimplemented opcode for Alarm server 0xC` line is gone.
+- Starter advances beyond the exact B68 durable wait.
+- request status `0x007008D4` later completes KErrNone and wakes
+  StarterServer.
+- after that wake, SYSSTART issues SAServer `EGlobalStateChange / 0x64`
+  with input `0x74 = 116`.
+- authoritative `startupdomainpskeys.h` maps:
+  `116 = ESwStateFatalStartupError`,
+  `117 = ESwStateShuttingDown`.
+- SYSSTART then publishes global state `101 -> 117`.
+
+State-enum correction for current analysis:
+**117 is ShuttingDown, not FatalStartupError. FatalStartupError is 116.**
+
+Video shows black -> white NOKIA logo at about 35 seconds; the NOKIA splash then
+remains static through the rest of the ~327.8 s recording. No hands animation,
+date/time or Home/Menu appears.
+
+Thus B69 is genuine execution progress because it removes the Alarm dead
+request and exposes the next firmware decision, but normal boot still does not
+reach 102.
+
+Next exact evidence boundary:
+identify the source/ABI/payload of SYSSTART async request status
+`0x007008D4`, which completes just before Starter selects
+FatalStartupError=116. B70 should be diagnostic-only; do not force state 102 or
+suppress 116/117 before this request is identified.
