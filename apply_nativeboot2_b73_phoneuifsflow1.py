@@ -123,53 +123,6 @@ def main():
 '''
     fs=rep1(fs,switch_anchor,inject,"Telephone FS flow")
 
-    # 1b) Resource loaders can bypass RFile::Read for ROM-backed resources.
-    # Record the exact IsFileInRom decision/address for Telephone + PhoneUI.
-    rom_sig="    void fs_server_client::is_file_in_rom(service::ipc_context *ctx) {"
-    rom_start=fs.find(rom_sig)
-    rom_end=fs.find("\n    void fs_server_client::is_valid_name",rom_start)
-    if rom_start<0 or rom_end<0:
-        fail("is_file_in_rom bounds not found")
-    rom_block=fs[rom_start:rom_end]
-
-    rom_anchor='''        if (f) {
-            addr = f->rom_address();
-            f->close();
-        }
-
-        ctx->write_data_to_descriptor_argument<address>(1, addr);
-'''
-    rom_new='''        if (f) {
-            addr = f->rom_address();
-            f->close();
-        }
-
-        kernel::process *nboot2_b73_rom_pr =
-            (ctx->msg && ctx->msg->own_thr)
-                ? ctx->msg->own_thr->owning_process() : nullptr;
-        if (nboot2_b73_rom_pr &&
-            (nboot2_b73_rom_pr->get_uid() == 0x100058B3U) &&
-            (common::lowercase_ucs2_string(final_path) ==
-                u"z:\\resource\\apps\\phoneui.r01")) {
-            LOG_WARN(SERVICE_EFSRV,
-                "[NBOOT2][PHONEUI_IS_ROM] path={} rom_address=0x{:08X} "
-                "process={} uid3=0x{:08X} thread={} "
-                "behavior=OBSERVE_ONLY",
-                common::ucs2_to_utf8(final_path),
-                static_cast<std::uint32_t>(addr),
-                nboot2_b73_rom_pr->name(),
-                nboot2_b73_rom_pr->get_uid(),
-                ctx->msg->own_thr
-                    ? ctx->msg->own_thr->name() : std::string("<null>"));
-        }
-
-        ctx->write_data_to_descriptor_argument<address>(1, addr);
-'''
-    if rom_block.count(rom_anchor)!=1:
-        fail(f"is_file_in_rom anchor count={rom_block.count(rom_anchor)}")
-    rom_block=rom_block.replace(rom_anchor,rom_new,1)
-    fs=fs[:rom_start]+rom_block+fs[rom_end:]
-
     # 2) Identify caller/handle for every exact phoneui.r01 open.
     open_sig="    void fs_server_client::new_file_subsession(service::ipc_context *ctx,"
     open_start=files.find(open_sig)
@@ -276,7 +229,6 @@ def main():
     for need,text in (
         ("[NBOOT2][PHONEUI_FS_FLOW]",fs),
         ("nboot2_b73_raw_function",fs),
-        ("[NBOOT2][PHONEUI_IS_ROM]",fs),
         ("[NBOOT2][PHONEUI_RSC_OPEN]",files),
         ("[NBOOT2][PHONEUI_READ_SECTION]",files),
         ('u"z:\\resource\\apps\\phoneui.r01"',files),
@@ -287,7 +239,7 @@ def main():
             fail("post-apply gate missing: "+need)
 
     # No FileServer behavior changes.
-    diagnostic=inject+rom_new+open_new+path_new+read_new
+    diagnostic=inject+open_new+path_new+read_new
     for forbidden in (
         "ctx->complete(",
         "ctx->write_",
