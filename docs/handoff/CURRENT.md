@@ -6222,3 +6222,33 @@ B80 is selected only from B79 DEVICE1 call-chain evidence.
 
 Start a fresh chat with:
 docs/handoff/NEWCHAT-B79-2026-09-25.md
+
+
+## Parallel control-firmware track — Nokia C6-00
+
+A new comparison track is prepared:
+
+- docs/research/C6-00-CONTROL-FIRMWARE-COMPARISON.md
+
+Purpose:
+use Nokia C6-00 S60 5th Edition / Symbian OS 9.4 firmware as a sibling control
+image for RM-356 NATIVEBOOT2.
+
+Comparison is semantic, not by raw addresses:
+- startup process/order;
+- Starter/SysStart/SysAp state transitions;
+- PhoneUIUtils EABI/export surface;
+- BaseConstructL code signature;
+- PhoneUI resource registration;
+- resource ID 0x1099B02D;
+- language/resource selection;
+- normalized call-chain signatures.
+
+Preferred input:
+C6-00 SYM.ROM + SYM.RPKG.
+
+Alternative:
+complete RM-612/RM-624 firmware package with CORE + ROFS images.
+
+B79 remains the active RM-356 runtime build; the C6 track will be correlated
+with B79 call targets +0x4274/+0x41AC/+0x4350 after C6 firmware extraction.
