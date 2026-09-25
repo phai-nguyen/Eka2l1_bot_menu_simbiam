@@ -287,47 +287,9 @@ def main():
 '''
     sv=rep1(sv,anchor,inj,"B70 SIM handle set")
 
-    # Handle-based GET.
-    begin="    BRIDGE_FUNC(std::int32_t, property_get_int"
-    end="\n    BRIDGE_FUNC(std::int32_t, property_get_bin"
-    b=sv.find(begin); e=sv.find(end,b)
-    if b<0 or e<0: fail("B70 property_get_int bounds not found")
-    block=sv[b:e]
-    anchor="        *value_ptr.get(pr) = prop->get_property_object()->get_int();\n"
-    inj=anchor+'''
-        service::property *nboot2_b70_ps_obj = prop->get_property_object();
-        if (nboot2_b70_ps_obj &&
-            (static_cast<std::uint32_t>(nboot2_b70_ps_obj->first) ==
-                0x101F8766U) &&
-            ((static_cast<std::uint32_t>(nboot2_b70_ps_obj->second) ==
-                0x00000031U) ||
-             (static_cast<std::uint32_t>(nboot2_b70_ps_obj->second) ==
-                0x00000032U) ||
-             (static_cast<std::uint32_t>(nboot2_b70_ps_obj->second) ==
-                0x00000033U))) {
-            kernel::process *nboot2_b70_ps_pr = kern->crr_process();
-            kernel::thread *nboot2_b70_ps_thr = kern->crr_thread();
-            LOG_WARN(KERNEL,
-                "[NBOOT2][SIM_PS] op=GET path=HANDLE_INT "
-                "category=0x{:08X} key=0x{:08X} value={} process={} "
-                "uid3=0x{:08X} thread={} handle=0x{:08X} "
-                "behavior=OBSERVE_ONLY",
-                static_cast<std::uint32_t>(nboot2_b70_ps_obj->first),
-                static_cast<std::uint32_t>(nboot2_b70_ps_obj->second),
-                nboot2_b70_ps_obj->get_int(),
-                nboot2_b70_ps_pr ? nboot2_b70_ps_pr->name()
-                                 : std::string("<null>"),
-                nboot2_b70_ps_pr
-                    ? static_cast<std::uint32_t>(
-                        std::get<2>(nboot2_b70_ps_pr->get_uid_type())) : 0,
-                nboot2_b70_ps_thr ? nboot2_b70_ps_thr->name()
-                                  : std::string("<null>"),
-                static_cast<std::uint32_t>(h));
-        }
-'''
-    if block.count(anchor)!=1: fail("B70 SIM handle get anchor mismatch")
-    block=block.replace(anchor,inj,1)
-    sv=sv[:b]+block+sv[e:]
+    # Handle-based SIM GET is intentionally omitted: direct category/key GET
+    # plus both SET paths cover the authoritative SIM P&S values without
+    # depending on the older B28 property_get_int body shape.
 
     combined=se+"\n"+sv
     for need in (
