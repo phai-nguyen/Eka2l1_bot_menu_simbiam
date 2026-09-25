@@ -193,3 +193,83 @@ strictly before the SIM security phase.
 
 Do not implement B71 by forcing ESimUsable or state 102. Use the provenance
 captured by B70.
+
+
+## DEVICE1 — 2026-09-25
+
+B70 produced a decisive visible advance. The device no longer merely stalls at
+the NOKIA plateau: after the logo it renders the native Startup failure UI:
+
+`Phone start-up failed. Contact the retailer.`
+
+The supplied ~122 s recording is sufficient. The failure screen remains stable
+for more than a minute, so B70 does not need to be re-run.
+
+### Exact causal chain
+
+Global state:
+- 14:07:12.434: 0 -> 100
+- 14:07:45.305: 100 -> 101
+- 14:07:49.086: 101 -> 116
+
+SIM P&S initialization by SYSSTART:
+- 0x101F8766:0x31 = 100
+- 0x101F8766:0x32 = 100
+- 0x101F8766:0x33 = 100
+
+No evidence shows 0x31 reaching ESimUsable/101 before the failure.
+
+The older diagnostic address 0x007008D4 does not occur in this B70 run.
+The decisive request-status address is instead 0x00701684.
+
+At 14:07:49.074 Telephone opens:
+`Z:\\resource\\apps\\phoneui.r01`
+
+At 14:07:49.075 Telephone UID3 0x100058B3 self-panics:
+- category: CONE
+- reason: 14
+- PC: 0x80298584
+- LR: 0x802A3A39
+
+At 14:07:49.077 Starter receives:
+- result=14
+- request_status=0x00701684
+- requester_thread=StarterServer
+
+At 14:07:49.085 Starter arms SAServer function 0x64 and receives a valid
+KErrNone adaptation response for input 0x75.
+
+At 14:07:49.086 SYSSTART writes global state 101 -> 116.
+
+Therefore the current first fatal chain is:
+
+Telephone CONE14
+-> Starter completion result 14
+-> StartupAdaptation function 0x64 / shutdown selection
+-> global state 116
+-> native Phone start-up failed UI
+
+### Meaning of CONE 14
+
+The official Symbian crash-analysis table defines CONE 14 as:
+the control environment cannot find the specified resource in any resource
+file.
+
+This moves the immediate blocker before the SIM security phase: Telephone
+resource lookup is the first proven fatal condition. Do not force SIM status,
+state 102, or ignore the critical-app failure.
+
+### RM-356 PhoneUI resource evidence
+
+Direct parsing of the matching SYM.RPKG confirms:
+- Z:\\resource\\apps\\phoneui.r01 exists, size 28134
+- Z:\\resource\\apps\\phoneui.r96 exists, size 32355
+- both contain 368 resources
+- resource signature offset/base: 0x4E738000
+- expected user-resource index range: 0x001..0x170
+
+phoneui.r01 SHA-256:
+`05c419086de5710d361f7d8c910ef5284006b5ee879cb0acb448b8090a7ce9a1`
+
+Thus B71 targets the exact missing resource ID/call chain rather than file
+existence or SIM emulation.
