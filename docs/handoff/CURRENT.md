@@ -6078,3 +6078,79 @@ the failing resource-init path.
 
 Start a fresh chat with:
 docs/handoff/NEWCHAT-B77-2026-09-25.md
+
+
+## Latest device override — B77 PHONEUIRESOLVEREXPORT1 DEVICE1
+
+B77 is **DEVICE-OBSERVED; EXPORT-182 RESOLVED; BASECONSTRUCT FRAME ABSENT; CONE14 UNCHANGED**.
+
+Full snapshot:
+- docs/handoff/history/B77-DEVICE1.md
+
+B77 resolves PhoneUIUtils ordinal 182 exactly:
+CPhoneResourceResolverBase::BaseConstructL
+- runtime +0x1BC8
+- next export +0x1BF6 relative equivalent
+- bounded span 0x2E
+
+However PHONEUI_BASECONSTRUCT_FRAME count is zero in all 384-word FileServer
+and CONE14 scans.
+
+CONE14 remains reason 14 with r6=0x1099B02D.
+No callhandlingui.r01 open/registration occurs.
+
++0x5094/+0x50B8 are descriptor/literal data.
+
+Instruction-window validation identifies real Thumb BL return candidates:
+- +0x1BC0 -> target +0x3B2E
+- +0x3B4C -> target +0x3A28
+- +0x3A38 -> target +0x46C4
+
+Host shutdown/restart remains clean.
+
+## Latest build override — B78 PHONEUICALLCHAIN1
+
+B78 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B78-PHONEUICALLCHAIN1.md
+
+B78 no longer treats arbitrary in-image pointers as callers. It validates
+Thumb BL/BLX callsites, decodes BL targets, and maps return/target addresses to
+PhoneUIUtils export ownership.
+
+Markers:
+- [NBOOT2][PHONEUI_RESOLVER_EXPORT_MAP]
+- [NBOOT2][PHONEUI_CALLSITE]
+
+Key runtime exports explicitly mapped:
+181 Instance
+182 BaseConstructL
+307 ResolveResourceID
+308 IsTelephonyFeatureSupported
+
+Diagnostic-only; B76 host fixes and B77 diagnostics are preserved.
+
+Canonical GREEN:
+- run 36148877670 / #247
+- job 108116800815
+- functional HEAD d652d10cd68661274900734af79c1ef62ce8fbe4
+- compile requests/hits/misses 152/150/2
+- cache hit 98.68%
+- compilation failures 0
+- IPA SHA-256 42b454f7c2cdfb28e0fb646b2c16f1c451c13a9d62bef3bc2ed50ba11b1a6002
+- IPA artifact 10870706328
+- audit artifact 10870628680
+- Mach-O UUID ABB63FE7-BA91-3DB6-9A61-C1595754B938
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B78 over B77, boot to current Phone startup failure, wait 5-10 s, exit
+normally and send standard logs.
+
+B79 is selected only from B78 validated call-chain evidence.
+
+## New-chat checkpoint — B78
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B78-2026-09-25.md
