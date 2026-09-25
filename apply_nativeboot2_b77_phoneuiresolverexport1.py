@@ -439,8 +439,23 @@ def main():
 
                     LOG_WARN(KERNEL,
 '''
-    sv=rep1(sv,cone_frame_anchor,cone_frame_insert,
-            "B77 CONE14 BaseConstruct classifier")
+    # The base/code/module sequence occurs elsewhere in svc.cpp too. Scope
+    # this replacement strictly to B71's CONE14 frame-classifier lambda.
+    nboot2_b77_lambda_start=sv.find("            auto nboot2_b71_log_frame =")
+    nboot2_b77_lambda_end=sv.find(
+        '            nboot2_b71_log_frame("pc",pc,0xFFFFFFFFU,pc);',
+        nboot2_b77_lambda_start)
+    if nboot2_b77_lambda_start<0 or nboot2_b77_lambda_end<0:
+        fail("B71 CONE14 frame lambda bounds missing")
+    nboot2_b77_lambda=sv[
+        nboot2_b77_lambda_start:nboot2_b77_lambda_end]
+    if nboot2_b77_lambda.count(cone_frame_anchor)!=1:
+        fail("B77 CONE14 frame anchor inside lambda count="+
+             str(nboot2_b77_lambda.count(cone_frame_anchor)))
+    nboot2_b77_lambda=nboot2_b77_lambda.replace(
+        cone_frame_anchor,cone_frame_insert,1)
+    sv=(sv[:nboot2_b77_lambda_start]+nboot2_b77_lambda+
+        sv[nboot2_b77_lambda_end:])
 
     fp_anchor=r'''            if ((fp>=0x40U)&&(fp<=0xFFFFFF7FU)) {
 '''
