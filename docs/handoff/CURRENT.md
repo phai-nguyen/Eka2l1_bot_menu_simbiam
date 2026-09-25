@@ -6007,3 +6007,74 @@ PhoneUIUtils +0x5094 after B76 DEVICE1.
 
 Start a fresh chat with:
 docs/handoff/NEWCHAT-B76-2026-09-25.md
+
+
+## Latest device override — B76 GAMEMENUSAFETITLE1 DEVICE1
+
+B76 is **DEVICE-PASS; HOST GAME MENU STABLE; EXIT EMULATOR CLEAN**.
+
+Full snapshot:
+- docs/handoff/history/B76-DEVICE1.md
+
+Device test proves:
+- three-dot menu can be opened repeatedly;
+- Cancel can be used repeatedly;
+- no Home crash;
+- Exit Emulator completes normally;
+- no .ips;
+- host log reaches BRIDGE_EXIT_PHASE normal_restart_done has_device=1.
+
+Do not reopen B75 UIButtonLegacyVisualProvider or B70/B74 ipc_msg teardown
+tracks unless a future build reproduces a crash.
+
+Guest Telephone still panics CONE14 with r6=0x1099B02D.
+
+Diagnostic correction:
+PhoneUIUtils +0x5094/+0x50B8 are descriptor/literal data, not proven executing
+frames. Real Thumb candidates in the CONE14 stack include +0x1BC0, +0x3A38,
++0x3B2C and +0x3B4C.
+
+## Latest build override — B77 PHONEUIRESOLVEREXPORT1
+
+B77 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B77-PHONEUIRESOLVEREXPORT1.md
+
+B77 resolves the exact loaded RM-356 PhoneUIUtils export ordinal 182,
+CPhoneResourceResolverBase::BaseConstructL(), and correlates its bounded
+runtime range at both phoneui.r01 FileServer IPC and CONE14.
+
+Markers:
+- [NBOOT2][PHONEUI_BASECONSTRUCT_EXPORT]
+- [NBOOT2][PHONEUI_BASECONSTRUCT_FRAME]
+- [NBOOT2][PHONEUI_LITERAL_PTR]
+- [NBOOT2][PHONEUI_BASECONSTRUCT_SCAN_DONE]
+
+B77 is diagnostic-only and preserves B76 host fixes.
+
+Canonical GREEN:
+- run 36143687408 / #246
+- job 108099418515
+- functional HEAD 930a94e2fe366d39894a1a81d2ce69608ca933b5
+- compile requests/hits/misses 152/150/2
+- cache hit rate 98.68%
+- compilation failures 0
+- IPA SHA-256 b6301ef32c19744064b2843fea2ee3d036b0ee921b0c9d056db11140d1567ffc
+- IPA artifact 10868711638
+- audit artifact 10868996503
+- Mach-O UUID 6348A9D9-F972-31D5-8782-E5E54339224D
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B77 over B76, boot to the same Phone startup failure, wait 5-10 s,
+verify three-dot menu remains safe, Exit Emulator normally, send standard
+logs.
+
+B78 is chosen only after B77 DEVICE1 proves whether ordinal 182 is actually on
+the failing resource-init path.
+
+## New-chat checkpoint — B77
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B77-2026-09-25.md
