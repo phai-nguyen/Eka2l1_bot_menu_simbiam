@@ -5423,3 +5423,70 @@ StartupAdaptation state 116 = ShuttingDown. B70 should also trace SIM P&S keys
 0x31/0x32/0x33 and SAServer commands 0x65/0x66/0x68/0x6C/0x6D. Do not force
 state 102, fake ESimUsable or suppress shutdown before this request is
 identified.
+
+
+## Latest build override — B70 SIMPATHPROVENANCE1
+
+B70 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Selected project route:
+**NORMAL BOOT + SIM PRESENT**.
+
+Full snapshots:
+
+- `docs/handoff/history/RM356-NORMAL-SIM-BOOT-MAP1.md`
+- `docs/handoff/history/B70-SIMPATHPROVENANCE1.md`
+
+B69 proves Alarm 0x0C is fixed but the firmware still exits state 101 by
+selecting ShuttingDown before state 102/SIM security.
+
+B70 is diagnostic-only and adds:
+
+- `[NBOOT2][STARTER_IPC_ARM]`
+  for every SYSSTART SendReceive, including server/function/request_status;
+- `[NBOOT2][STARTER_ASYNC_ARM]`
+  for stable B28 property-subscription provenance;
+- `[NBOOT2][SIM_PS]`
+  for Startup SIM P&S keys 0x31/0x32/0x33.
+
+Primary target is guest request status `0x007008D4`.
+
+B70 deliberately does not instrument legacy timer internals because the B28
+bootstrap timer implementation differs materially from current upstream.
+Existing B68 SVC/notify/wakeup markers remain available for correlation.
+
+B70 does not force:
+- state 102;
+- ESimUsable;
+- SIM owned/changed;
+- any IPC result/property value.
+
+Canonical GREEN:
+
+- run `36099148918` / run number 219
+- job `107957715459`
+- build HEAD `44e7cedeeae5e2d487b53a1032c51f634400b325`
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA package/upload PASS
+- compile requests/hits/misses `151/150/1`
+- cache hit rate `99.34%`
+- compilation failures `0`
+- IPA SHA-256
+  `6e04a5e37a77a6f255c3560faef846650daa20a85e8225c4540d4984e137ad3f`
+- IPA artifact `10849100731`
+- audit artifact `10848921007`
+- NOJAVA / MANIC3 preserved
+
+Next device test: install B70 over B69, run the same normal boot through the
+NOKIA plateau, exit normally and send EKA2L1.log, EKA2L1_Persistent.log and
+EKA2L1_TakeThis.log. Video only if visible behavior changes.
+
+First B70 DEVICE1 question:
+does `request_status=0x007008D4` appear in STARTER_IPC_ARM or
+STARTER_ASYNC_ARM? If yes, its exact server/function or property becomes the
+B71 evidence target.
+
+Also determine whether SIM P&S keys are touched and whether SAServer reaches
+0x65/0x68/0x6C/0x6D. Do not synthesize SIM success before this evidence.
