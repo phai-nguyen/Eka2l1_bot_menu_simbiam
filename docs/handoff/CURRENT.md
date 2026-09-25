@@ -1,6 +1,6 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
@@ -5140,3 +5140,67 @@ Canonical GREEN:
 Recommended test: install B66 over B65, run through NOKIA -> white for 2-3
 minutes, exit normally, and send all logs. Video is only needed if visual
 behavior changes.
+
+
+## Latest device override — B66 STARTERSCRIPTDUMP1 DEVICE1
+
+B66 is **DEVICE-OBSERVED; SCRIPT CAPTURE SUCCESS; TEXT SCRIPTS RULED OUT AS THE 101 -> 102 POLICY SOURCE**.
+
+Full snapshot:
+
+`docs/handoff/history/B66-DEVICE1.md`
+
+B66 captures ScriptInit.txt and generated plg_script1..4.txt completely. Their
+contents are file-system initialisation (MD/CD/CP: metadata DBs, bookmarks,
+certificates and media/RAM-drive directories), not the ordered critical-app
+state policy. Neither script0.txt nor script1.txt is opened in this boot.
+
+Starter remains:
+
+- global state `0 -> 100 -> 101`;
+- B64 EExecuteSelftests response remains KErrNone;
+- no state 102 and no FatalStartupError 117.
+
+The decisive new observation is that SYSSTART opens
+`Z:\\resource\\starter_arm.RSC` at 06:50:10.709, before global state 100.
+This is the next exact RM-356 Starter policy artifact to capture.
+
+B61 teardown remains healthy: 27 GSTORE_WIPEOUT_GUARD events and the Persistent
+log reaches `normal_restart_done has_device=1`.
+
+## Latest build override — B67 STARTERSSCDUMP1
+
+B67 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+
+`docs/handoff/history/B67-STARTERSSCDUMP1.md`
+
+B67 adds diagnostic-only:
+
+`[NBOOT2][STARTER_SSC_DUMP]`
+
+for exact `Z:\\resource\\starter_arm.RSC`. It uses a separate
+`READ_MODE | BIN_MODE` VFS handle and emits the raw resource as uppercase HEX
+in 512-byte chunks, capped at 262144 bytes. It changes no guest file cursor,
+P&S state, IPC response, process/rendezvous, graphics or teardown semantics.
+
+Canonical GREEN:
+
+- run `36076676081` / run number 196
+- job `107889315577`
+- HEAD `7515a78766a72c03b308c67fee9f03b51d5ef692`
+- manifest/apply/contract/regression PASS
+- iOS compile/link + binary invariants PASS
+- compile requests/hits/misses `150/149/1`
+- compilation failures `0`
+- IPA SHA-256
+  `13c83e3cd126178c91e461ba672a4365a4ff3ca4981dbe87a1e57318cd80caec`
+- IPA artifact `10840189166`
+- audit artifact `10840243716`
+
+Next: install B67 over B66, boot normally, exit normally and send all three
+logs. Video is needed only if visual behavior changes. Acceptance is a complete
+STARTER_SSC_DUMP begin/data/end sequence with captured==raw_size and
+truncated=false. Reconstruct/decode the real SSC before selecting any B68
+functional change; do not force state 102 directly.
