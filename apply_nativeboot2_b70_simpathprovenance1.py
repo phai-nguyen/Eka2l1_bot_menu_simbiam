@@ -164,39 +164,6 @@ def main():
 '''
     se=rep1(se,old,new,"session sync SendReceive")
 
-    # Stable request-producing timer SVC calls. Earlier NativeBoot patches can
-    # change surrounding function bodies, so patch the unique semantic call
-    # statements rather than whole-function text.
-    timer_specs=(
-        ("        timer->after_tick_queue(kern->crr_thread(), req_sts, us_after);\n",
-         "TIMER_AFTER"),
-        ("        timer->after_high_res(kern->crr_thread(), req_sts, us_after);\n",
-         "TIMER_AFTER_HIGH_RES"),
-        ("        timer->after(kern->crr_thread(), req_sts, common::microsecs_per_sec * second_fraction_enum / 12);\n",
-         "TIMER_LOCK"),
-    )
-    for call,source in timer_specs:
-        if sv.count(call)!=1:
-            fail(f"B70 {source} semantic call: expected one anchor, found {sv.count(call)}")
-        arm='''
-
-        kernel::process *nboot2_b70_arm_pr = kern->crr_process();
-        if (nboot2_b70_arm_pr &&
-            (static_cast<std::uint32_t>(
-                std::get<2>(nboot2_b70_arm_pr->get_uid_type())) ==
-                0x100059C9U)) {
-            LOG_WARN(KERNEL,
-                "[NBOOT2][STARTER_ASYNC_ARM] source=SOURCE_TOKEN "
-                "request_status=0x{:08X} handle=0x{:08X} "
-                "thread={} behavior=OBSERVE_ONLY",
-                req_sts.ptr_address(),
-                static_cast<std::uint32_t>(h),
-                kern->crr_thread() ? kern->crr_thread()->name()
-                                   : std::string("<null>"));
-        }
-'''.replace("SOURCE_TOKEN",source)
-        sv=sv.replace(call,call+arm,1)
-
     # Property subscriptions are another common async Starter wait source.
     prop_sub_begin="    BRIDGE_FUNC(void, property_subscribe, kernel::handle h, eka2l1::ptr<epoc::request_status> sts) {\n"
     prop_sub_end="\n    BRIDGE_FUNC(void, property_cancel"
@@ -402,7 +369,7 @@ def main():
     print("scope=DIAGNOSTIC_ONLY")
     print("path=NORMAL_SIM_PRESENT")
     print("ipc_arm=SYSSTART_ALL_SESSION_SENDRECEIVE")
-    print("async_arm=TIMER_PLUS_PROPERTY_SUBSCRIBE")
+    print("async_arm=PROPERTY_SUBSCRIBE")
     print("sim_ps=101F8766_KEYS_31_32_33")
     print("state_injection=NONE")
     print("sim_value_injection=NONE")
