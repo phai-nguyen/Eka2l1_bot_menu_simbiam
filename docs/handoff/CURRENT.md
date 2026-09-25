@@ -5490,3 +5490,67 @@ B71 evidence target.
 
 Also determine whether SIM P&S keys are touched and whether SAServer reaches
 0x65/0x68/0x6C/0x6D. Do not synthesize SIM success before this evidence.
+
+
+## Latest build override — B71 PHONEUICONE14RES1
+
+B71 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- `docs/handoff/history/B71-PHONEUICONE14RES1.md`
+
+B70 DEVICE1 is closed; no repeat is needed.
+
+New proven first-fatal chain:
+`Telephone[0x100058B3] opens phoneui.r01 -> CONE 14 -> Starter result 14
+(request_status 0x00701684) -> SAServer 0x64 -> global state 101 -> 116
+-> native Phone start-up failed UI`.
+
+The official Symbian meaning of CONE 14 is a requested resource not being
+found in any resource file.
+
+Matching RM-356 SYM.RPKG evidence:
+- phoneui.r01 exists, size 28134;
+- SHA-256
+  `05c419086de5710d361f7d8c910ef5284006b5ee879cb0acb448b8090a7ce9a1`;
+- resource signature base `0x4E738000`;
+- 368 resources, indices `0x001..0x170`.
+
+B71 traces only Telephone self-panic CONE14 and logs:
+- `[NBOOT2][CONE14_PHONEUI]`
+- `[NBOOT2][CONE14_FRAME]`
+- `[NBOOT2][CONE14_STACK]`
+- `[NBOOT2][CONE14_RESID_CANDIDATE]`
+- `[NBOOT2][CONE14_SUMMARY]`
+
+It scans 128 stack words and tags 0x4E738xxx resource-ID candidates while
+preserving the original panic.
+
+B71 does not force SIM/state 102, suppress CONE14, ignore the critical-app
+failure, or alter Starter/SAServer/P&S/rendezvous behavior.
+
+Canonical GREEN:
+- run `36107522682` / #222
+- job `107983353265`
+- build HEAD `0b1ba9911c1ec09d163921b92d6ba4600e8e7f02`
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- IPA package/upload PASS
+- compile requests/hits/misses `151/150/1`
+- cache hit rate `99.34%`
+- compilation failures `0`
+- IPA SHA-256
+  `ef5f92ce12387ee9e4a80d71ac5514945fe193b9d69f5ba7ca7c49508f870678`
+- IPA artifact `10851761787`
+- audit artifact `10851357336`
+- NOJAVA / MANIC3 preserved
+
+Next device test:
+install B71 over B70, run normal Emulator boot, wait until either the same
+Phone start-up failed UI appears or visible behavior changes. If the same
+failure appears, leave it stable 5-10 seconds, exit normally, and send the
+three EKA2L1 logs. Video only if visible behavior differs.
+
+B72 must be selected from B71's exact resource-ID/caller evidence. Do not
+synthesize SIM success or suppress Telephone panic.
