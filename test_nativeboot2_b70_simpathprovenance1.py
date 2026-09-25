@@ -34,7 +34,6 @@ def main():
     need(sv,"source=TIMER_AFTER","svc.cpp")
     need(sv,"source=TIMER_AFTER_HIGH_RES","svc.cpp")
     need(sv,"source=TIMER_LOCK","svc.cpp")
-    need(sv,"source=TIMER_AT_UTC","svc.cpp")
     need(sv,"source=PROPERTY_SUBSCRIBE","svc.cpp")
 
     need(sv,"[NBOOT2][SIM_PS]","svc.cpp")
