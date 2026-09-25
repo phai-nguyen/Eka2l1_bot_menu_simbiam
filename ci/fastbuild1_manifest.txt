@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B78 PHONEUICALLCHAIN1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B79 PHONEUICALLCHAIN2 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -53,6 +53,7 @@ apply_nativeboot2_b75_phoneuirescaller2.py|test_nativeboot2_b75_phoneuirescaller
 apply_nativeboot2_b76_gamemenusafetitle1.py|test_nativeboot2_b76_gamemenusafetitle1.py
 apply_nativeboot2_b77_phoneuiresolverexport1.py|test_nativeboot2_b77_phoneuiresolverexport1.py
 apply_nativeboot2_b78_phoneuicallchain1.py|test_nativeboot2_b78_phoneuicallchain1.py
+apply_nativeboot2_b79_phoneuicallchain2.py|test_nativeboot2_b79_phoneuicallchain2.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
