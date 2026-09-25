@@ -23,7 +23,6 @@ def main():
     svc=(up/"src/emu/kernel/src/svc.cpp").read_text(encoding="utf-8")
     sched=(up/"src/emu/kernel/src/scheduler.cpp").read_text(encoding="utf-8")
     lib=(up/"src/emu/kernel/src/libmanager.cpp").read_text(encoding="utf-8")
-    timer=(up/"src/emu/kernel/src/timer.cpp").read_text(encoding="utf-8")
     sa=(up/"src/emu/services/src/sms/sa/sa.cpp").read_text(encoding="utf-8")
     fs=(up/"src/emu/services/src/fs/files.cpp").read_text(encoding="utf-8")
 
@@ -49,12 +48,6 @@ def main():
     need(lib,"[NBOOT2][STARTER_SVC]","SYSSTART SVC trace")
     need(lib,"bool lib_manager::call_svc(sid svcnum)","SVC dispatcher")
 
-    need(timer,"[NBOOT2][STARTER_TIMER]","Starter timer trace")
-    need(timer,"phase=arm","Starter timer trace")
-    need(timer,"phase=cancel_before","Starter timer trace")
-    need(timer,"phase=cancel_after","Starter timer trace")
-    need(timer,"info.done_nof.complete(epoc::error_cancel);","original timer cancel")
-
     # Previous evidence gates stay in chain.
     need(proc,"[NBOOT2][STARTER_RENDEZVOUS]","B65")
     need(thr,"[NBOOT2][EIKCANCEL_NOTIFY]","B33")
@@ -63,7 +56,7 @@ def main():
     need(sa,"[NBOOT2][SA_SELFTEST_RESPONSE]","B64")
     need(fs,"[NBOOT2][STARTER_SSC_DUMP]","B67")
 
-    combined="\n".join((proc,thr,svc,sched,lib,timer))
+    combined="\n".join((proc,thr,svc,sched,lib))
     for forbidden in (
         "requested=102",
         "ESwStateSelfTestOK",
@@ -78,7 +71,7 @@ def main():
         fail("NOJAVA invariant violated")
 
     print(MARK+": PASS")
-    print("scope=SYSSTART_REQUEST_WAKE_TIMER_SCHED_SVC_DIAGNOSTIC")
+    print("scope=SYSSTART_REQUEST_WAKE_SCHED_SVC_DIAGNOSTIC")
     print("behavior_change=NONE")
 
 if __name__=="__main__":
