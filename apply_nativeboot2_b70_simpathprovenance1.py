@@ -297,7 +297,6 @@ def main():
         "mode=ASYNC",
         "mode=SYNC",
         "[NBOOT2][STARTER_ASYNC_ARM]",
-        "source=TIMER_AFTER",
         "source=PROPERTY_SUBSCRIBE",
         "[NBOOT2][SIM_PS]",
         "0x00000031U",
