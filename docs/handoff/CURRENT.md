@@ -5778,3 +5778,86 @@ Next:
 install B73 over B72, reproduce the same startup-failure boundary, wait 5-10
 seconds, exit via game-menu/Emulator, and send the standard logs plus
 Persistent-prev if present. Video only if visible behavior changes.
+
+
+## Latest device override — B73 PHONEUIFSFLOW1 DEVICE1
+
+B73 is **DEVICE-OBSERVED; PHONEUI RSC PARSE VALID; CALLHANDLING RESOURCE REGISTRATION MISSING; CLEAN EXIT**.
+
+Full snapshot:
+- `docs/handoff/history/B73-DEVICE1.md`
+
+Proven sequence:
+- Telephone itself opens/parses `Z:\resource\apps\phoneui.r01`.
+- final FileServer sequence is
+  Entry -> FileOpen -> FileSize -> FileSeek -> FileRead header/index/signature
+  -> FileSubClose.
+- the reads exactly match the valid phoneui.r01 resource structure.
+- Telephone then panics CONE14.
+
+The actual requested resource ID at panic is `0x1099B02D`.
+Matching RM-356 RPKG proves it belongs to
+`Z:\resource\apps\callhandlingui.r01`, resource index 0x2D/45.
+That resource and file both exist.
+
+B73 contains no callhandlingui.r01 open/entry before panic.
+
+Nokia PhoneUI source shows `CPhoneResourceResolverBase::BaseConstructL()`
+intends to register phoneui.rsc, callhandlingui.rsc, then phoneuitouch.rsc via
+`CEikonEnv::AddResourceFileL()`.
+
+CONE source shows `DoResourceFileForIdL()` panics CONE14 when no registered
+resource file owns the requested ID.
+
+Thus the first proven fatal resource blocker is:
+**callhandlingui.r01 exists on Z but is not registered before
+PhoneUIUtils requests 0x1099B02D.**
+
+Exit Emulator remains clean; do not revive the B70 teardown patch unless the
+host crash reproduces.
+
+## Latest build override — B74 PHONEUIRESCALLER1
+
+B74 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- `docs/handoff/history/B74-PHONEUIRESCALLER1.md`
+
+B74 is diagnostic-only and captures saved Telephone guest context for
+phoneui.r01/callhandlingui.r01 FileServer operations:
+
+- `[NBOOT2][PHONEUI_RES_CALLER]`
+  PC/LR/SP/CPSR + r0-r12;
+- `[NBOOT2][PHONEUI_RES_FRAME]`
+  96-word stack scan tagging exact RM-356 PhoneUIUtils.dll and cone.dll
+  runtime addresses;
+- `[NBOOT2][PHONEUI_RES_ID]`
+  flags resource `0x1099B02D`;
+- `[NBOOT2][PHONEUI_RES_CONTEXT_DONE]`.
+
+Goal:
+identify the exact guest caller/control-flow boundary after the final
+phoneui.r01 registration and before the missing callhandlingui registration.
+Only after this evidence should B75 restore registration.
+
+Canonical GREEN:
+- run `36130192940` / #241
+- job `108055433959`
+- build HEAD `7cc9a50d1c08992e70ef8ca1da2e9d6086e9f676`
+- manifest/apply/contract/regression PASS
+- iOS compile/link PASS
+- binary invariants PASS
+- package/upload PASS
+- compile requests/hits/misses `151/150/1`
+- cache hit rate `99.34%`
+- compilation failures `0`
+- IPA SHA-256
+  `e0eb3594ac099661ca31bf64bb3763459a33a5fb03d3418e2fc99e92ee9657e5`
+- IPA artifact `10861787477`
+- audit artifact `10861787485`
+- NOJAVA / MANIC3 preserved
+
+Next:
+install B74 over B73, reproduce startup failure, wait 5-10 seconds, exit via
+game-menu/Emulator and send standard logs plus Persistent-prev if present.
+Video only if visible behavior changes.
