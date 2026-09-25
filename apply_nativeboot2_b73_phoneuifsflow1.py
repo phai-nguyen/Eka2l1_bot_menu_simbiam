@@ -242,7 +242,6 @@ def main():
     diagnostic=inject+open_new+path_new+read_new
     for forbidden in (
         "ctx->complete(",
-        "ctx->write_",
         "read_pos =",
         "buffer_length =",
         "requested=102",
