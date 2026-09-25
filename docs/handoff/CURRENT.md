@@ -5376,11 +5376,12 @@ take the first new post-0xC blocker as the next evidence.
 
 ## Latest device override — B69 ALARMIDLIST1 DEVICE1
 
-B69 is **DEVICE-OBSERVED; ALARM 0x0C FIX PASS; STARTER ADVANCES; NEXT FAILURE IS FATALSTARTUP -> SHUTDOWN**.
+B69 is **DEVICE-OBSERVED; ALARM 0x0C FIX PASS; STARTER ADVANCES; CURRENT PATH SELECTS SHUTDOWN DIRECTLY FROM STATE 101**.
 
-Full snapshot:
+Full snapshots:
 
-`docs/handoff/history/B69-DEVICE1.md`
+- `docs/handoff/history/B69-DEVICE1.md`
+- `docs/handoff/history/RM356-NORMAL-SIM-BOOT-MAP1.md`
 
 Device/video result:
 
@@ -5392,24 +5393,33 @@ Device/video result:
   StarterServer.
 - after that wake, SYSSTART issues SAServer `EGlobalStateChange / 0x64`
   with input `0x74 = 116`.
-- authoritative `startupdomainpskeys.h` maps:
-  `116 = ESwStateFatalStartupError`,
-  `117 = ESwStateShuttingDown`.
-- SYSSTART then publishes global state `101 -> 117`.
-
-State-enum correction for current analysis:
-**117 is ShuttingDown, not FatalStartupError. FatalStartupError is 116.**
+- IMPORTANT: StartupAdaptation::TGlobalState uses
+  `116 = ShuttingDown, 117 = FatalStartupError`, while the P&S
+  TPSGlobalSystemState enum uses
+  `116 = FatalStartupError, 117 = ShuttingDown`.
+- SYSSTART then publishes P&S global state `101 -> 117`, so both operations
+  mean **ShuttingDown**. B69 does not prove a FatalStartupError transition.
 
 Video shows black -> white NOKIA logo at about 35 seconds; the NOKIA splash then
 remains static through the rest of the ~327.8 s recording. No hands animation,
 date/time or Home/Menu appears.
 
-Thus B69 is genuine execution progress because it removes the Alarm dead
-request and exposes the next firmware decision, but normal boot still does not
-reach 102.
+The intended RM-356 ENormal + usable-SIM path derived from ROM/RPKG and Nokia
+startup APIs is:
+
+`100 StartingUiServices -> 101 StartingCriticalApps -> 102 SelfTestOK ->
+103 SecurityCheck -> SIM security/ESimUsable -> 104 CriticalPhaseOK ->
+109 NormalRfOn`
+
+(or 110 NormalRfOff for an offline selection).
+
+Current B69 exits this path at state 101 before state 102 and before the SIM
+security state machine is entered.
 
 Next exact evidence boundary:
 identify the source/ABI/payload of SYSSTART async request status
 `0x007008D4`, which completes just before Starter selects
-FatalStartupError=116. B70 should be diagnostic-only; do not force state 102 or
-suppress 116/117 before this request is identified.
+StartupAdaptation state 116 = ShuttingDown. B70 should also trace SIM P&S keys
+0x31/0x32/0x33 and SAServer commands 0x65/0x66/0x68/0x6C/0x6D. Do not force
+state 102, fake ESimUsable or suppress shutdown before this request is
+identified.
