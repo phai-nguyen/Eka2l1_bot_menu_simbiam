@@ -47,20 +47,14 @@ def main():
 
     need(menu,"[NBOOT2][GAMEMENU_SAFE_TITLE]","B76")
 
-    # Diagnostic-only: no resource/SIM/panic/lifecycle mutation.
-    joined=fs[fs.find("[NBOOT2][PHONEUI_TARGET_FINGERPRINT]"):] + \
-           sv[sv.find("[NBOOT2][PHONEUI_TARGET_FINGERPRINT]"):]
-    for x in (
-        "requested=102",
-        "ESimUsable",
-        "reason = 0",
-        "set_export(",
-        "AddResourceFile",
-        "ctx->complete(",
-        "WRITE_MODE",
-    ):
-        if x in joined:
-            fail("behavior-changing token found: "+x)
+    # The apply script already rejects behavior-changing tokens from the
+    # exact B80 injected strings. Here keep the contract scoped to B80-owned
+    # identifiers so unrelated historical code later in fs.cpp/svc.cpp does
+    # not produce a false positive.
+    for body,where in ((fs,"fs.cpp"),(sv,"svc.cpp")):
+        need(body,"nboot2_b80_hash",where)
+        need(body,"nboot2_b80_words",where)
+        need(body,"behavior=OBSERVE_ONLY",where)
 
     if (up/"src/emu/j2me").exists():
         fail("NOJAVA invariant violated")
