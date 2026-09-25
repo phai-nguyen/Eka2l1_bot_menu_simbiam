@@ -1,7 +1,7 @@
 # NATIVEBOOT2 B69 ALARMIDLIST1 DEVICE1
 
 Date: 2026-09-25
-Status: DEVICE-OBSERVED; ALARM 0x0C FIX PASS; STARTER ADVANCES BEYOND B68 BLOCKER; NEXT FAILURE IS FATAL-STARTUP -> SHUTDOWN
+Status: DEVICE-OBSERVED; ALARM 0x0C FIX PASS; STARTER ADVANCES BEYOND B68 BLOCKER; NEXT PATH IS DIRECT SHUTDOWN FROM STATE 101
 
 ## Inputs
 
@@ -82,50 +82,57 @@ completion=KErrNone
 
 0x74 decimal = 116.
 
-Per the authoritative Symbian startupdomainpskeys.h enumeration:
+There are TWO related but differently ordered state enums and they must not be
+mixed:
 
-100 StartingUiServices
-101 StartingCriticalApps
-102 SelfTestOK
-103 SecurityCheck
-104 CriticalPhaseOK
-105 EmergencyCallsOnly
-106 Test
-107 Charging
-108 Alarm
-109 NormalRfOn
-110 NormalRfOff
-111 NormalBTSap
-112 AlarmToCharging
-113 ChargingToAlarm
-114 ChargingToNormal
-115 AlarmToNormal
-116 FatalStartupError
-117 ShuttingDown
+StartupAdaptation::TGlobalState (used by EGlobalStateChange / SA opcode 0x64):
+- 100 StartingUiServices
+- 101 StartingCriticalApps
+- 102 SelfTestOK
+- 103 SecurityCheck
+- 104 CriticalPhaseOK
+- 105 EmergencyCallsOnly
+- 106 Test
+- 107 Charging
+- 108 Alarm
+- 109 NormalRfOn
+- 110 NormalRfOff
+- 111 NormalBTSap
+- 112 AlarmToCharging
+- 113 ChargingToAlarm
+- 114 ChargingToNormal
+- 115 AlarmToNormal
+- 116 ShuttingDown
+- 117 FatalStartupError
 
-Therefore the SA request at 11:44:24.167 is an adaptation transition to
-FatalStartupError (116).
+TPSGlobalSystemState (P&S key 0x101F8766:0x41):
+- the same values through 115
+- 116 FatalStartupError
+- 117 ShuttingDown
 
-In the same millisecond SYSSTART publishes:
+Therefore the SA request at 11:44:24.167 is a request for
+StartupAdaptation::ESWStateShuttingDown (116), NOT FatalStartupError.
+
+In the same millisecond SYSSTART publishes the P&S form of the same semantic
+state:
 
 KPSGlobalSystemState:
 before=101
 requested=117
 after=117
 
-Thus the observed path is:
+Thus the observed B69 path is:
 
 101 StartingCriticalApps
   -> Alarm ID-list requests now succeed
   -> async request status 0x007008D4 completes KErrNone
-  -> SYSSTART requests adaptation global state 116 FatalStartupError
-  -> SYSSTART publishes 117 ShuttingDown
+  -> SYSSTART requests adaptation state 116 ShuttingDown
+  -> SYSSTART publishes P&S state 117 ShuttingDown
   -> NOKIA splash remains on screen
 
-Important correction to older project shorthand:
-117 is ShuttingDown, not FatalStartupError. FatalStartupError is 116.
-Historical logs that showed 101 -> 117 should be interpreted with this enum
-correction when evaluating current behavior.
+Important correction:
+B69 contains no proven FatalStartupError transition. The previous interpretation
+mixed the two state enums.
 
 ## What B69 proves
 
@@ -134,7 +141,7 @@ B69 is a real diagnostic/functional advance:
 - opcode 0x0C is no longer a dead synchronous Alarm request;
 - Starter proceeds beyond the exact B68 durable wait;
 - the next failure path becomes observable;
-- the firmware itself now elects the fatal-startup/shutdown path.
+- the firmware itself now elects a direct shutdown path from state 101.
 
 Do not revert B69.
 
@@ -154,7 +161,7 @@ The critical unresolved event is request status:
 It completes KErrNone approximately 610 ms after the Alarm calls. The B68
 generic notify probe proves completion/wakeup, but does not identify which
 subsystem armed that request or what returned payload/status semantics caused
-Starter to choose FatalStartupError.
+Starter to choose ShuttingDown.
 
 This is the next exact evidence boundary.
 
@@ -181,10 +188,11 @@ Trace the provenance and ABI of the asynchronous SYSSTART request status
 - descriptor argument types/sizes/max lengths;
 - completion result and any output payload written before completion;
 - the exact guest branch after wakeup that selects
-  ESwStateFatalStartupError=116.
+  StartupAdaptation::ESWStateShuttingDown=116 / P&S ShuttingDown=117.
 
 Also trace EGlobalStateChange 0x64 input with a dedicated named marker around
-116 so B70 can correlate the causative request to the fatal transition.
+adaptation state 116 so B70 can correlate the causative request to the direct
+shutdown transition.
 
-Do not force 102 and do not suppress 116/117 until the 0x007008D4 source and
-payload are identified.
+Do not force 102 and do not suppress the shutdown transition until the
+0x007008D4 source and payload are identified.
