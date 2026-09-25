@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B69 ALARMIDLIST1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B70 SIMPATHPROVENANCE1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -44,6 +44,7 @@ apply_nativeboot2_b66_starterscriptdump1.py|test_nativeboot2_b66_starterscriptdu
 apply_nativeboot2_b67_startersscdump1.py|test_nativeboot2_b67_startersscdump1.py
 apply_nativeboot2_b68_starterwake1.py|test_nativeboot2_b68_starterwake1.py
 apply_nativeboot2_b69_alarmidlist1.py|test_nativeboot2_b69_alarmidlist1.py
+apply_nativeboot2_b70_simpathprovenance1.py|test_nativeboot2_b70_simpathprovenance1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
