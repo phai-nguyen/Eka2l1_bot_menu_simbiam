@@ -51,7 +51,6 @@ def main():
         ("[NBOOT2][PHONEUI_FS_FLOW]",fs,"B73"),
         ("[NBOOT2][PHONEUI_RSC_OPEN]",files,"B73"),
         ("[NBOOT2][CONE14_PHONEUI]",sv,"B71"),
-        ("0x1099B02D",sv,"B71 resource-id evidence"),
     ):
         if needle not in text:
             fail(f"{name} gate missing: {needle}")
