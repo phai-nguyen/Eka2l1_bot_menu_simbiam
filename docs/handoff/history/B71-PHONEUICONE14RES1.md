@@ -4,80 +4,99 @@ Date: 2026-09-25
 Status: BUILD-VALIDATED; DEVICE TEST REQUIRED
 Selected route: NORMAL BOOT + SIM PRESENT
 
-## B70 DEVICE1 blocker
+## B70 DEVICE1 evidence
 
-B70 is sufficient; no repeat is required.
+B70 DEVICE1 is sufficient; no repeat is required.
 
-Visible result:
-- NOKIA logo appears;
-- native Startup UI then displays:
-  `Phone start-up failed. Contact the retailer.`
-- the error remains stable for more than one minute in the supplied recording.
+Visible behavior advances to the native fatal UI:
 
-Exact chain:
-- SYSSTART state 0 -> 100 -> 101;
-- Telephone[0x100058B3] opens Z:\\resource\\apps\\phoneui.r01;
-- Telephone self-panics CONE 14;
-- Starter receives result=14 at request_status=0x00701684;
-- Starter sends SAServer function 0x64;
-- SYSSTART writes global state 101 -> 116;
-- native startup-failure UI is shown.
+`Phone start-up failed. Contact the retailer.`
 
-SIM P&S 0x101F8766 keys 0x31/0x32/0x33 remain at 100 in the proven interval.
-There is no evidence yet for KPSSimStatus=ESimUsable.
+Exact causal boundary:
 
-The old B69 diagnostic address 0x007008D4 does not occur in this B70 run.
+- 14:07:49.074 Telephone opens
+  `z:\resource\apps\phoneui.r01`;
+- 14:07:49.075 Telephone / UID3 0x100058B3 panics
+  `CONE 14`;
+- 14:07:49.077 StarterServer receives result 14;
+- 14:07:49.086 SYSSTART writes global state 101 -> 116.
 
-## Why CONE14 matters
+Host exit begins only at 14:09:05.786, so the user did not terminate the run
+too early for this diagnosis.
 
-The official Symbian CONE panic table defines panic 14 as the environment being
-unable to find the specified resource in any resource file.
+SIM P&S 0x101F8766 keys 0x31/0x32/0x33 remain at their observed value 100 in
+the critical interval. The normal SIM security sequence is not reached.
 
-The matching RM-356 SYM.RPKG proves:
-- Z:\\resource\\apps\\phoneui.r01 exists;
-- size: 28134 bytes;
-- SHA-256:
-  05c419086de5710d361f7d8c910ef5284006b5ee879cb0acb448b8090a7ce9a1
-- resource signature base: 0x4E738000;
-- resource count: 368;
-- expected user-resource index range: 0x001..0x170.
+The previous absolute request address 0x007008D4 is not present in this run.
+The fatal waiter is at 0x00701684. Cross-build absolute guest addresses are not
+used as stable identities.
 
-Therefore the immediate blocker is a PhoneUI/CONE resource lookup failure, not
-simple file absence and not yet a proven SIM-adaptation failure.
+## Meaning of CONE 14
 
-## B71 scope
+Authoritative Symbian Classic UI source defines:
 
-B71 is diagnostic-only and runs only when all are true:
-- target process UID3 = 0x100058B3 (Telephone);
-- caller thread kills itself;
-- panic reason = 14;
-- panic category = CONE.
+`ECoePanicNoResourceFileForId = 14`
+
+CCoeEnv::ResourceFileForId / DoResourceFileForIdL use this panic when no loaded
+resource file owns the requested resource ID.
+
+Therefore the immediate blocker is PhoneUI/CONE resource ownership, not a
+proven SIM-adaptation failure.
+
+## Canonical B71 scope
+
+B71 is diagnostic-only and targets the proven Telephone/PhoneUI panic.
 
 Markers:
-- [NBOOT2][CONE14_PHONEUI]
-- [NBOOT2][CONE14_FRAME]
-- [NBOOT2][CONE14_STACK]
-- [NBOOT2][CONE14_RESID_CANDIDATE]
-- [NBOOT2][CONE14_SUMMARY]
+
+- `[NBOOT2][CONE14_PHONEUI]`
+- `[NBOOT2][CONE14_FRAME]`
+- `[NBOOT2][CONE14_STACK]`
+- `[NBOOT2][CONE14_CODE16]`
+- `[NBOOT2][CONE14_FP]`
+- `[NBOOT2][CONE14_SUMMARY]`
+- `[NBOOT2][PHONEUI_RSC_DUMP]`
 
 It captures:
-- r0-r12, SP, LR, PC, CPSR;
-- PC/LR module + relocated offset;
-- up to 128 guest stack words;
-- code-segment candidates from stack values;
-- explicit candidate tagging for 0x4E738xxx PhoneUI resource IDs;
-- whether each candidate index falls within the actual R01 range 0x001..0x170.
+
+- r0-r12, PC/LR/SP/FP/CPSR;
+- up to 128 raw guest stack words;
+- code-candidate module/base/offset resolution;
+- bounded code16 windows around CONE/Phone/euser-related frames;
+- a bounded frame-pointer neighborhood;
+- exact `z:\resource\apps\phoneui.r01` bytes in 512-byte uppercase HEX
+  chunks through a separate read-only VFS handle.
+
+PhoneUI RSC capture cap: 262144 bytes.
+
+## Evidence discipline correction
+
+An earlier B71 draft attempted to tag a presumed PhoneUI resource-ID
+base/range. That range was not present in the supplied B70 logs and is not
+required for diagnosis.
+
+Canonical B71 #224 explicitly uses:
+
+`resource_range_assumption=NONE`
+
+The resource signature/index/range will be decoded from the exact captured
+phoneui.r01 bytes before B72 is selected.
+
+## Behavior contract
 
 B71 does NOT:
-- suppress CONE14;
-- alter reason/category;
-- ignore the Telephone critical-app failure;
-- force state 102;
-- force ESimUsable;
-- alter Starter/SAServer/rendezvous/P&S/scheduler behavior;
-- inject or replace a resource.
 
-B61/B64/B68/B69/B70 remain preserved.
+- suppress CONE14;
+- rewrite the panic reason/category;
+- alter Starter result 14;
+- force state 102 or block state 116;
+- synthesize ESimUsable;
+- alter KPSSimStatus/KPSSimOwned/KPSSimChanged;
+- alter SAServer responses;
+- modify resource bytes or the guest EFsrv cursor;
+- alter scheduler/rendezvous behavior.
+
+B61/B64/B67/B68/B69/B70 remain preserved.
 NOJAVA / MANIC3 preserved.
 
 ## Canonical GREEN
@@ -85,71 +104,71 @@ NOJAVA / MANIC3 preserved.
 Workflow:
 Build EKA2L1 NATIVEBOOT2 CURRENT FAST
 
-- run ID: 36107522682
-- run number: 222
-- job ID: 107983353265
-- build HEAD: 0b1ba9911c1ec09d163921b92d6ba4600e8e7f02
+- run ID: 36107741479
+- run number: 224
+- job ID: 107984034152
+- build HEAD: e5a6c3a55d448cbdc56e8b3a16b397451d84ebe4
 - manifest: VALID
 - B71 apply: PASS
 - B71 contract: PASS
-- full regression chain: PASS
+- regression chain: PASS
 - iOS compile/link: PASS
 - binary invariants: PASS
 - IPA package/upload: PASS
 - compile requests: 151
-- cache hits: 150
-- cache misses: 1
-- cache hit rate: 99.34%
+- cache hits: 149
+- cache misses: 2
+- cache hit rate: 98.68%
 - compilation failures: 0
 - NOJAVA / MANIC3: preserved
 
 Unsigned IPA SHA-256:
 
-ef5f92ce12387ee9e4a80d71ac5514945fe193b9d69f5ba7ca7c49508f870678
+`de93877fb12c33e1b35840a4dd108c5ebd2f1b6fc104812753e630d269aef9cc`
 
 IPA artifact:
-- ID: 10851761787
+
+- ID: 10851856967
+- size: 19971406 bytes
 - ZIP digest:
-  sha256:11d056717d59751e22b174fd5fe404d8ac2a7c92aa50b8652b156fadc57552bd
-- size: 19969881 bytes
+  `sha256:d7fabedd3f65be490119e71c1fbfffee859b111546bfacc4b2931746c05ec0df`
 - expires: 2026-10-09
 
 Audit artifact:
-- ID: 10851357336
+
+- ID: 10851452716
 - ZIP digest:
-  sha256:73a6ad996289ba84fb7391b60e5dce69ad7e06862738a291913c35184fc3f3ac
+  `sha256:032e9a325096574b7a2fe4b535da7aaf18eab7de41d596512038a609716eb9b8`
 
 ## DEVICE1 instructions
 
-Install B71 over B70 and run the same Emulator normal-boot path.
+Install B71 over B70 and run the same normal Emulator boot.
 
-It is enough to wait until:
-- NOKIA logo appears;
-- then either the same Phone start-up failed screen appears, or visible behavior
-  changes.
+When the same Phone start-up failed screen appears, leave it stable for about
+5-10 seconds. The diagnostic markers fire at the panic itself, so waiting
+longer is unnecessary.
 
-Once the failure screen has been stable for about 5-10 seconds, exit normally.
+Then exit normally and send:
 
-Send:
 - EKA2L1.log
 - EKA2L1_Persistent.log
 - EKA2L1_TakeThis.log
 
-Video is only needed if visible behavior differs from B70.
+Video is needed only if visible behavior differs from B70.
 
 ## B72 decision rule
 
-First inspect [NBOOT2][CONE14_RESID_CANDIDATE] and all
-[NBOOT2][CONE14_STACK] rows with phoneui_res_base=1.
+First reconstruct `phoneui.r01` from `PHONEUI_RSC_DUMP` and decode its real
+resource signature/index table.
 
-If a missing resource ID beyond the actual R01/R96 range is proven, map the
-caller module/offset and determine why the binary/resource package versions are
-mismatched.
+Then correlate that data with:
 
-If an in-range resource ID is present but lookup still fails, investigate
-resource offset/signature ownership and CONE resource-file registration order.
+- raw register/stack values;
+- resolved CONE/PhoneUI frames;
+- code16 windows around the exact callers.
 
-If no 0x4E738xxx ID survives to the panic stack, use the resolved CONE14 stack
-modules/offsets to place the next probe earlier at the exact resource-read call.
+B72 may implement a narrow compatibility fix only after the requested resource
+ID and the reason CCoeEnv fails to associate it with a loaded resource file are
+proven.
 
-Do not fix B72 by forcing SIM state or suppressing Telephone panic.
+Do not fix B72 by suppressing CONE14 or forcing SIM/startup state.
