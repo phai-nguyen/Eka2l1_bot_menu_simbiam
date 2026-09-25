@@ -6252,3 +6252,34 @@ complete RM-612/RM-624 firmware package with CORE + ROFS images.
 
 B79 remains the active RM-356 runtime build; the C6 track will be correlated
 with B79 call targets +0x4274/+0x41AC/+0x4350 after C6 firmware extraction.
+
+
+## C6-00 RM-612 control firmware — EXTRACT1
+
+Full report:
+- docs/research/C6-00-RM612-42.0.004-EXTRACT1.md
+
+User-supplied RM-612 v42.0.004 Vietnam firmware has been parsed through
+BB5/ROFS layers.
+
+Strong cross-device evidence:
+- C6 phoneui.exe UID3 = 0x100058B3, same as RM-356 PhoneUI process.
+- C6 callhandlingui.r01 uses signature base 0x1099B000.
+- C6 resource 0x1099B02D exists at index 0x2D.
+- C6 carries phoneui/callhandlingui/phoneuitouch and classic Starter_Arm
+  architecture.
+- C6 Starter_Arm has 58 resources vs RM-356 59.
+
+Critical correction/caution:
+C6 production PhoneUIUtils.dll has 462 exports, while public SymbianSource
+phoneuiutilsu.def has 387. Therefore public ordinal->symbol names cannot be
+ported blindly to Nokia production firmware builds.
+
+B77's RM-356 ordinal-182 runtime address remains valid evidence, but the
+symbol label BaseConstructL is now an UNVERIFIED SYMBOL HYPOTHESIS until the
+exact RM-356 phoneuiutils.dll export surface is checked.
+
+Do not build a functional resource-registration B80 from ordinal 182 alone.
+
+B79 DEVICE1 remains required. Prefer code-window/fingerprint correlation for
++0x4274/+0x41AC/+0x4350/+0x3A28/+0x3B2E.
