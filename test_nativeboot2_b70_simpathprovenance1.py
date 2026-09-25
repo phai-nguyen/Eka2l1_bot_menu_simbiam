@@ -31,9 +31,6 @@ def main():
     need(se,"function=0x{:08X}","session.cpp")
 
     need(sv,"[NBOOT2][STARTER_ASYNC_ARM]","svc.cpp")
-    need(sv,"source=TIMER_AFTER","svc.cpp")
-    need(sv,"source=TIMER_AFTER_HIGH_RES","svc.cpp")
-    need(sv,"source=TIMER_LOCK","svc.cpp")
     need(sv,"source=PROPERTY_SUBSCRIBE","svc.cpp")
 
     need(sv,"[NBOOT2][SIM_PS]","svc.cpp")
@@ -60,7 +57,7 @@ def main():
     print("scope=DIAGNOSTIC_ONLY")
     print("normal_sim_path=SELECTED")
     print("sysstart_ipc_provenance=ENABLED")
-    print("timer_property_provenance=ENABLED")
+    print("property_provenance=ENABLED")
     print("sim_ps_31_32_33=OBSERVE_ONLY")
     print("state_injection=NONE")
 
