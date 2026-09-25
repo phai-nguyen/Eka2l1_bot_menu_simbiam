@@ -1,7 +1,7 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
 Updated: 2026-09-25
-Latest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — BUILD-VALIDATED; DEVICE TEST REQUIRED
+Latest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — DEVICE-OBSERVED; Phone CONE14 persists; Emulator exits cleanly
 Latest diagnostic build HEAD: 42ca0136983714b01fd259120921188066c71af4
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
@@ -11,8 +11,8 @@ Latest immutable functional code HEAD: b43e59696d313da97c8845a1a20e78d9b6c762d7
 Latest immutable functional branch: nativeboot2-b41-wservmessagewinexit1
 Latest device-validated functional milestone: B41 WSERVMESSAGEWINEXIT1
 Latest device snapshot: docs/handoff/history/B41-DEVICE1.md
-Latest device diagnostic snapshot: docs/handoff/history/B46-DEVICE1.md
-Latest build diagnostic snapshot: docs/handoff/history/B47-AKNSKINTFXSTATE1.md
+Latest device diagnostic snapshot: docs/handoff/history/B81-DEVICE1.md
+Latest build diagnostic snapshot: docs/handoff/history/B81-PHONEUIBLXDECODE1.md
 B40 status: DEVICE-VALIDATED — Loader PDD root cause fixed; !EikAppUiServer registers and B39 AV family is gone
 B41 status: DEVICE-VALIDATED — Thoát Emulator host crash fixed
 B42 status: DEVICE-OBSERVED; DIAGNOSTIC SUCCESS — HWRM raw 0x2000000A ABI captured; 30 s timeout proven non-final
@@ -6400,6 +6400,62 @@ targets alone. Analyze B81 DEVICE1 fingerprints and exact RM-356 code/export
 identity first.
 
 ## New-chat checkpoint — B81
+
+Start a fresh chat with:
+`docs/handoff/NEWCHAT-B81-2026-09-25.md`
+
+
+
+## Latest device override — B81 PHONEUIBLXDECODE1 DEVICE1
+
+B81 is **DEVICE-OBSERVED; EMULATOR RESPONSIVE; PHONE CONE14 PERSISTS; CLEAN EXIT**.
+
+Full snapshot:
+- `docs/handoff/history/B81-DEVICE1.md`
+
+User reports the Emulator no longer hangs on the “Phone start-up failed.
+Contact the retailer.” state. The supplied 4:13 screen recording shows the
+Nokia splash throughout the recorded startup interval; the in-app menu control
+remains visible. The user exited normally. The evidence establishes a
+responsive host/Emulator and clean shutdown; it does not establish that Phone
+startup succeeded.
+
+Log facts:
+- Telephone UID3 `0x100058B3` still panics once with CONE 14 at
+  `00:50:59.381`.
+- `r6=0x1099B02D`; summary meaning is `NoResourceFileForId`.
+- no `callhandlingui.r01` path appears before the panic.
+- B81 logs 11 corrected BLX records, 13 target fingerprints, 13 validated
+  call-chain edges, 42 export-surface records, and 41 exact PhoneUI resource
+  path matches.
+- The same distinct corrected target fingerprints recur:
+  - `+0x46F4`: `0x1860DC4122EA1341`
+  - `+0x4694`: `0x606CFB7EE7158871`
+  - `+0x46C4`: `0x3614601287EC99EE`
+  - `+0x3A28`: `0xE554D55F0A411FDF`
+  - `+0x3B2E`: `0xC1DF19A359FDF4BC`
+- Production PhoneUIUtils export count remains 410; symbol-name mapping
+  remains explicitly unverified against the public DEF.
+- After the Telephone panic, WindowServer redraws, Starter activity, and other
+  service activity continue. The host log records
+  `shutdown_done -> normal_restart_begin -> normal_restart_done has_device=1`.
+- No host crash report was supplied.
+
+Comparison with B80:
+- the Telephone CONE14 / resource-ID failure remains the same;
+- observed diagnostic counts and later system activity are effectively the
+  same, as expected for a B81 diagnostics-only decoder correction;
+- the visible improvement reported by the user is Emulator responsiveness,
+  not a demonstrated successful Phone startup.
+
+Next:
+perform offline analysis of the corrected B81 fingerprints and literal
+veneer targets against exact RM-356 PhoneUIUtils code and export data, then
+select the next narrow diagnostic or functional boundary from that evidence.
+Do not register `callhandlingui.r01` based only on the current panic or
+unverified export labels.
+
+## New-chat checkpoint — B81 DEVICE1
 
 Start a fresh chat with:
 `docs/handoff/NEWCHAT-B81-2026-09-25.md`
