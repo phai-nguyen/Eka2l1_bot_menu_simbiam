@@ -124,6 +124,13 @@ def main():
     fs=rep1(fs,switch_anchor,inject,"Telephone FS flow")
 
     # 2) Identify caller/handle for every exact phoneui.r01 open.
+    open_sig="    void fs_server_client::new_file_subsession(service::ipc_context *ctx,"
+    open_start=files.find(open_sig)
+    open_end=files.find("\n    int fs_server_client::new_node(",open_start)
+    if open_start<0 or open_end<0:
+        fail("new_file_subsession bounds not found")
+    open_block=files[open_start:open_end]
+
     open_anchor='''        LOG_TRACE(SERVICE_EFSRV, "Handle opened: {}", handle);
 
         ctx->write_data_to_descriptor_argument<int>(3, handle);
@@ -151,7 +158,10 @@ def main():
 
         ctx->write_data_to_descriptor_argument<int>(3, handle);
 '''
-    files=rep1(files,open_anchor,open_new,"PhoneUI open provenance")
+    if open_block.count(open_anchor)!=1:
+        fail(f"PhoneUI open provenance anchor count={open_block.count(open_anchor)}")
+    open_block=open_block.replace(open_anchor,open_new,1)
+    files=files[:open_start]+open_block+files[open_end:]
 
     # 3) Direct ReadFileSection path: trace exact phoneui.r01 before and after
     # host read. This catches BAFL paths that never use an RFile subsession read.
