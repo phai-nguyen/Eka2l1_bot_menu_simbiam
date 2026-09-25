@@ -5942,3 +5942,68 @@ For a fresh conversation, start with:
 docs/handoff/NEWCHAT-B75-2026-09-25.md
 
 Do not re-investigate B65-B73.
+
+
+## Latest device override — B75 PHONEUIRESCALLER2 DEVICE1
+
+B75 is **DEVICE-OBSERVED; CALLER PROBE PASS; PHONEUI RESOURCE-INIT CHAIN NARROWED; NEW HOST GAMEMENU CRASH PROVEN**.
+
+Full snapshot:
+- docs/handoff/history/B75-DEVICE1.md
+
+B75 records 41 PHONEUI_RES_MATCH2/CALLER contexts and 43 PhoneUI module-frame
+hits. The critical Telephone path repeatedly carries PhoneUIUtils.dll +0x5094
+while phoneui.r01 is being processed, and the same +0x5094 appears again in
+the later CONE14 stack. CONE14 still has r6=0x1099B02D and no
+callhandlingui.r01 registration/open occurs first.
+
+Thus B75 successfully bridges the valid phoneui.r01 initialization path to the
+fatal PhoneUIUtils/CONE call chain.
+
+The B75 Home crash is a separate host issue. The user only pressed the
+three-dot button. The .ips faults on the iOS main thread:
+onMenuController -> presentGameMenu -> GameMenuView::showInView ->
+UIButton::titleLabel -> UIButtonLegacyVisualProvider -> UILabel.
+It is not the B70/B74 ipc_msg teardown crash.
+
+## Latest build override — B76 GAMEMENUSAFETITLE1
+
+B76 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B76-GAMEMENUSAFETITLE1.md
+
+B76 changes only host GameMenuView title rendering:
+UIButton is retained as the hit target, but option text is rendered by a plain
+UILabel child. The crash-path calls setTitle/setTitleColor/titleLabel are
+removed.
+
+Runtime marker:
+[NBOOT2][GAMEMENU_SAFE_TITLE]
+
+Canonical GREEN:
+- run 36139803235 / #244
+- job 108086557161
+- functional HEAD 2bb392ac7cf4b18384d15344f149543036ba6c41
+- compile requests/hits/misses 152/151/1
+- cache hit rate 99.34%
+- compilation failures 0
+- IPA SHA-256 eb68fd326ac856331611c5162575f797110ab0683f843b5659b0523d7e38aa99
+- IPA artifact 10866436282
+- audit artifact 10866436293
+- Mach-O UUID B52D1C26-0C93-3833-8E88-E4B40E66AEA5
+- NOJAVA / MANIC3 preserved
+
+Device test order:
+three-dot -> Cancel -> three-dot -> Exit Emulator.
+
+If the menu now works but Exit Emulator produces ipc_msg::~ipc_msg() ->
+kernel_system::wipeout(), promote the deferred teardown fix next.
+
+Guest resource work remains paused only for this host validation. Resume from
+PhoneUIUtils +0x5094 after B76 DEVICE1.
+
+## New-chat checkpoint — B76
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B76-2026-09-25.md
