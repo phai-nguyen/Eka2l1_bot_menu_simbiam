@@ -276,7 +276,8 @@ def main():
     for need,text in (
         ("[NBOOT2][PHONEUI_FS_FLOW]",fs),
         ("nboot2_b73_raw_function",fs),
-        ("[NBOOT2][PHONEUI_IS_ROM]",fs),\n        ("[NBOOT2][PHONEUI_RSC_OPEN]",files),
+        ("[NBOOT2][PHONEUI_IS_ROM]",fs),
+        ("[NBOOT2][PHONEUI_RSC_OPEN]",files),
         ("[NBOOT2][PHONEUI_READ_SECTION]",files),
         ('u"z:\\resource\\apps\\phoneui.r01"',files),
         ("0x100058B3U",files),
