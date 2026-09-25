@@ -299,21 +299,23 @@ def main():
 '''
     lm=rep1(lm,old,new,"B68 SYSSTART SVC trace")
 
-    # 6) Timer source: prove the recurring -3 completion is the timeout side
-    # of Starter's WaitForStart helper, and compare final RID6 accounting with
-    # earlier successful entries.
-    old='''            outstanding = true;
-            activate_defer_count_ = 0;
-            info.done_nof = epoc::notify_info(sts, requester);
-            info.own_timer = this;
-            timing->schedule_event_at(deadline, callback_type, static_cast<std::uint64_t>(unique_id()));
-            return true;
-'''
-    new='''            outstanding = true;
-            activate_defer_count_ = 0;
-            info.done_nof = epoc::notify_info(sts, requester);
-            info.own_timer = this;
+    # 6) Timer source: patch inside the two timer functions by semantic
+    # statements. The bootstrap timer implementation carries older race guards,
+    # so surrounding source differs from upstream while these operations remain.
+    schedule_sig="        bool timer::schedule_at("
+    schedule_start=ti.find(schedule_sig)
+    if schedule_start < 0:
+        fail("B68 timer::schedule_at signature missing")
+    schedule_end=ti.find("\n        bool timer::after(",schedule_start)
+    if schedule_end < 0:
+        fail("B68 timer::schedule_at end missing")
+    schedule_region=ti[schedule_start:schedule_end]
 
+    arm_stmt="            info.done_nof = epoc::notify_info(sts, requester);"
+    if schedule_region.count(arm_stmt) != 1:
+        fail(f"B68 timer arm statement: expected one anchor, found {schedule_region.count(arm_stmt)}")
+
+    arm_new=arm_stmt+'''
             kernel::process *nboot2_b68_timer_pr =
                 requester ? requester->owning_process() : nullptr;
             if (nboot2_b68_timer_pr &&
@@ -330,18 +332,24 @@ def main():
                         ? static_cast<int>(requester->current_state())
                         : -1,
                     deadline);
-            }
+            }'''
+    schedule_region=schedule_region.replace(arm_stmt,arm_new,1)
+    ti=ti[:schedule_start]+schedule_region+ti[schedule_end:]
 
-            timing->schedule_event_at(deadline, callback_type, static_cast<std::uint64_t>(unique_id()));
-            return true;
-'''
-    ti=rep1(ti,old,new,"B68 Starter timer arm")
+    cancel_sig="        bool timer::cancel_request()"
+    cancel_start=ti.find(cancel_sig)
+    if cancel_start < 0:
+        fail("B68 timer::cancel_request signature missing")
+    cancel_end=ti.find("\n        bool timer::",cancel_start+len(cancel_sig))
+    if cancel_end < 0:
+        fail("B68 timer::cancel_request end missing")
+    cancel_region=ti[cancel_start:cancel_end]
 
-    old='''            info.done_nof.complete(epoc::error_cancel);
+    cancel_stmt="            info.done_nof.complete(epoc::error_cancel);"
+    if cancel_region.count(cancel_stmt) != 1:
+        fail(f"B68 timer cancel statement: expected one anchor, found {cancel_region.count(cancel_stmt)}")
 
-            // If the timer hasn't finished yet, please unschedule it.
-'''
-    new='''            kernel::thread *nboot2_b68_timer_requester =
+    cancel_new='''            kernel::thread *nboot2_b68_timer_requester =
                 info.done_nof.requester;
             kernel::process *nboot2_b68_timer_pr =
                 nboot2_b68_timer_requester
@@ -389,11 +397,9 @@ def main():
                     nboot2_b68_timer_state_before,
                     static_cast<int>(
                         nboot2_b68_timer_requester->current_state()));
-            }
-
-            // If the timer hasn't finished yet, please unschedule it.
-'''
-    ti=rep1(ti,old,new,"B68 Starter timer cancel")
+            }'''
+    cancel_region=cancel_region.replace(cancel_stmt,cancel_new,1)
+    ti=ti[:cancel_start]+cancel_region+ti[cancel_end:]
 
     # Diagnostic-only scope guards.
     patched="\n".join((pr,th,sv,sc,lm,ti))
