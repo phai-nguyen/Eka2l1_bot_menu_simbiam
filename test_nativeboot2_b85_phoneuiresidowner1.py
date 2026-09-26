@@ -64,4 +64,9 @@ class B85Contract(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # FASTBUILD invokes each manifest test with the upstream checkout path.
+    # This contract suite uses temporary source fixtures, so consume the
+    # manifest argument before unittest parses argv as test selectors.
+    if len(sys.argv) == 2 and Path(sys.argv[1]).is_dir():
+        sys.argv = [sys.argv[0]]
     unittest.main()
