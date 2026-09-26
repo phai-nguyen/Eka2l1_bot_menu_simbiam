@@ -36,6 +36,9 @@ jobs:
           dotnet run --project src/XapScan/XapScan.csproj -c Release --no-build --
           .ci/real/Aleterated.xap --out .ci/real/Aleterated.xapscan1.json
 
+      - name: Verify real WP7 XNA contract
+        run: python3 tests/assert-real-wp7-xna.py .ci/real/Aleterated.xapscan1.json
+
       - name: Print concise real-XAP result
         shell: bash
         run: |
