@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app/Contents/Developer
 
       - name: Environment
         shell: bash
@@ -37,6 +37,9 @@ jobs:
           dotnet --info
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+          test -d "$(xcrun --sdk macosx --show-sdk-path)"
+          xcrun --find clang
+          clang --version
           ls -1 /Applications | grep '^Xcode' || true
 
       - name: Install iOS workload
