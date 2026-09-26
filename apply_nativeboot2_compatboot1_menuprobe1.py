@@ -209,6 +209,7 @@ def patch_config_header(source):
         std::atomic<bool> compat_menu_probe_launched{ false };
         std::atomic<bool> compat_menu_probe_timed_out{ false };
         std::atomic<bool> compat_menu_probe_finished{ false };
+        std::atomic<bool> compat_first_failure_logged{ false };
         std::uint64_t compat_menu_probe_deadline_ms{ 0 };
         std::uint32_t compat_target_uid3{ 0 };
         int compat_menu_probe_timeout_event{ -1 };
@@ -230,10 +231,15 @@ def patch_state_cpp(source):
         source = replace_once(source, "#include <kernel/process.h>\n",
                               "#include <kernel/process.h>\n#include <chrono>\n",
                               "state monotonic clock include")
+    if "#include <kernel/timing.h>" not in source:
+        source = replace_once(source, "#include <kernel/process.h>\n",
+                              "#include <kernel/process.h>\n#include <kernel/timing.h>\n",
+                              "CompatBoot startup timeout API")
     reset = '''        conf.compat_menu_probe_mode = compat_menu_probe_mode;
         conf.compat_menu_probe_launched = false;
         conf.compat_menu_probe_timed_out = false;
         conf.compat_menu_probe_finished = false;
+        conf.compat_first_failure_logged = false;
         conf.compat_menu_probe_deadline_ms = 0;
         conf.compat_target_uid3 = 0;
         conf.compat_menu_probe_timeout_event = -1;
@@ -255,6 +261,35 @@ def patch_state_cpp(source):
                                     std::chrono::steady_clock::now().time_since_epoch()).count();
                                 conf.compat_menu_probe_deadline_ms =
                                     static_cast<std::uint64_t>(now_ms) + 60000;
+                                auto *compat_cfg = &conf;
+                                auto *compat_kern = symsys->get_kernel_system();
+                                const int compat_event = compat_kern->get_ntimer()->register_event(
+                                    "COMPATBOOT1_STARTUP_TIMEOUT",
+                                    [compat_cfg](std::uint64_t, int) {
+                                        if (!compat_cfg->compat_menu_probe_mode || compat_cfg->compat_menu_probe_finished) return;
+                                        std::string missing;
+                                        if (!compat_cfg->compat_seen_file_server) missing += "FileServer,";
+                                        if (!compat_cfg->compat_seen_fbs) missing += "FBS,";
+                                        if (!compat_cfg->compat_seen_window_server) missing += "WindowServer,";
+                                        if (!compat_cfg->compat_seen_cenrep) missing += "CenRep,";
+                                        if (!compat_cfg->compat_seen_apparc) missing += "AppArc,";
+                                        if (!compat_cfg->compat_seen_akncap) missing += "AknCapServer,";
+                                        if (!missing.empty()) missing.pop_back();
+                                        bool expected = false;
+                                        if (compat_cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
+                                            compat_cfg->compat_menu_probe_timed_out = true;
+                                            LOG_ERROR(FRONTEND_CMDLINE,
+                                                "[COMPATBOOT][BARRIER_TIMEOUT] missing_or_unobserved={}", missing);
+                                        }
+                                    });
+                                conf.compat_menu_probe_timeout_event = compat_event;
+                                if (compat_event >= 0) {
+                                    compat_kern->get_ntimer()->schedule_event(60000000, compat_event, 0);
+                                    conf.compat_timeout_event_registered = true;
+                                } else {
+                                    LOG_ERROR(FRONTEND_CMDLINE,
+                                        "[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL] event_id={}", compat_event);
+                                }
                                 LOG_WARN(FRONTEND_CMDLINE,
                                     "[COMPATBOOT][DEADLINE_START] after=EStart_run timeout_ms=60000");
                                 LOG_WARN(FRONTEND_CMDLINE,
@@ -293,18 +328,6 @@ def patch_svc(source):
         return result;
     }
 
-    static void compatboot1_timeout(kernel_system *kern) {
-        config::state *cfg = kern->get_config();
-        if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
-        const std::string missing = compatboot1_missing_services(kern, cfg);
-        if (missing.empty()) return;
-        bool expected = false;
-        if (cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
-            cfg->compat_menu_probe_timed_out = true;
-            LOG_ERROR(KERNEL, "[COMPATBOOT][BARRIER_TIMEOUT] missing={}", missing);
-        }
-    }
-
     static void compatboot1_check_barrier(kernel_system *kern, service::server *current) {
         config::state *cfg = kern->get_config();
         if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
@@ -317,22 +340,6 @@ def patch_svc(source):
             if (name == CENTRAL_REPO_SERVER_NAME) cfg->compat_seen_cenrep = true;
             if (name == get_app_list_server_name_by_epocver(ver)) cfg->compat_seen_apparc = true;
             if (name == OOM_APP_UI_SERVER_NAME) cfg->compat_seen_akncap = true;
-        }
-        if (!cfg->compat_timeout_event_registered.exchange(true)) {
-            const std::string event_name = "COMPATBOOT1_BARRIER_" +
-                std::to_string(reinterpret_cast<std::uintptr_t>(kern));
-            int event_id = kern->get_ntimer()->get_register_event(event_name);
-            if (event_id < 0) {
-                event_id = kern->get_ntimer()->register_event(event_name,
-                    [kern](std::uint64_t, int) { compatboot1_timeout(kern); });
-            }
-            cfg->compat_menu_probe_timeout_event = event_id;
-            const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now().time_since_epoch()).count();
-            const std::uint64_t remaining_ms = static_cast<std::uint64_t>(now_ms) < cfg->compat_menu_probe_deadline_ms
-                ? cfg->compat_menu_probe_deadline_ms - static_cast<std::uint64_t>(now_ms) : 0;
-            const std::int64_t timeout_us = static_cast<std::int64_t>(remaining_ms * 1000);
-            kern->get_ntimer()->schedule_event(timeout_us, event_id, 0);
         }
         const std::string missing = compatboot1_missing_services(kern, cfg);
         if (!missing.empty()) {
@@ -351,23 +358,25 @@ def patch_svc(source):
                 common::ucs2_to_utf8(menu_path));
             return;
         }
+        cfg->compat_target_uid3 = static_cast<std::uint32_t>(
+            std::get<2>(menu->get_uid_type()));
         if (!menu->run()) {
             LOG_ERROR(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUN_FAILED process={}",
                 common::ucs2_to_utf8(menu_path), menu->name());
             return;
         }
-        cfg->compat_target_uid3 = static_cast<std::uint32_t>(
-            std::get<2>(menu->get_uid_type()));
         LOG_WARN(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUNNING process={} one_shot=1",
             common::ucs2_to_utf8(menu_path), menu->name());
     }
 '''
-    source = replace_once(source, "namespace eka2l1::kernel::svc {\n", helper,
+    source = replace_once(source, "namespace eka2l1::epoc {\n",
+                          helper + "\nnamespace eka2l1::epoc {\n",
                           "serialized CompatBoot barrier helper")
-    receive = ("        server_ptr server = kern->get<service::server>(h);\n\n"
+    receive = ("    BRIDGE_FUNC(void, server_receive, kernel::handle h, eka2l1::ptr<epoc::request_status> req_sts, eka2l1::ptr<void> data_ptr) {\n"
+               "        server_ptr server = kern->get<service::server>(h);\n\n"
                "        if (!server) {\n            return;\n        }\n")
     return replace_once(source, receive,
-                        receive + "\n        compatboot1_check_barrier(kern, server);\n",
+                        receive + "\n        eka2l1::kernel::svc::compatboot1_check_barrier(kern, server);\n",
                         "poll from server readiness SVC")
 
 
@@ -375,14 +384,19 @@ def patch_missing_server(source):
     if "[COMPATBOOT][FIRST_FAILURE]" in source:
         return source
     anchor = '                LOG_WARN(KERNEL, "[NBOOT2][MISSING_SERVER] process={} server={} msg_slots={} mode={}",\n'
-    trace = '''                if (kern->get_config()->compat_menu_probe_mode) {
-                    LOG_WARN(KERNEL,
-                        "[COMPATBOOT][MISSING_SERVER] target_uid3=0x{:08X} caller={} server={} result={}",
-                        kern->get_config()->compat_target_uid3, pr->name(), server_name,
-                        epoc::error_not_found);
-                    LOG_WARN(KERNEL,
-                        "[COMPATBOOT][FIRST_FAILURE] source=MISSING_SERVER target_uid3=0x{:08X} server={}",
-                        kern->get_config()->compat_target_uid3, server_name);
+    trace = '''                if (kern->get_config()->compat_menu_probe_mode && pr &&
+                    kern->get_config()->compat_target_uid3 != 0) {
+                    const auto compat_uid3 = static_cast<std::uint32_t>(std::get<2>(pr->get_uid_type()));
+                    bool compat_expected = false;
+                    if (compat_uid3 == kern->get_config()->compat_target_uid3 &&
+                        kern->get_config()->compat_first_failure_logged.compare_exchange_strong(compat_expected, true)) {
+                        LOG_WARN(KERNEL,
+                            "[COMPATBOOT][MISSING_SERVER] target_uid3=0x{:08X} caller={} server={} result={}",
+                            compat_uid3, pr->name(), server_name, epoc::error_not_found);
+                        LOG_WARN(KERNEL,
+                            "[COMPATBOOT][FIRST_FAILURE] source=MISSING_SERVER target_uid3=0x{:08X} server={}",
+                            compat_uid3, server_name);
+                    }
                 }
 '''
     return replace_once(source, anchor, trace + anchor, "profile-scoped first missing-server trace")

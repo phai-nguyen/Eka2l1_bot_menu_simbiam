@@ -56,9 +56,8 @@ STATE_CPP = """#include <kernel/process.h>
                         }
 """
 SVC_CPP = """#include <kernel/kernel.h>
-namespace eka2l1::kernel::svc {
-    BRIDGE_FUNC(void, server_receive, kernel::handle h,
-        eka2l1::ptr<epoc::request_status> req_sts, eka2l1::ptr<void> data_ptr) {
+namespace eka2l1::epoc {
+    BRIDGE_FUNC(void, server_receive, kernel::handle h, eka2l1::ptr<epoc::request_status> req_sts, eka2l1::ptr<void> data_ptr) {
         server_ptr server = kern->get<service::server>(h);
 
         if (!server) {
@@ -174,12 +173,14 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")
         self.assertTrue(hasattr(PATCH, "patch_state_cpp"), "deadline initialization patch is absent")
         svc = PATCH.patch_svc(SVC_CPP)
-        self.assertIn("compat_menu_probe_deadline_ms", svc)
-        self.assertIn("[COMPATBOOT][BARRIER_TIMEOUT] missing={}", svc)
-        self.assertIn("get_ntimer()->register_event", svc)
-        self.assertIn("schedule_event(timeout_us", svc)
-        self.assertIn("services=6", PATCH.patch_state_cpp(STATE_CPP))
-        self.assertIn("static_cast<std::uint64_t>(now_ms) + 60000", PATCH.patch_state_cpp(STATE_CPP))
+        state = PATCH.patch_state_cpp(STATE_CPP)
+        self.assertNotIn("get_ntimer()->register_event", svc)
+        self.assertIn("[COMPATBOOT][BARRIER_TIMEOUT]", state)
+        self.assertIn("get_ntimer()->register_event", state)
+        self.assertIn("schedule_event(60000000", state)
+        self.assertIn("missing_or_unobserved", state)
+        self.assertIn("services=6", state)
+        self.assertIn("static_cast<std::uint64_t>(now_ms) + 60000", state)
 
     def test_menu3_launches_once_after_all_services_ready(self):
         self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")
@@ -233,7 +234,7 @@ class CompatBootModeContracts(unittest.TestCase):
     def test_compat_markers_are_profile_gated(self):
         self.assertTrue(hasattr(PATCH, "patch_missing_server"), "CompatTrace forwarding is absent")
         traced = PATCH.patch_missing_server(MISSING_SERVER_CPP)
-        self.assertIn("if (kern->get_config()->compat_menu_probe_mode)", traced)
+        self.assertIn("kern->get_config()->compat_menu_probe_mode && pr", traced)
         self.assertIn("[COMPATBOOT][MISSING_SERVER]", traced)
 
     def test_first_target_failure_is_logged_without_semantic_override(self):
@@ -242,6 +243,8 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertEqual(traced.count("return epoc::error_not_found;"), 1)
         self.assertIn("[NBOOT2][MISSING_SERVER]", traced)
         self.assertIn("[COMPATBOOT][FIRST_FAILURE]", traced)
+        self.assertIn("compat_uid3 == kern->get_config()->compat_target_uid3", traced)
+        self.assertIn("compat_first_failure_logged.compare_exchange_strong", traced)
 
     def test_visible_marker_requires_menu3_window_surface(self):
         self.assertTrue(hasattr(PATCH, "patch_target_visible"), "Menu3 visibility trace is absent")
