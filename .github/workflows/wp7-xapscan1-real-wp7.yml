@@ -1,0 +1,61 @@
+name: WP7 XAPSCAN1 Real XAP
+
+on:
+  push:
+    branches: [wp7-xap-runner]
+    paths:
+      - 'wp7-xap-runner/**'
+      - '.github/workflows/wp7-xapscan1-real-wp7.yml'
+  workflow_dispatch:
+
+jobs:
+  real-wp7-xna:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wp7-xap-runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build scanner
+        run: dotnet build src/XapScan/XapScan.csproj -c Release
+
+      - name: Fetch pinned MIT-licensed WP7 XNA fixture
+        shell: bash
+        run: |
+          mkdir -p .ci/real
+          curl --fail --location --retry 3             'https://raw.githubusercontent.com/Akfly/Aleterated/6144ca9a7b97cba4d781be40fdedf286e8d7f961/rotations2/rotations2/bin/Windows%20Phone/Debug/Aleterated.xap'             --output .ci/real/Aleterated.xap
+          test -s .ci/real/Aleterated.xap
+          sha256sum .ci/real/Aleterated.xap
+
+      - name: Scan real WP7 XAP
+        run: >-
+          dotnet run --project src/XapScan/XapScan.csproj -c Release --no-build --
+          .ci/real/Aleterated.xap --out .ci/real/Aleterated.xapscan1.json
+
+      - name: Print concise real-XAP result
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          r=json.load(open('.ci/real/Aleterated.xapscan1.json'))
+          print('package=', r['package']['fileName'])
+          print('sha256=', r['package']['sha256'])
+          print('runtime=', (r.get('appManifest') or {}).get('runtimeVersion'))
+          print('entry=', (r.get('appManifest') or {}).get('entryPointAssembly'), (r.get('appManifest') or {}).get('entryPointType'))
+          print('runtimeType=', (r.get('wmAppManifest') or {}).get('runtimeType'))
+          print('tags=', ','.join(r.get('compatibilityTags', [])))
+          print('findings=', [x['code'] for x in r.get('findings', [])])
+          for a in r.get('assemblies', []):
+              if a.get('isManaged'):
+                  print('assembly=', a['name'], a.get('version'), 'ilOnly=', a['isIlOnly'])
+                  print('  refs=', [(x['name'],x['version']) for x in a.get('assemblyReferences',[]) if x['name'].startswith('Microsoft.') or x['name']=='System.Windows'])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XAPSCAN1-real-WP7-Aleterated
+          path: wp7-xap-runner/.ci/real/Aleterated.xapscan1.json
