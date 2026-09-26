@@ -13,42 +13,46 @@ internal sealed class MainViewController : UIViewController
     {
         base.ViewDidLoad();
 
-        View.BackgroundColor = UIColor.SystemBackground;
+        if (View is null)
+            return;
 
-        var title = new UILabel(new CGRect(16, 54, View.Bounds.Width - 32, 34))
+        var view = View;
+        view.BackgroundColor = UIColor.SystemBackground;
+
+        var title = new UILabel(new CGRect(16, 54, view.Bounds.Width - 32, 34))
         {
             Text = "WP7 XAP Runner — ILRUN1",
             Font = UIFont.BoldSystemFontOfSize(22),
             AutoresizingMask = UIViewAutoresizing.FlexibleWidth
         };
-        View.AddSubview(title);
+        view.AddSubview(title);
 
-        _statusLabel = new UILabel(new CGRect(16, 94, View.Bounds.Width - 32, 28))
+        _statusLabel = new UILabel(new CGRect(16, 94, view.Bounds.Width - 32, 28))
         {
             Text = "Chưa chạy",
             Font = UIFont.SystemFontOfSize(16),
             AutoresizingMask = UIViewAutoresizing.FlexibleWidth
         };
-        View.AddSubview(_statusLabel);
+        view.AddSubview(_statusLabel);
 
-        _logView = new UITextView(new CGRect(12, 130, View.Bounds.Width - 24, View.Bounds.Height - 250))
+        _logView = new UITextView(new CGRect(12, 130, view.Bounds.Width - 24, view.Bounds.Height - 250))
         {
             Editable = false,
-            Font = UIFont.MonospacedSystemFontOfSize(11, UIFontWeight.Regular),
+            Font = UIFont.FromName("Menlo", 11) ?? UIFont.SystemFontOfSize(11),
             AutoresizingMask = UIViewAutoresizing.FlexibleWidth | UIViewAutoresizing.FlexibleHeight,
             Text = "[ILRUN1][UI_READY]\n"
         };
-        View.AddSubview(_logView);
+        view.AddSubview(_logView);
 
         var runButton = UIButton.FromType(UIButtonType.System);
-        runButton.Frame = new CGRect(16, View.Bounds.Height - 104, (View.Bounds.Width - 44) / 2, 44);
+        runButton.Frame = new CGRect(16, view.Bounds.Height - 104, (view.Bounds.Width - 44) / 2, 44);
         runButton.SetTitle("Chạy lại IL", UIControlState.Normal);
         runButton.AutoresizingMask = UIViewAutoresizing.FlexibleTopMargin | UIViewAutoresizing.FlexibleRightMargin;
         runButton.TouchUpInside += (_, _) => RunProbe();
-        View.AddSubview(runButton);
+        view.AddSubview(runButton);
 
         var copyButton = UIButton.FromType(UIButtonType.System);
-        copyButton.Frame = new CGRect(28 + (View.Bounds.Width - 44) / 2, View.Bounds.Height - 104, (View.Bounds.Width - 44) / 2, 44);
+        copyButton.Frame = new CGRect(28 + (view.Bounds.Width - 44) / 2, view.Bounds.Height - 104, (view.Bounds.Width - 44) / 2, 44);
         copyButton.SetTitle("Sao chép log", UIControlState.Normal);
         copyButton.AutoresizingMask = UIViewAutoresizing.FlexibleTopMargin | UIViewAutoresizing.FlexibleLeftMargin;
         copyButton.TouchUpInside += (_, _) =>
@@ -57,7 +61,7 @@ internal sealed class MainViewController : UIViewController
             if (_statusLabel is not null)
                 _statusLabel.Text = "Đã sao chép log";
         };
-        View.AddSubview(copyButton);
+        view.AddSubview(copyButton);
     }
 
     public override void ViewDidAppear(bool animated)
