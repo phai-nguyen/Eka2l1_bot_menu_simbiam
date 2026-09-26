@@ -421,7 +421,7 @@ def patch_target_visible(source):
     end = source.find("            ctx.complete(epoc::error_none);", start)
     if end < 0:
         fail("B50 canvas visibility completion anchor is missing")
-    trace = '''            config::state *compat_cfg = ctx.sys->get_kernel_system()->get_config();
+    trace = '''            eka2l1::config::state *compat_cfg = client->get_ws().get_kernel_system()->get_config();
             if (compat_cfg->compat_menu_probe_mode &&
                 b50_uid3 == compat_cfg->compat_target_uid3 && b50_group &&
                 is_visible() && can_be_physically_seen()) {

@@ -276,6 +276,14 @@ class CompatBootModeContracts(unittest.TestCase):
             self.assertIn(condition, traced)
         self.assertIn("[COMPATBOOT][TARGET_VISIBLE]", traced)
 
+    def test_visibility_probe_uses_window_server_kernel_config_accessor(self):
+        traced = PATCH.patch_target_visible(WINUSER_CPP)
+        self.assertIn(
+            "eka2l1::config::state *compat_cfg = client->get_ws().get_kernel_system()->get_config();",
+            traced,
+        )
+        self.assertNotIn("ctx.sys->get_kernel_system()", traced)
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and Path(sys.argv[1]).is_dir():
