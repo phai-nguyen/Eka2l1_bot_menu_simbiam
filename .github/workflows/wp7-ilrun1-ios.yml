@@ -1,0 +1,112 @@
+name: WP7 ILRUN1 iOS
+
+on:
+  push:
+    branches: [wp7-xap-runner]
+    paths:
+      - 'wp7-xap-runner/src/IlPayload/**'
+      - 'wp7-xap-runner/src/ILRun1Host/**'
+      - '.github/workflows/wp7-ilrun1-ios.yml'
+  workflow_dispatch:
+
+jobs:
+  ilrun1-ios15:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: wp7-xap-runner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet --info
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          ls -1 /Applications | grep '^Xcode' || true
+
+      - name: Install iOS workload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if ! dotnet workload list | grep -qE '^[[:space:]]*ios[[:space:]]'; then
+            dotnet workload install ios --skip-manifest-update
+          fi
+          dotnet workload list
+
+      - name: Build external IL payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet build src/IlPayload/IlPayload.csproj -c Release
+          test -s src/IlPayload/bin/Release/netstandard2.0/IlPayload.dll
+          mkdir -p src/ILRun1Host/Assets
+          cp src/IlPayload/bin/Release/netstandard2.0/IlPayload.dll src/ILRun1Host/Assets/IlPayload.dll
+          shasum -a 256 src/ILRun1Host/Assets/IlPayload.dll
+
+      - name: Verify payload is not statically referenced
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if grep -R -nE 'ProjectReference|Reference Include="IlPayload"' src/ILRun1Host/ILRun1Host.csproj; then
+            echo '[ILRUN1][STATIC_REFERENCE_FAIL] IlPayload must remain an opaque runtime file.'
+            exit 1
+          fi
+          grep -n 'BundleResource Include="Assets/IlPayload.dll"' src/ILRun1Host/ILRun1Host.csproj
+          echo '[ILRUN1][STATIC_REFERENCE_CHECK] PASS'
+
+      - name: Publish unsigned iOS 15 device app
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet publish src/ILRun1Host/ILRun1Host.csproj             -f net10.0-ios             -c Release             -r ios-arm64             -p:RuntimeIdentifier=ios-arm64             -p:UseInterpreter=true             -p:TrimMode=copy             -p:MtouchUseLlvm=false             -p:EnableCodeSigning=false             -p:CodesignRequireProvisioningProfile=false             -p:CodesignKey=""             -p:CodesignProvision=""             -p:ArchiveOnBuild=false
+
+      - name: Verify device app contract
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APP="$(find src/ILRun1Host/bin/Release/net10.0-ios/ios-arm64 -type d -name '*.app' | head -n 1)"
+          test -n "$APP"
+          test -d "$APP"
+          test -s "$APP/IlPayload.dll"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+
+          EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")"
+          MIN_IOS="$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist")"
+          echo "CFBundleExecutable=$EXECUTABLE"
+          echo "MinimumOSVersion=$MIN_IOS"
+          test "$MIN_IOS" = "15.0"
+          test -s "$APP/$EXECUTABLE"
+
+          echo '[ILRUN1][DEVICE_APP_BUILD] PASS'
+          echo '[ILRUN1][PAYLOAD_RAW_FILE] PASS'
+
+      - name: Package unsigned IPA for ESign
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf artifacts
+          mkdir -p artifacts/Payload
+          cp -R "$APP" artifacts/Payload/
+          (
+            cd artifacts
+            zip -qry WP7-ILRUN1-ios15-unsigned.ipa Payload
+          )
+          test -s artifacts/WP7-ILRUN1-ios15-unsigned.ipa
+          shasum -a 256 artifacts/WP7-ILRUN1-ios15-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WP7-ILRUN1-ios15-unsigned
+          path: |
+            wp7-xap-runner/artifacts/WP7-ILRUN1-ios15-unsigned.ipa
+            wp7-xap-runner/src/ILRun1Host/Assets/IlPayload.dll
+          if-no-files-found: error
