@@ -79,7 +79,7 @@ class FastbuildWorkflowContract(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
-    def test_current_build_verifies_b83_probe_markers(self):
+    def test_current_build_verifies_b84_probe_markers(self):
         text = FAST.read_text(encoding="utf-8")
         verify_start = text.index("    - name: Verify binary invariants")
         verify_end = text.index("    - name: Package unsigned IPA", verify_start)
@@ -87,6 +87,9 @@ class FastbuildWorkflowContract(unittest.TestCase):
         for marker in (
             "[NBOOT2][CENREP_IPC_ENTRY]",
             "[NBOOT2][CENREP_IPC_COMPLETE]",
+            "[NBOOT2][PHONEUI_RESID_SOURCE]",
+            "[NBOOT2][PHONEUI_RESID_WINDOW]",
+            "[NBOOT2][PHONEUI_RESID_SUMMARY]",
         ):
             self.assertIn(f"grep -Fq '{marker}'", verify)
 
