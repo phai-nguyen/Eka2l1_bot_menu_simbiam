@@ -1,0 +1,54 @@
+name: Inspect B51 iOS Present Baseline
+
+"on":
+  push:
+    branches:
+      - nativeboot2-current
+    paths:
+      - .github/workflows/inspect-b51-ios-present-baseline.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore stable B28 bootstrap
+        id: b28
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+      - name: Inspect iOS presentation sources
+        run: |
+          set -euo pipefail
+          test "${{ steps.b28.outputs.cache-hit }}" = "true"
+          UP="$GITHUB_WORKSPACE/upstream"
+          echo "=== ios tree ==="
+          find "$UP/src/emu/ios" -maxdepth 4 -type f | sort
+          echo "=== presentation/redraw matches ==="
+          grep -R -n -E 'submit_screen|screen_texture|redraw_callback|add_screen_redraw|present\(|draw_bitmap|rendered_frame|enqueue_frame|external_display|screen_redraw' "$UP/src/emu/ios" "$UP/src/emu/services/src/window" "$UP/src/emu/services/include/services/window" | head -n 800 || true
+          echo "=== ios state.cpp 45-115 ==="
+          sed -n '45,115p' "$UP/src/emu/ios/src/state.cpp"
+          echo "=== ios launcher.cpp 1310-1385 ==="
+          sed -n '1310,1385p' "$UP/src/emu/ios/src/launcher.cpp"
+          echo "=== screen.cpp 1-120 ==="
+          sed -n '1,120p' "$UP/src/emu/services/src/window/screen.cpp"
+          echo "=== screen.cpp 145-230 ==="
+          sed -n '145,230p' "$UP/src/emu/services/src/window/screen.cpp"
+          echo "=== scheduler.cpp ==="
+          sed -n '1,320p' "$UP/src/emu/services/src/window/scheduler.cpp"
+          echo "=== scheduler.h ==="
+          sed -n '1,260p' "$UP/src/emu/services/include/services/window/scheduler.h"
+          echo "=== winbase move/order ==="
+          sed -n '70,190p' "$UP/src/emu/services/src/window/classes/winbase.cpp"
+          echo "=== winuser try_update ==="
+          grep -n -A90 -B20 'canvas_base::try_update' "$UP/src/emu/services/src/window/classes/winuser.cpp" || true
+          echo "=== active B28 redraw_msg_canvas::draw ==="
+          grep -n -A180 -B20 'bool redraw_msg_canvas::draw' "$UP/src/emu/services/src/window/classes/winuser.cpp" || true

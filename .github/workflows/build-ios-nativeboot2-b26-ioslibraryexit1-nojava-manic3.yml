@@ -1,0 +1,212 @@
+name: Build EKA2L1 NATIVEBOOT2 B26 IOSLIBRARYEXIT1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b26-ioslibraryexit1
+    paths:
+      - apply_nativeboot2_b20_cenresetall1.py
+      - test_nativeboot2_b20_cenresetall1.py
+      - apply_nativeboot2_b21_fbsfontalias1.py
+      - test_nativeboot2_b21_fbsfontalias1.py
+      - apply_nativeboot2_b22_fbsdefaulttypeface1.py
+      - test_nativeboot2_b22_fbsdefaulttypeface1.py
+      - apply_nativeboot2_b23_fbsfontspecv2abi1.py
+      - test_nativeboot2_b23_fbsfontspecv2abi1.py
+      - apply_nativeboot2_b24_fbsvtableabi1.py
+      - test_nativeboot2_b24_fbsvtableabi1.py
+      - apply_nativeboot2_b25_fbssharedheap1.py
+      - test_nativeboot2_b25_fbssharedheap1.py
+      - apply_nativeboot2_b26_ioslibraryexit1.py
+      - test_nativeboot2_b26_ioslibraryexit1.py
+      - .github/workflows/build-ios-nativeboot2-b26-ioslibraryexit1-nojava-manic3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B26 cache
+      id: b26_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b26-ioslibraryexit1-nojava-manic3-macos15-v1
+
+    - name: Restore B25 baseline
+      id: b25_cache
+      if: steps.b26_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b25-fbssharedheap1-nojava-manic3-macos15-v1
+
+    - name: Restore B19 fallback baseline
+      id: b19_cache
+      if: steps.b26_cache.outputs.cache-hit != 'true' && steps.b25_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Apply B26 and rebuild
+      if: steps.b26_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-nativeboot2-b26-ioslibraryexit1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        python3 -m py_compile \
+          apply_nativeboot2_b20_cenresetall1.py test_nativeboot2_b20_cenresetall1.py \
+          apply_nativeboot2_b21_fbsfontalias1.py test_nativeboot2_b21_fbsfontalias1.py \
+          apply_nativeboot2_b22_fbsdefaulttypeface1.py test_nativeboot2_b22_fbsdefaulttypeface1.py \
+          apply_nativeboot2_b23_fbsfontspecv2abi1.py test_nativeboot2_b23_fbsfontspecv2abi1.py \
+          apply_nativeboot2_b24_fbsvtableabi1.py test_nativeboot2_b24_fbsvtableabi1.py \
+          apply_nativeboot2_b25_fbssharedheap1.py test_nativeboot2_b25_fbssharedheap1.py \
+          apply_nativeboot2_b26_ioslibraryexit1.py test_nativeboot2_b26_ioslibraryexit1.py
+
+        if [ "${{ steps.b25_cache.outputs.cache-hit }}" = "true" ]; then
+          echo "Using exact B25 cache"
+          python3 test_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        else
+          test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+          echo "Recreating B25 from B19 cache"
+          python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+          python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+          python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+          python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+          python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+          python3 test_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+          python3 test_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        fi
+
+        python3 apply_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+        python3 test_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+
+        python3 test_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        python3 test_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        FBSCPP="$UPSTREAM/src/emu/services/src/fbs/fbs.cpp"
+
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=shutdown_requested' "$ROOT"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=normal_mode_ready' "$ROOT"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_deferred' "$ROOT"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$ROOT"
+        grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$FBSCPP"
+        grep -Fq '[NBOOT2][FBS_SHARED_HEAP_READY]' "$FBSCPP"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+
+        STRINGS_OUT="$RUNNER_TEMP/nativeboot2-b26-ioslibraryexit1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=shutdown_requested' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_deferred' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$STRINGS_OUT"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'NATIVEBOOT2 B26 IOSLIBRARYEXIT1 BUILD AUDIT'
+          echo 'base=B25_FBSSHAREDHEAP1'
+          echo 'device_evidence=B25_REACHED_NOKIA_SPLASH'
+          echo 'b25_fbs_handoff=DEVICE_VALIDATED'
+          echo 'new_blocker=IOS_UIKIT_COLLECTIONVIEW_REUSE_ON_EXIT'
+          echo 'change=DEFER_SHOWAPPSSCREEN_ONE_MAIN_LOOP_AFTER_NORMAL_MODE_READY'
+          echo 'redundant_exit_poll=REMOVED'
+          echo 'guest_boot=UNCHANGED'
+          echo 'b25_fbssharedheap1=PRESERVED'
+          echo 'NOJAVA=PRESERVED'
+          echo 'MANIC3=PRESERVED'
+        } > "$GITHUB_WORKSPACE/NATIVEBOOT2-B26-IOSLIBRARYEXIT1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/NATIVEBOOT2-B26-IOSLIBRARYEXIT1-source.diff"
+
+    - name: Verify restored B26 cache
+      if: steps.b26_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 test_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+        python3 test_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'NATIVEBOOT2 B26 IOSLIBRARYEXIT1 cache_hit=true' > "$GITHUB_WORKSPACE/NATIVEBOOT2-B26-IOSLIBRARYEXIT1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/NATIVEBOOT2-B26-IOSLIBRARYEXIT1-source.diff"
+
+    - name: Save B26 cache
+      if: steps.b26_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b26-ioslibraryexit1-nojava-manic3-macos15-v1
+
+    - name: Package unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-nativeboot2-b26"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/nativeboot2-b26-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/nativeboot2-b26-ipa-list.txt"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/nativeboot2-b26-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/NATIVEBOOT2-B26-IOSLIBRARYEXIT1-IPA-SHA256.txt"
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-NOJAVA-MANIC3-AUDIT
+        path: |
+          NATIVEBOOT2-B26-IOSLIBRARYEXIT1-BUILD-AUDIT.txt
+          NATIVEBOOT2-B26-IOSLIBRARYEXIT1-source.diff
+          NATIVEBOOT2-B26-IOSLIBRARYEXIT1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B26-IOSLIBRARYEXIT1-diagnostic-log
+        path: eka2l1-nativeboot2-b26-ioslibraryexit1.log
+        if-no-files-found: warn
+        retention-days: 14
