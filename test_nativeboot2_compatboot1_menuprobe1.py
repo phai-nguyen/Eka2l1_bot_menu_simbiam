@@ -99,7 +99,9 @@ WINUSER_CPP = '''            set_visible(visible != 0);
             ctx.complete(epoc::error_none);
 '''
 
-FS_FLUSH_CPP = '''    void fs_server_client::file_flush(service::ipc_context *ctx) {
+FS_FLUSH_CPP = '''#include <kernel/kernel.h>
+
+    void fs_server_client::file_flush(service::ipc_context *ctx) {
         std::optional<std::int32_t> handle_res = ctx->get_argument_value<std::int32_t>(3);
 
         if (!handle_res) {
@@ -338,6 +340,8 @@ class CompatBootModeContracts(unittest.TestCase):
         )
         commentless_traced = PATCH.patch_menu3_file_flush(commentless_source)
         self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", commentless_traced)
+        self.assertIn("#include <config/config.h>", commentless_traced)
+        self.assertEqual(commentless_traced.count("#include <config/config.h>"), 1)
         self.assertEqual(commentless_traced.count("vfs_file->flush()"), 1)
         b48_source = FS_FLUSH_CPP.replace(
             "if (!vfs_file->flush()) {",

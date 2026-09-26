@@ -577,7 +577,15 @@ def patch_menu3_file_flush(source):
         body = body.replace(b48_flush_anchor, b48_flush_trace, 1)
     else:
         fail("FileFlush result anchor count is not one")
-    return source[:start] + body + source[finish:]
+    patched = source[:start] + body + source[finish:]
+    if "#include <config/config.h>" not in patched:
+        patched = replace_once(
+            patched,
+            "#include <kernel/kernel.h>\n",
+            "#include <kernel/kernel.h>\n#include <config/config.h>\n",
+            "complete config state definition for CompatBoot trace",
+        )
+    return patched
 
 def patch_target_visible(source):
     marker = "[COMPATBOOT][TARGET_VISIBLE]"
