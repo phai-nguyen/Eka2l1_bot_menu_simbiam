@@ -6480,3 +6480,54 @@ These are address-to-module mappings only; export/function names remain
 unverified. Next offline work is to inspect exact RM-356 BAFL/CONE export
 boundaries and disassembly at the mapped offsets. Do not infer a functional
 resource-registration fix solely from proximity.
+
+
+## Latest build override — B82 PHONEUIVENEERDEST1
+
+B82 is **BUILD-VALIDATED; DEVICE TEST REQUIRED**.
+
+Full snapshot:
+- docs/handoff/history/B82-PHONEUIVENEERDEST1.md
+
+B81 corrected the PhoneUIUtils BLX targets to ARM E51FF004 interworking
+veneers. B82 follows exactly one veneer hop and records the production
+destination module, UID, module-relative offset, production export ownership,
+exact-export flag and a 64-byte destination fingerprint.
+
+New markers:
+- [NBOOT2][PHONEUI_VENEER_DEST]
+- [NBOOT2][PHONEUI_VENEER_DEST_FP]
+
+Expected destination families:
+- BAFL +0x346C
+- CONE +0x3A0C
+- CONE +0x3BAE
+
+Diagnostic-only:
+no AddResourceFile, set_export, resource-registration mutation, FileServer
+result mutation, startup-state forcing or panic suppression.
+
+Canonical GREEN:
+- run 36202997551 / #253
+- job 108293431493
+- functional commit 99c8bd668b8690c607846b60d22d6f3788106935
+- build HEAD 5d5040db3a21c178afdb1212ed0ab0ba5cfe171d
+- IPA SHA-256 1a4248d325da2005e00a0bb4871626f97fb92e0e8a7d09e03e6116cd80de00e2
+- IPA artifact 10892513677
+- audit artifact 10892319421
+- Mach-O UUID C5E41D9A-FC54-39ED-8FBF-30EA8213C4FC
+- compile 152/150/2
+- cache 98.68%
+- failures 0
+- NOJAVA / MANIC3 preserved
+
+Next:
+install/device-test B82 over B81, reproduce the same startup condition, wait
+5-10 seconds, exit normally, and send standard logs.
+
+Do not select a functional B83 before B82 DEVICE1 is parsed.
+
+## New-chat checkpoint — B82
+
+Start a fresh chat with:
+docs/handoff/NEWCHAT-B82-2026-09-26.md
