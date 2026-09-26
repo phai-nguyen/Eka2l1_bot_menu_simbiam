@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 7513)
-Total output lines: 608
-
 #!/usr/bin/env python3
 """Add an explicit, transient COMPATBOOT Menu Probe entry beside Native Boot."""
 from pathlib import Path
@@ -243,7 +240,183 @@ def patch_state_cpp(source):
         conf.compat_menu_probe_timed_out = false;
         conf.compat_menu_probe_finished = false;
         conf.compat_first_failure_logged = false;
-        conf.compat_me…2513 tokens truncated…*kern, config::state *cfg) {
+        conf.compat_menu_probe_deadline_ms = 0;
+        conf.compat_target_uid3 = 0;
+        conf.compat_menu_probe_timeout_event = -1;
+        conf.compat_timeout_event_registered = false;
+        conf.compat_seen_file_server = false;
+        conf.compat_seen_fbs = false;
+        conf.compat_seen_window_server = false;
+        conf.compat_seen_cenrep = false;
+        conf.compat_seen_apparc = false;
+        conf.compat_seen_akncap = false;
+'''
+    source = replace_once(source,
+        "        conf.native_phone_boot = native_phone_mode;\n",
+        "        conf.native_phone_boot = native_phone_mode;\n" + reset,
+        "reset CompatBoot runtime state")
+    anchor = "                            native_boot_handoff_ok = true;\n"
+    deadline = anchor + '''                            if (compat_menu_probe_mode) {
+                                const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    std::chrono::steady_clock::now().time_since_epoch()).count();
+                                conf.compat_menu_probe_deadline_ms =
+                                    static_cast<std::uint64_t>(now_ms) + 60000;
+                                auto *compat_cfg = &conf;
+                                auto *compat_kern = symsys->get_kernel_system();
+                                const int compat_event = compat_kern->get_ntimer()->register_event(
+                                    "COMPATBOOT1_STARTUP_TIMEOUT",
+                                    [compat_cfg](std::uint64_t, int) {
+                                        if (!compat_cfg->compat_menu_probe_mode || compat_cfg->compat_menu_probe_finished) return;
+                                        std::string missing;
+                                        if (!compat_cfg->compat_seen_file_server) missing += "FileServer,";
+                                        if (!compat_cfg->compat_seen_fbs) missing += "FBS,";
+                                        if (!compat_cfg->compat_seen_window_server) missing += "WindowServer,";
+                                        if (!compat_cfg->compat_seen_cenrep) missing += "CenRep,";
+                                        if (!compat_cfg->compat_seen_apparc) missing += "AppArc,";
+                                        if (!compat_cfg->compat_seen_akncap) missing += "AknCapServer,";
+                                        if (!missing.empty()) missing.pop_back();
+                                        bool expected = false;
+                                        if (compat_cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
+                                            compat_cfg->compat_menu_probe_timed_out = true;
+                                            LOG_ERROR(FRONTEND_CMDLINE,
+                                                "[COMPATBOOT][BARRIER_TIMEOUT] missing_or_unobserved={}", missing);
+                                        }
+                                    });
+                                conf.compat_menu_probe_timeout_event = compat_event;
+                                if (compat_event >= 0) {
+                                    compat_kern->get_ntimer()->schedule_event(60000000, compat_event, 0);
+                                    conf.compat_timeout_event_registered = true;
+                                } else {
+                                    LOG_ERROR(FRONTEND_CMDLINE,
+                                        "[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL] event_id={}", compat_event);
+                                }
+                                LOG_WARN(FRONTEND_CMDLINE,
+                                    "[COMPATBOOT][DEADLINE_START] after=EStart_run timeout_ms=60000");
+                                LOG_WARN(FRONTEND_CMDLINE,
+                                    "[COMPATBOOT][BARRIER_WAIT] services=6");
+                            }
+'''
+    return replace_once(source, anchor, deadline, "start deadline after EStart")
+
+
+def patch_menu3_leave5(source):
+    marker = "[COMPATBOOT][MENU3_LEAVE5]"
+    if marker in source:
+        return source
+
+    sig = "    BRIDGE_FUNC(eka2l1::ptr<void>, leave_start) {"
+    start = source.find(sig)
+    if start < 0:
+        fail("leave_start block is missing for Menu3 Leave(-5) trace")
+    after = start + len(sig)
+    ends = [pos for pos in (
+        source.find("\n    BRIDGE_FUNC(", after),
+        source.find("\n}", after),
+    ) if pos >= 0]
+    if not ends:
+        fail("leave_start block boundary is missing for Menu3 Leave(-5) trace")
+    end = min(ends)
+    body = source[start:end]
+    anchor = "        thr->increase_leave_depth();\n"
+    if body.count(anchor) != 1:
+        fail(f"leave-depth anchor count={body.count(anchor)}")
+
+    trace = r'''        // COMPATBOOT1 Menu3 follow-up: observe trapped KErrNotSupported.
+        auto *compat_leave_cfg = kern->get_config();
+        auto *compat_leave_pr = kern->crr_process();
+        auto *compat_leave_cpu = kern->get_cpu();
+        const std::uint32_t compat_leave_uid3 = compat_leave_pr
+            ? static_cast<std::uint32_t>(std::get<2>(compat_leave_pr->get_uid_type()))
+            : 0U;
+        const std::int32_t compat_leave_code = compat_leave_cpu
+            ? static_cast<std::int32_t>(compat_leave_cpu->get_reg(0))
+            : 0;
+
+        if (compat_leave_cfg && compat_leave_pr && compat_leave_cpu && thr
+            && compat_leave_cfg->compat_menu_probe_mode
+            && compat_leave_cfg->compat_target_uid3 != 0
+            && compat_leave_uid3 == compat_leave_cfg->compat_target_uid3
+            && compat_leave_code == epoc::error_not_supported) {
+            const std::uint32_t compat_leave_pc = compat_leave_cpu->get_pc();
+            const std::uint32_t compat_leave_lr = compat_leave_cpu->get_reg(14);
+            const std::uint32_t compat_leave_sp = compat_leave_cpu->get_reg(13);
+            const std::uint32_t compat_leave_trap =
+                current_local_data(kern)->trap_handler.ptr_address();
+
+            LOG_WARN(KERNEL,
+                "[COMPATBOOT][MENU3_LEAVE5] process={} uid3=0x{:08X} thread={} leave={} trap=0x{:08X} pc=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} r0=0x{:08X} r1=0x{:08X} r2=0x{:08X} r3=0x{:08X} r4=0x{:08X} r5=0x{:08X} r6=0x{:08X} r7=0x{:08X} r8=0x{:08X} r9=0x{:08X} r10=0x{:08X} r11=0x{:08X} r12=0x{:08X} behavior=OBSERVE_ONLY",
+                compat_leave_pr->name(), compat_leave_uid3, thr->name(),
+                compat_leave_code, compat_leave_trap, compat_leave_pc, compat_leave_lr,
+                compat_leave_sp, compat_leave_cpu->get_cpsr(),
+                compat_leave_cpu->get_reg(0), compat_leave_cpu->get_reg(1),
+                compat_leave_cpu->get_reg(2), compat_leave_cpu->get_reg(3),
+                compat_leave_cpu->get_reg(4), compat_leave_cpu->get_reg(5),
+                compat_leave_cpu->get_reg(6), compat_leave_cpu->get_reg(7),
+                compat_leave_cpu->get_reg(8), compat_leave_cpu->get_reg(9),
+                compat_leave_cpu->get_reg(10), compat_leave_cpu->get_reg(11),
+                compat_leave_cpu->get_reg(12));
+
+            auto compat_leave_log_frame = [&](const char *kind, const std::uint32_t raw) {
+                const std::uint32_t addr = raw & ~1U;
+                codeseg_ptr seg = get_codeseg_from_addr(kern, compat_leave_pr, addr, false);
+                if (seg) {
+                    const std::uint32_t base = seg->get_code_run_addr(compat_leave_pr);
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][MENU3_LEAVE5_FRAME] kind={} raw=0x{:08X} module={} base=0x{:08X} offset=0x{:08X}",
+                        kind, raw, common::ucs2_to_utf8(seg->get_full_path()),
+                        base, addr - base);
+                } else {
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][MENU3_LEAVE5_FRAME] kind={} raw=0x{:08X} module=<unresolved>",
+                        kind, raw);
+                }
+            };
+
+            compat_leave_log_frame("pc", compat_leave_pc);
+            compat_leave_log_frame("lr", compat_leave_lr);
+            compat_leave_log_frame("trap", compat_leave_trap);
+
+            for (std::uint32_t i = 0; i < 32; ++i) {
+                const std::uint32_t slot_addr = compat_leave_sp + i * sizeof(std::uint32_t);
+                if (slot_addr < compat_leave_sp) break;
+                const std::uint32_t *slot =
+                    eka2l1::ptr<std::uint32_t>(slot_addr).get(compat_leave_pr);
+                if (!slot) {
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][MENU3_LEAVE5_STACK] index={} slot=0x{:08X} mapped=0 stopping=1",
+                        i, slot_addr);
+                    break;
+                }
+
+                const std::uint32_t value = *slot;
+                const std::uint32_t candidate = value & ~1U;
+                codeseg_ptr seg = candidate >= 0x10000U
+                    ? get_codeseg_from_addr(kern, compat_leave_pr, candidate, false)
+                    : nullptr;
+                if (seg) {
+                    const std::uint32_t base = seg->get_code_run_addr(compat_leave_pr);
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][MENU3_LEAVE5_STACK] index={} slot=0x{:08X} value=0x{:08X} code_candidate=1 module={} base=0x{:08X} offset=0x{:08X}",
+                        i, slot_addr, value, common::ucs2_to_utf8(seg->get_full_path()),
+                        base, candidate - base);
+                }
+            }
+        }
+
+'''
+    body = body.replace(anchor, trace + anchor, 1)
+    return source[:start] + body + source[end:]
+
+
+def patch_svc(source):
+    if "[COMPATBOOT][TARGET_LAUNCH]" in source:
+        return patch_menu3_leave5(source)
+    includes = "#include <sstream>\n"
+    source = replace_once(source, "#include <kernel/kernel.h>\n",
+                          "#include <kernel/kernel.h>\n" + includes,
+                          "COMPATBOOT service interfaces")
+    helper = r'''namespace eka2l1::kernel::svc {
+    static std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
         const epocver ver = kern->get_epoc_version();
         auto ready = [kern](const std::string &name, bool guest_ready) {
             service::server *registered = kern->get_by_name<service::server>(name);
