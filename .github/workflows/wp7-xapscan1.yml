@@ -1,0 +1,65 @@
+name: WP7 XAPSCAN1
+
+on:
+  push:
+    branches: [wp7-xap-runner]
+    paths:
+      - 'wp7-xap-runner/**'
+      - '.github/workflows/wp7-xapscan1.yml'
+  workflow_dispatch:
+
+jobs:
+  xapscan1:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wp7-xap-runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build scanner
+        run: dotnet build src/XapScan/XapScan.csproj -c Release
+
+      - name: Build synthetic managed WP7-style app assembly
+        shell: bash
+        run: |
+          mkdir -p .ci/SampleWp7App
+          cat > .ci/SampleWp7App/SampleWp7App.csproj <<'PROJ'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net8.0</TargetFramework>
+              <AssemblyName>SampleWp7App</AssemblyName>
+              <RootNamespace>SampleWp7App</RootNamespace>
+            </PropertyGroup>
+          </Project>
+          PROJ
+          cat > .ci/SampleWp7App/App.cs <<'CS'
+          namespace SampleWp7App;
+          public sealed class App
+          {
+              public static string BootMarker() => "XAPSCAN1";
+          }
+          CS
+          dotnet build .ci/SampleWp7App/SampleWp7App.csproj -c Release
+
+      - name: Create synthetic XAP
+        run: >-
+          python3 tests/make-synthetic-xap.py
+          --assembly .ci/SampleWp7App/bin/Release/net8.0/SampleWp7App.dll
+          --out .ci/SyntheticWp7.xap
+
+      - name: Scan synthetic XAP
+        run: >-
+          dotnet run --project src/XapScan/XapScan.csproj -c Release --no-build --
+          .ci/SyntheticWp7.xap --out .ci/SyntheticWp7.xapscan1.json
+
+      - name: Verify XAPSCAN1 contract
+        run: python3 tests/assert-report.py .ci/SyntheticWp7.xapscan1.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XAPSCAN1-synthetic-report
+          path: wp7-xap-runner/.ci/SyntheticWp7.xapscan1.json
