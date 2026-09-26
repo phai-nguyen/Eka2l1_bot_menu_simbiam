@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -89,4 +90,6 @@ class B88PhoneUiContinueTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and Path(sys.argv[1]).is_dir():
+        sys.argv = [sys.argv[0]]
     unittest.main()
