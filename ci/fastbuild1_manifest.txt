@@ -1,5 +1,5 @@
 [post_bootstrap]
-# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B86 PHONEUIRESDUMPFIX1 active.
+# B28 is the bootstrap checkpoint. Append B29+ apply|test pairs here. B87 CALLHANDLINGUICAPTURE1 active.
 apply_nativeboot2_b29_cenreptx1.py|test_nativeboot2_b29_cenreptx1.py
 apply_nativeboot2_b29_diag1.py|test_nativeboot2_b29_diag1.py
 apply_nativeboot2_b29_loaderdiag1.py|test_nativeboot2_b29_loaderdiag1.py
@@ -61,6 +61,7 @@ apply_nativeboot2_b83_phoneuicenrepdiag1.py|test_nativeboot2_b83_phoneuicenrepdi
 apply_nativeboot2_b84_phoneuiresidwindow1.py|test_nativeboot2_b84_phoneuiresidwindow1.py
 apply_nativeboot2_b85_phoneuiresidowner1.py|test_nativeboot2_b85_phoneuiresidowner1.py
 apply_nativeboot2_b86_phoneuiresdumpfix1.py|test_nativeboot2_b86_phoneuiresdumpfix1.py
+apply_nativeboot2_b87_callhandlinguicapture1.py|test_nativeboot2_b87_callhandlinguicapture1.py
 [regressions]
 test_nativeboot2_b20_cenresetall1.py
 test_nativeboot2_b21_fbsfontalias1.py
