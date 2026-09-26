@@ -339,6 +339,14 @@ class CompatBootModeContracts(unittest.TestCase):
         commentless_traced = PATCH.patch_menu3_file_flush(commentless_source)
         self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", commentless_traced)
         self.assertEqual(commentless_traced.count("vfs_file->flush()"), 1)
+        b48_source = FS_FLUSH_CPP.replace(
+            "if (!vfs_file->flush()) {",
+            "const bool b48_flush_ok = vfs_file->flush();\n        if (!b48_flush_ok) {",
+        )
+        b48_traced = PATCH.patch_menu3_file_flush(b48_source)
+        self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", b48_traced)
+        self.assertIn("if (!b48_flush_ok)", b48_traced)
+        self.assertEqual(b48_traced.count("vfs_file->flush()"), 1)
         self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", traced)
         self.assertIn("compat_menu_flush_cfg->compat_menu_probe_mode", traced)
         self.assertIn("compat_target_uid3", traced)

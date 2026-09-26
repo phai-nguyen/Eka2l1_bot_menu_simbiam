@@ -553,10 +553,7 @@ def patch_menu3_file_flush(source):
         fail("FileFlush argument anchor count is not one")
     body = body.replace(handle_anchor, handle_trace, 1)
 
-    flush_anchor = '''        if (!vfs_file->flush()) {
-'''
-    flush_trace = '''        const bool compat_menu_flush_ok = vfs_file->flush();
-        if (compat_menu_flush) {
+    compat_trace = '''        if (compat_menu_flush) {
             LOG_WARN(SERVICE_EFSRV,
                 "[COMPATBOOT][MENU3_FSFLUSH] process={} uid3=0x{:08X} thread={} handle={} path={} opcode=0x27 flush_ok={} completion={} behavior=OBSERVE_ONLY",
                 compat_menu_flush_pr->name(), compat_menu_flush_uid3,
@@ -564,11 +561,22 @@ def patch_menu3_file_flush(source):
                 common::ucs2_to_utf8(vfs_file->file_name()), compat_menu_flush_ok ? 1 : 0,
                 compat_menu_flush_ok ? epoc::error_none : epoc::error_general);
         }
-        if (!compat_menu_flush_ok) {
 '''
-    if body.count(flush_anchor) != 1:
-        fail("FileFlush call anchor count is not one")
-    body = body.replace(flush_anchor, flush_trace, 1)
+    original_flush_anchor = '''        if (!vfs_file->flush()) {
+'''
+    original_flush_trace = '''        const bool compat_menu_flush_ok = vfs_file->flush();
+''' + compat_trace + '''        if (!compat_menu_flush_ok) {
+'''
+    b48_flush_anchor = '''        if (!b48_flush_ok) {
+'''
+    b48_flush_trace = '''        const bool compat_menu_flush_ok = b48_flush_ok;
+''' + compat_trace + b48_flush_anchor
+    if body.count(original_flush_anchor) == 1:
+        body = body.replace(original_flush_anchor, original_flush_trace, 1)
+    elif body.count(b48_flush_anchor) == 1 and body.count("const bool b48_flush_ok = vfs_file->flush();") == 1:
+        body = body.replace(b48_flush_anchor, b48_flush_trace, 1)
+    else:
+        fail("FileFlush result anchor count is not one")
     return source[:start] + body + source[finish:]
 
 def patch_target_visible(source):
