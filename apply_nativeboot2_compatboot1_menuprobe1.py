@@ -274,67 +274,202 @@ def patch_svc(source):
     source = replace_once(source, "#include <kernel/kernel.h>\n",
                           "#include <kernel/kernel.h>\n" + includes,
                           "COMPATBOOT service interfaces")
-    helper = r'''namespace eka2l1::kernel::svc {Ó½m¢G§²ÚîÆ­yÙ/fastbuild1_manifest.txt`; run the tests and `python3 ci/fastbuild1_manifest.py validate .` to confirm the pair is registered.**
-- [ ] **Step 5: Commit** as `feat: add opt-in compatboot menu probe mode`.
+    helper = r'''namespace eka2l1::kernel::svc {
+    static std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
+        const epocver ver = kern->get_system()->get_symbian_version_use();
+        auto ready = [kern](const std::string &name, bool guest_ready) {
+            service::server *registered = kern->get_by_name<service::server>(name);
+            return registered && (registered->is_hle() || guest_ready);
+        };
+        std::ostringstream missing;
+        if (!ready(epoc::fs::get_server_name_through_epocver(ver), cfg->compat_seen_file_server)) missing << "FileServer,";
+        if (!ready(get_fbs_server_name_by_epocver(ver), cfg->compat_seen_fbs)) missing << "FBS,";
+        if (!ready(get_winserv_name_by_epocver(ver), cfg->compat_seen_window_server)) missing << "WindowServer,";
+        if (!ready(CENTRAL_REPO_SERVER_NAME, cfg->compat_seen_cenrep)) missing << "CenRep,";
+        if (!ready(get_app_list_server_name_by_epocver(ver), cfg->compat_seen_apparc)) missing << "AppArc,";
+        if (!ready(OOM_APP_UI_SERVER_NAME, cfg->compat_seen_akncap)) missing << "AknCapServer,";
+        std::string result = missing.str();
+        if (!result.empty()) result.pop_back();
+        return result;
+    }
 
-### Task 2: Implement the UI barrier and one-shot Menu3 launch
+    static void compatboot1_timeout(kernel_system *kern) {
+        config::state *cfg = kern->get_config();
+        if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
+        const std::string missing = compatboot1_missing_services(kern, cfg);
+        if (missing.empty()) return;
+        bool expected = false;
+        if (cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
+            cfg->compat_menu_probe_timed_out = true;
+            LOG_ERROR(KERNEL, "[COMPATBOOT][BARRIER_TIMEOUT] missing={}", missing);
+        }
+    }
 
-**Files:**
-- Modify: `apply_nativeboot2_compatboot1_menuprobe1.py`
-- Modify: `test_nativeboot2_compatboot1_menuprobe1.py`
-- Modify upstream through the patcher: `src/emu/ios/src/state.cpp`
-- Modify upstream through the patcher: `src/emu/services/src/init.cpp`
-- Modify upstream through the patcher: `src/emu/kernel/src/svc.cpp`
-- Reuse upstream guest loader from `src/emu/kernel/src/process.cpp` / existing `kernel::system::spawn_new_process` call path; patch only the smallest confirmed integration point.
+    static void compatboot1_check_barrier(kernel_system *kern, service::server *current) {
+        config::state *cfg = kern->get_config();
+        if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
+        const epocver ver = kern->get_system()->get_symbian_version_use();
+        if (current) {
+            const std::string &name = current->name();
+            if (name == epoc::fs::get_server_name_through_epocver(ver)) cfg->compat_seen_file_server = true;
+            if (name == get_fbs_server_name_by_epocver(ver)) cfg->compat_seen_fbs = true;
+            if (name == get_winserv_name_by_epocver(ver)) cfg->compat_seen_window_server = true;
+            if (name == CENTRAL_REPO_SERVER_NAME) cfg->compat_seen_cenrep = true;
+            if (name == get_app_list_server_name_by_epocver(ver)) cfg->compat_seen_apparc = true;
+            if (name == OOM_APP_UI_SERVER_NAME) cfg->compat_seen_akncap = true;
+        }
+        if (!cfg->compat_timeout_event_registered.exchange(true)) {
+            const std::string event_name = "COMPATBOOT1_BARRIER_" +
+                std::to_string(reinterpret_cast<std::uintptr_t>(kern));
+            int event_id = kern->get_ntimer()->get_register_event(event_name);
+            if (event_id < 0) {
+                event_id = kern->get_ntimer()->register_event(event_name,
+                    [kern](std::uint64_t, int) { compatboot1_timeout(kern); });
+            }
+            cfg->compat_menu_probe_timeout_event = event_id;
+            const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            const std::uint64_t remaining_ms = static_cast<std::uint64_t>(now_ms) < cfg->compat_menu_probe_deadline_ms
+                ? cfg->compat_menu_probe_deadline_ms - static_cast<std::uint64_t>(now_ms) : 0;
+            const std::int64_t timeout_us = static_cast<std::int64_t>(remaining_ms * 1000);
+            kern->get_ntimer()->schedule_event(timeout_us, event_id, 0);
+        }
+        const std::string missing = compatboot1_missing_services(kern, cfg);
+        if (!missing.empty()) {
+            LOG_WARN(KERNEL, "[COMPATBOOT][BARRIER_WAIT] missing={}", missing);
+            return;
+        }
+        bool expected = false;
+        if (!cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) return;
+        cfg->compat_menu_probe_launched = true;
+        kern->get_ntimer()->unschedule_event(cfg->compat_menu_probe_timeout_event, 0);
+        LOG_WARN(KERNEL, "[COMPATBOOT][BARRIER_READY] services=FileServer,FBS,WindowServer,CenRep,AppArc,AknCapServer");
+        static const std::u16string menu_path = u"Z:\\sys\\bin\\menu3.exe";
+        process_ptr menu = kern->spawn_new_process(menu_path, u"");
+        if (!menu) {
+            LOG_ERROR(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=CREATE_FAILED",
+                common::ucs2_to_utf8(menu_path));
+            return;
+        }
+        if (!menu->run()) {
+            LOG_ERROR(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUN_FAILED process={}",
+                common::ucs2_to_utf8(menu_path), menu->name());
+            return;
+        }
+        cfg->compat_target_uid3 = static_cast<std::uint32_t>(
+            std::get<2>(menu->get_uid_type()));
+        LOG_WARN(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUNNING process={} one_shot=1",
+            common::ucs2_to_utf8(menu_path), menu->name());
+    }
+'''
+    source = replace_once(source, "namespace eka2l1::kernel::svc {\n", helper,
+                          "serialized CompatBoot barrier helper")
+    receive = ("        server_ptr server = kern->get<service::server>(h);\n\n"
+               "        if (!server) {\n            return;\n        }\n")
+    return replace_once(source, receive,
+                        receive + "\n        compatboot1_check_barrier(kern, server);\n",
+                        "poll from server readiness SVC")
 
-**Interfaces:**
-- Consumes: `compat_menu_probe_mode` from Task 1 and the serialized emulator/guest startup execution context.
-- Produces: a CompatBoot barrier state with required logical services `{FileServer, FBS, WindowServer, CenRep, AppArc, AknCapServer}`, a bounded wait (60 seconds maximum), and a one-shot launch result for `Z:\sys\bin\menu3.exe` through `kernel::system::spawn_new_process(path, args)` followed by the guest process `run()` call.
 
-- [ ] **Step 1: Add failing tests** named `test_each_required_service_blocks_launch_until_ready`, `test_live_process_without_ready_server_does_not_release_barrier`, `test_barrier_timeout_reports_exact_missing_services`, and `test_menu3_launches_once_after_all_services_ready`. For each of the six services, assert that its absence blocks launch; assert process existence alone is insufficient when a server-ready signal is required; assert timeout never launches; assert duplicate readiness events still produce one launch and the exact firmware path.
-- [ ] **Step 2: Run the tests and verify they fail** against the unimplemented barrier/launcher contract.
-- [ ] **Step 3: Implement readiness checks using observable server registration/ready state and the EKA2L1 serialized execution path.** Map each logical service to its actual registered firmware/HLE identity from B28 runtime naming; do not use guessed aliases or treat process existence alone as readiness. Start the 60-second deadline after EStart runs, report every still-missing service at timeout, and stop polling on launch, exit, or timeout. If a required service has no reliable ready signal, fail closed and report that gap instead of launching Menu3.
-- [ ] **Step 4: Launch the real firmware Menu3 once** after all six services are ready. On create/run failure, report the path and result and do not retry automatically. Keep this branch gated by `compat_menu_probe_mode`; prove Native Boot never enters it.
-- [ ] **Step 5: Run the contract tests and commit** as `feat: launch firmware menu after compatboot barrier`.
+def patch_missing_server(source):
+    if "[COMPATBOOT][FIRST_FAILURE]" in source:
+        return source
+    anchor = '                LOG_WARN(KERNEL, "[NBOOT2][MISSING_SERVER] process={} server={} msg_slots={} mode={}",\n'
+    trace = '''                if (kern->get_config()->compat_menu_probe_mode) {
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][MISSING_SERVER] target_uid3=0x{:08X} caller={} server={} result={}",
+                        kern->get_config()->compat_target_uid3, pr->name(), server_name,
+                        epoc::error_not_found);
+                    LOG_WARN(KERNEL,
+                        "[COMPATBOOT][FIRST_FAILURE] source=MISSING_SERVER target_uid3=0x{:08X} server={}",
+                        kern->get_config()->compat_target_uid3, server_name);
+                }
+'''
+    return replace_once(source, anchor, trace + anchor, "profile-scoped first missing-server trace")
 
-### Task 3: Add first-blocker CompatTrace and build audit
 
-**Files:**
-- Modify: `apply_nativeboot2_compatboot1_menuprobe1.py`
-- Modify: `test_nativeboot2_compatboot1_menuprobe1.py`
-- Modify upstream through the patcher: `src/emu/config/include/config/config.h`, `src/emu/kernel/src/svc.cpp`, and `src/emu/services/src/window/classes/winuser.cpp`.
-- Modify: `.github/workflows/build-ios-nativeboot2-current-fast.yml`
+def patch_target_visible(source):
+    marker = "[COMPATBOOT][TARGET_VISIBLE]"
+    if marker in source:
+        return source
+    start = source.find("[NBOOT2][POSTLOGO_CANVAS_VISIBLE]")
+    if start < 0:
+        fail("B50 canvas visibility trace is missing")
+    end = source.find("            ctx.complete(epoc::error_none);", start)
+    if end < 0:
+        fail("B50 canvas visibility completion anchor is missing")
+    trace = '''            config::state *compat_cfg = ctx.sys->get_kernel_system()->get_config();
+            if (compat_cfg->compat_menu_probe_mode &&
+                b50_uid3 == compat_cfg->compat_target_uid3 && b50_group &&
+                is_visible() && can_be_physically_seen()) {
+                LOG_WARN(SERVICE_WINDOW,
+                    "[COMPATBOOT][TARGET_VISIBLE] uid3=0x{:08X} process={} group_id={} group_name={} visible=1 physically_seen=1",
+                    b50_uid3, b50_pr ? b50_pr->name() : std::string("<null>"),
+                    b50_group->id, common::ucs2_to_utf8(b50_group->name));
+            }
+'''
+    return source[:end] + trace + source[end:]
 
-**Interfaces:**
-- Consumes: CompatBoot mode, barrier result, and target process identity from Tasks 1â€“2; existing NATIVEBOOT2 loader, resource, CenRep/P&S, session, panic, and visibility diagnostics.
-- Produces: profile-gated markers `[COMPATBOOT][MODE]`, `[COMPATBOOT][BARRIER_WAIT]`, `[COMPATBOOT][BARRIER_READY]`, `[COMPATBOOT][BARRIER_TIMEOUT]`, `[COMPATBOOT][TARGET_LAUNCH]`, `[COMPATBOOT][MISSING_SERVER]`, `[COMPATBOOT][FIRST_FAILURE]`, and `[COMPATBOOT][TARGET_VISIBLE]`.
-- Reuse existing `[NBOOT2]` loader, resource, CenRep/P&S, IPC, and panic diagnostics for detailed failure data. The CompatBoot first-failure marker correlates those existing records to the selected profile and Menu3 UID3 rather than duplicating every diagnostic format.
 
-- [ ] **Step 1: Add failing tests** named `test_compat_markers_are_profile_gated`, `test_first_target_failure_is_logged_without_semantic_override`, and `test_visible_marker_requires_menu3_window_surface`. Assert existing guest error/result semantics are unchanged and marker context contains target process/UID3 plus the relevant dependency and result.
-- [ ] **Step 2: Run the tests and verify they fail** because CompatTrace markers are not yet emitted.
-- [ ] **Step 3: Reuse existing NATIVEBOOT2 diagnostics where they already expose the failure.** Add CompatBoot-scoped marker forwarding only at missing diagnostic boundaries; do not change leave, IPC, loader, P&S, CenRep, or panic results. Emit `TARGET_VISIBLE` only after Menu3's own visible WindowGroup/canvas is confirmed.
-- [ ] **Step 4: Extend FASTBUILD binary marker checks** for the required marker set and confirm the manifest regression executes the new contract test. Keep the existing B20â€“B89 regression chain and NOJAVA/MANIC3 checks intact.
-- [ ] **Step 5: Run** `python3 -m unittest -v test_nativeboot2_compatboot1_menuprobe1.py`, `python3 ci/fastbuild1_manifest.py validate .`, and `git diff --check`; commit as `feat: trace compatboot menu dependencies`.
+# Exported so the manifest contract exercises the same source transformation as apply().
+ROOT_VIEW_FIXTURE = '''- (void)onEmulator {
+    // NATIVEBOOT2 EMUHUB1: native Nokia startup is explicit.
+    if (!eka2l1::ios::bridge::has_device()) {
+        [self showAlert:EKAL(@"Emulator unavailable")
+                 message:EKAL(@"Install a Symbian device before starting Emulator.")];
+        return;
+    }
+    if (self.phoneRunning) { return; }
+    // Existing NATIVEBOOT2 launch body
+}
 
-### Task 4: Build, verify, and record B90
+- (void)onShowApps { [self showAppsScreen]; }
+'''
+STATE_H_FIXTURE = '''        bool native_phone_mode = false;
+        bool native_boot_handoff_ok = false;
+'''
 
-**Files:**
-- Modify: `docs/handoff/CURRENT.md`
-- Create: `docs/handoff/history/B90-COMPATBOOT1-MENUPROBE1.md`
-- Modify: `docs/handoff/NEWCHAT-B89-2026-09-26.md` to point to the B90 handoff.
 
-- [ ] **Step 1: Run the full FASTBUILD workflow** on `nativeboot2-current`; require all manifest regressions, iOS compile/link, binary marker audit, unsigned IPA packaging, and IPA audit to pass.
-- [ ] **Step 2: Check the artifact** exists, contains `Payload/EKA2L1.app/eka2l1`, passes `unzip -t`, and record the SHA-256 and workflow run ID.
-- [ ] **Step 3: Record the B90 build and test protocol** in the handoff. Request a device run of CompatBoot Menu Probe and capture the log/video needed to classify P0â€“P5; do not call the Menu reached unless P2 is evidenced.
-- [ ] **Step 4: Commit** the handoff update as `docs: record COMPATBOOT1 menu probe build`.
+def apply(upstream_root):
+    upstream = Path(upstream_root).resolve()
+    state_h = upstream / "src/emu/ios/include/ios/state.h"
+    root = upstream / "src/emu/ios/app/RootViewController.mm"
+    bridge_h = upstream / "src/emu/ios/include/ios/emu_bridge.h"
+    bridge_mm = upstream / "src/emu/ios/src/emu_bridge.mm"
+    localization = upstream / "src/emu/ios/app/EKALocalization.mm"
+    config_h = upstream / "src/emu/config/include/config/config.h"
+    state_cpp = upstream / "src/emu/ios/src/state.cpp"
+    svc = upstream / "src/emu/kernel/src/svc.cpp"
+    winuser = upstream / "src/emu/services/src/window/classes/winuser.cpp"
+    for path in (state_h, root, bridge_h, bridge_mm, localization, config_h, state_cpp, svc, winuser):
+        if not path.is_file():
+            fail(f"missing source: {path}")
+    state_text = patch_state_header(state_h.read_text(encoding="utf-8"))
+    root_text = patch_emulator_choice(root.read_text(encoding="utf-8"))
+    bridge_h_text = patch_bridge_header(bridge_h.read_text(encoding="utf-8"))
+    bridge_mm_text = patch_bridge_cpp(bridge_mm.read_text(encoding="utf-8"))
+    localization_text = patch_localization(localization.read_text(encoding="utf-8"))
+    config_text = patch_config_header(config_h.read_text(encoding="utf-8"))
+    state_cpp_text = patch_state_cpp(state_cpp.read_text(encoding="utf-8"))
+    svc_text = patch_missing_server(patch_svc(svc.read_text(encoding="utf-8")))
+    winuser_text = patch_target_visible(winuser.read_text(encoding="utf-8"))
+    state_h.write_text(state_text, encoding="utf-8")
+    root.write_text(root_text, encoding="utf-8")
+    bridge_h.write_text(bridge_h_text, encoding="utf-8")
+    bridge_mm.write_text(bridge_mm_text, encoding="utf-8")
+    localization.write_text(localization_text, encoding="utf-8")
+    config_h.write_text(config_text, encoding="utf-8")
+    state_cpp.write_text(state_cpp_text, encoding="utf-8")
+    svc.write_text(svc_text, encoding="utf-8")
+    winuser.write_text(winuser_text, encoding="utf-8")
+    print(MARK + ": applied; explicit CompatBoot choice is wired")
 
----
 
-## Plan self-review
+def main():
+    if len(sys.argv) != 2:
+        fail("usage: apply_nativeboot2_compatboot1_menuprobe1.py <upstream-root>")
+    apply(sys.argv[1])
 
-- **Spec coverage:** Separate opt-in profile and Native default are Task 1; six-service barrier and real one-shot Menu3 launch are Task 2; first-blocker diagnostics and P2 visibility are Task 3; build/device ladder and handoff are Task 4.
-- **Ruling:** Detailed NATIVEBOOT2 traces already cover loader/DLL/ordinal, firmware resource, CenRep/P&S, IPC, and panic failure context when Native Phone mode is active. CompatBoot adds a profile-scoped first-failure envelope and Menu3-visible marker, avoiding duplicate diagnostic paths that could drift or alter error handling.
-- **Step scan:** Each task has an explicit failing contract, implementation boundary, verification command, and commit; the timeout and one-shot inputs are tested.
-- **Type consistency:** The bridge start API returns `bool`; existing running-state and stop/exit methods are reused. The guest launch uses the existing `spawn_new_process(path, args)` plus `run()` pattern. The launcher remains gated by the transient CompatBoot selector.
-- **Review focus:** Missing device/firmware, delayed/missing service, duplicate readiness, target failure/panic, and Native Boot isolation each have a named test above.
-- **Proportion:** Four tasks separate mode selection, boot/launch, diagnostics, and the final build/handoff; no speculative shim subsystem is included.
+
+if __name__ == "__main__":
+    main()
