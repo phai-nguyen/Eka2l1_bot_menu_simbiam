@@ -62,14 +62,15 @@ def main()->None:
         need(s,n,"svc.cpp")
     kill_call="thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);"
     kill=s.index(kill_call)
-    b88_comment="// B88 intentionally lets native startup continue"
-    b88_start=s.rfind(b88_comment,0,kill)
-    if b88_start < 0:
-        fail("missing B88 scoped startup exception")
-    b88_block=s[b88_start:kill]
+    marker="[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]"
+    if marker not in s:
+        fail("missing B88 startup-exception marker")
+    b88=s.index(marker)
+    guard=s.rfind("if (nboot2_b71_phoneui_cone14)",0,b88)
+    b88_block=s[guard:kill] if guard >= 0 else ""
     for n in (
         "if (nboot2_b71_phoneui_cone14)",
-        "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
+        marker,
         "etype = kernel::entity_exit_type::terminate;",
         'exit_category = "None";',
         "reason = 0;",
