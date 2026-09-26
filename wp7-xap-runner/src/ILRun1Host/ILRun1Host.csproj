@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>WP7ILRun1</AssemblyName>
+    <RootNamespace>WP7ILRun1</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <ApplicationTitle>WP7 ILRUN1</ApplicationTitle>
+    <ApplicationId>com.phai.wp7.ilrun1</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+
+    <!-- Critical experiment setting: execute managed IL without JIT-generated native code. -->
+    <UseInterpreter>true</UseInterpreter>
+    <TrimMode>copy</TrimMode>
+    <MtouchUseLlvm>false</MtouchUseLlvm>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- IlPayload.dll is deliberately a raw bundle resource, NOT a ProjectReference. -->
+    <BundleResource Include="Assets/IlPayload.dll" LogicalName="IlPayload.dll" />
+  </ItemGroup>
+</Project>
