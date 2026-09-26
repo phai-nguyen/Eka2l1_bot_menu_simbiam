@@ -302,10 +302,7 @@ def patch_state_cpp(source):
 def patch_svc(source):
     if "[COMPATBOOT][TARGET_LAUNCH]" in source:
         return source
-    includes = ("#include <services/fs/fs.h>\n#include <services/fbs/fbs.h>\n"
-                "#include <services/window/window.h>\n#include <services/centralrepo/centralrepo.h>\n"
-                "#include <services/applist/applist.h>\n#include <services/ui/cap/oom_app.h>\n"
-                "#include <chrono>\n#include <sstream>\n")
+    includes = "#include <sstream>\n"
     source = replace_once(source, "#include <kernel/kernel.h>\n",
                           "#include <kernel/kernel.h>\n" + includes,
                           "COMPATBOOT service interfaces")
@@ -320,9 +317,9 @@ def patch_svc(source):
         if (!ready(epoc::fs::get_server_name_through_epocver(ver), cfg->compat_seen_file_server)) missing << "FileServer,";
         if (!ready(epoc::get_fbs_server_name_by_epocver(ver), cfg->compat_seen_fbs)) missing << "FBS,";
         if (!ready(get_winserv_name_by_epocver(ver), cfg->compat_seen_window_server)) missing << "WindowServer,";
-        if (!ready(CENTRAL_REPO_SERVER_NAME, cfg->compat_seen_cenrep)) missing << "CenRep,";
+        if (!ready("!CentralRepository", cfg->compat_seen_cenrep)) missing << "CenRep,";
         if (!ready(get_app_list_server_name_by_epocver(ver), cfg->compat_seen_apparc)) missing << "AppArc,";
-        if (!ready(OOM_APP_UI_SERVER_NAME, cfg->compat_seen_akncap)) missing << "AknCapServer,";
+        if (!ready("101fdfae_10207218_AppServer", cfg->compat_seen_akncap)) missing << "AknCapServer,";
         std::string result = missing.str();
         if (!result.empty()) result.pop_back();
         return result;
@@ -337,9 +334,9 @@ def patch_svc(source):
             if (name == epoc::fs::get_server_name_through_epocver(ver)) cfg->compat_seen_file_server = true;
             if (name == epoc::get_fbs_server_name_by_epocver(ver)) cfg->compat_seen_fbs = true;
             if (name == get_winserv_name_by_epocver(ver)) cfg->compat_seen_window_server = true;
-            if (name == CENTRAL_REPO_SERVER_NAME) cfg->compat_seen_cenrep = true;
+            if (name == "!CentralRepository") cfg->compat_seen_cenrep = true;
             if (name == get_app_list_server_name_by_epocver(ver)) cfg->compat_seen_apparc = true;
-            if (name == OOM_APP_UI_SERVER_NAME) cfg->compat_seen_akncap = true;
+            if (name == "101fdfae_10207218_AppServer") cfg->compat_seen_akncap = true;
         }
         const std::string missing = compatboot1_missing_services(kern, cfg);
         if (!missing.empty()) {
@@ -369,8 +366,19 @@ def patch_svc(source):
             common::ucs2_to_utf8(menu_path), menu->name());
     }
 '''
+    declarations = '''namespace eka2l1::epoc {
+    std::string get_fbs_server_name_by_epocver(const epocver ver);
+}
+namespace eka2l1::epoc::fs {
+    std::string get_server_name_through_epocver(const epocver ver);
+}
+namespace eka2l1 {
+    std::string get_winserv_name_by_epocver(const epocver ver);
+    const std::string get_app_list_server_name_by_epocver(const epocver ver);
+}
+'''
     source = replace_once(source, "namespace eka2l1::epoc {\n",
-                          helper + "\nnamespace eka2l1::epoc {\n",
+                          declarations + helper + "\nnamespace eka2l1::epoc {\n",
                           "serialized CompatBoot barrier helper")
     receive = ("    BRIDGE_FUNC(void, server_receive, kernel::handle h, eka2l1::ptr<epoc::request_status> req_sts, eka2l1::ptr<void> data_ptr) {\n"
                "        server_ptr server = kern->get<service::server>(h);\n\n"

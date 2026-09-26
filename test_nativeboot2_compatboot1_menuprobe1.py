@@ -160,6 +160,9 @@ class CompatBootModeContracts(unittest.TestCase):
             with self.subTest(service=service):
                 self.assertIn(service, svc)
         self.assertIn("epoc::get_fbs_server_name_by_epocver(ver)", svc)
+        self.assertNotIn("#include <services/", svc)
+        self.assertIn('"!CentralRepository"', svc)
+        self.assertIn('"101fdfae_10207218_AppServer"', svc)
         self.assertIn("if (!missing.empty())", svc)
         self.assertIn("return;", svc[svc.index("if (!missing.empty())"):])
 
