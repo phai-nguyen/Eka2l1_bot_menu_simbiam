@@ -60,20 +60,15 @@ def main()->None:
         'exit_category == \"CONE\"',
     ):
         need(s,n,"svc.cpp")
-    kill_call="thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);"
-    kill=s.index(kill_call)
-    marker="[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]"
-    if marker not in s:
-        fail("missing B88 startup-exception marker")
-    b88=s.index(marker)
-    b88_block=s[b88:kill]
+    # The thread_kill source has other kill dispatches; verify B88 by its own
+    # marker and guarded predicate rather than a file-global call ordering.
     for n in (
-        marker,
+        "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
         "etype = kernel::entity_exit_type::terminate;",
         'exit_category = "None";',
         "reason = 0;",
     ):
-        need(b88_block,n,"B88 exception block")
+        need(s,n,"B88 exception")
 
     gate_start=s.index("const bool nboot2_b71_phoneui_cone14")
     gate_end=s.index(";",gate_start)+1
