@@ -2,6 +2,7 @@
 """Contract for the read-only, CompatBoot-only FindEqInt trace."""
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 
@@ -12,6 +13,8 @@ SPEC = importlib.util.spec_from_file_location(
 PATCH = importlib.util.module_from_spec(SPEC) if SPEC and SPEC.origin and Path(SPEC.origin).is_file() else None
 if SPEC and SPEC.loader and PATCH:
     SPEC.loader.exec_module(PATCH)
+
+UPSTREAM = None
 
 
 FIND_METHOD = """    void central_repo_client_subsession::find(service::ipc_context *ctx) {
@@ -49,6 +52,23 @@ FIND_METHOD = """    void central_repo_client_subsession::find(service::ipc_cont
 
 
 class FindEqIntTraceContract(unittest.TestCase):
+    def test_applied_upstream_has_bounded_compatboot_trace(self):
+        if UPSTREAM is None:
+            self.skipTest("no FASTBUILD upstream path supplied")
+        repo_path = UPSTREAM / "src/emu/services/src/centralrepo/repo.cpp"
+        repo = repo_path.read_text(encoding="utf-8")
+        start = repo.index("    void central_repo_client_subsession::find(service::ipc_context *ctx) {")
+        end = repo.index("    void central_repo_client_subsession::get_find_result(service::ipc_context *ctx) {", start)
+        method = repo[start:end]
+        self.assertEqual(method.count("[COMPATBOOT][CENREP_FIND_EQ_INT]"), 3)
+        self.assertIn("ctx->sys->get_config()->compat_menu_probe_mode", method)
+        self.assertIn("filter->partial_key", method)
+        self.assertIn("filter->id_mask", method)
+        self.assertIn("comparison_value", method)
+        self.assertIn("result_count={}", method)
+        self.assertEqual(method.count("complete_central_repo_ipc(ctx, epoc::error_not_found);"), 1)
+        self.assertEqual(method.count("complete_central_repo_ipc(ctx, epoc::error_none);"), 1)
+
     def test_patch_scopes_trace_after_descriptor_validation_and_preserves_status(self):
         self.assertIsNotNone(PATCH, "B92 patcher is not present")
         patched = PATCH.patch_find_method(FIND_METHOD)
@@ -79,5 +99,14 @@ class FindEqIntTraceContract(unittest.TestCase):
             PATCH.patch_find_method(FIND_METHOD.replace("found_uid_result_array[0] = 0;", "[COMPATBOOT][CENREP_FIND_EQ_INT]"))
 
 
+def main():
+    global UPSTREAM
+    if len(sys.argv) > 2:
+        raise SystemExit("usage: test_nativeboot2_b92_cenrepfindeqdiag1.py [upstream-root]")
+    if len(sys.argv) == 2:
+        UPSTREAM = Path(sys.argv[1]).resolve()
+    unittest.main(argv=[sys.argv[0]])
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()
