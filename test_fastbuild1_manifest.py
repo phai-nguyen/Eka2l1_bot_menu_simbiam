@@ -70,12 +70,19 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertEqual(
             post[-1],
             (
+                "apply_nativeboot2_b92_cenrepfindeqdiag1.py",
+                "test_nativeboot2_b92_cenrepfindeqdiag1.py",
+            ),
+        )
+        self.assertEqual(
+            post[-2],
+            (
                 "apply_nativeboot2_b91_ipcteardown1.py",
                 "test_nativeboot2_b91_ipcteardown1.py",
             ),
         )
         self.assertEqual(
-            post[-2],
+            post[-3],
             (
                 "apply_nativeboot2_compatboot1_menuprobe1.py",
                 "test_nativeboot2_compatboot1_menuprobe1.py",

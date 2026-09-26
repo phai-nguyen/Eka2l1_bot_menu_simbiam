@@ -227,6 +227,7 @@ jobs:
         grep -Fq '[NBOOT2][PHONEUI_TARGET_FINGERPRINT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][CENREP_IPC_ENTRY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][CENREP_IPC_COMPLETE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][CENREP_FIND_EQ_INT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_SOURCE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_WINDOW]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_SUMMARY]' "$RUNNER_TEMP/fastbuild1.strings"

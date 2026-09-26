@@ -112,6 +112,13 @@ class FastbuildWorkflowContract(unittest.TestCase):
         ):
             self.assertIn(f"grep -Fq '{marker}'", verify)
 
+    def test_current_build_verifies_b92_compatboot_cenrep_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        self.assertIn("grep -Fq '[COMPATBOOT][CENREP_FIND_EQ_INT]'", verify)
+
 
     def test_workflows_have_no_malformed_github_expressions(self):
         for path in (FAST, SEED):
