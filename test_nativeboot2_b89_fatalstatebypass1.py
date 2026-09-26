@@ -2,6 +2,7 @@
 """Contract tests for B89's narrowly scoped fatal-startup state bypass."""
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,4 +95,6 @@ class B89FatalStateBypassTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and Path(sys.argv[1]).is_dir():
+        sys.argv = [sys.argv[0]]
     unittest.main()
