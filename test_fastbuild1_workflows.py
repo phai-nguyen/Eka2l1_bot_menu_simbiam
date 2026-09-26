@@ -20,6 +20,13 @@ def git_blob_sha(path: Path) -> str:
 
 
 class FastbuildWorkflowContract(unittest.TestCase):
+    def test_current_build_verifies_b89_state_bypass_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        self.assertIn(
+            "grep -Fq '[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]'",
+            text,
+        )
+
     def test_b28_workflow_is_untouched(self):
         self.assertEqual(git_blob_sha(B28), B28_GIT_BLOB)
 

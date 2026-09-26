@@ -223,6 +223,7 @@ jobs:
         grep -Fq '[NBOOT2][PHONEUI_RESID_SUMMARY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_CANDIDATE_DUMP_B87]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'target_decode=BLX_IMM10L_BITS_10_1' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_VENEER_DEST]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_VENEER_DEST_FP]' "$RUNNER_TEMP/fastbuild1.strings"

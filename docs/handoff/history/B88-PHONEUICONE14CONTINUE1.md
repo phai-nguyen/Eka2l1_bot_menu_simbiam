@@ -32,3 +32,21 @@ For this case only, mark the process exit as `terminate`, category `None`, reaso
 - IPA SHA-256: `3756273e80febcf43f48926877f9d810f734f5f49ee970d2fcbe94fa4783aa15`.
 
 Device success means the RM-356 Symbian Home/menu is visibly reached; the B88 marker or state progression alone is not success. If B88 continues past the Phone failure but does not display the menu, next move to a direct firmware shell-launch fallback.
+
+## DEVICE1 — 2026-09-26
+
+The user supplied B88 video plus `EKA2L1_Persistent-prev(20260926-083950).log`.
+
+- Video continues to show `Phone start-up failed. Contact the retailer.`; the
+  Symbian menu is not reached.
+- Log confirms the exact B88 Telephone CONE 14 exit is rewritten to
+  `terminate`, category `None`, reason `0`; Telephone terminates peacefully.
+- Immediately afterwards SYSSTART publishes
+  `KPSGlobalSystemState 0x101F8766:0x41`, `101 -> 116`. In the P&S enum, 116 is
+  `FatalStartupError`; this still drives the fatal startup UI.
+- The user exits the app normally; the bridge reaches `normal_restart_done`.
+  This test did not reproduce the iOS crash-to-Home symptom.
+
+B89 therefore targets only the proven post-B88 state write, aiming to continue
+at `109 NormalRfOn` and allow the normal post-critical firmware startup list to
+release Menu3.

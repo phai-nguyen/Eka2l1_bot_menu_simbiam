@@ -64,14 +64,14 @@ class FastbuildManifestTests(unittest.TestCase):
                     ],
                 )
 
-    def test_checked_in_manifest_includes_current_b84_milestone(self):
+    def test_checked_in_manifest_includes_current_b89_milestone(self):
         root = Path(__file__).resolve().parent
         post, regressions = fb.parse_manifest(root / "ci/fastbuild1_manifest.txt")
         self.assertEqual(
             post[-1],
             (
-                "apply_nativeboot2_b84_phoneuiresidwindow1.py",
-                "test_nativeboot2_b84_phoneuiresidwindow1.py",
+                "apply_nativeboot2_b89_fatalstatebypass1.py",
+                "test_nativeboot2_b89_fatalstatebypass1.py",
             ),
         )
         self.assertEqual(
