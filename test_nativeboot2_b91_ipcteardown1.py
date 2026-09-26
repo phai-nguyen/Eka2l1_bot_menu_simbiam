@@ -29,6 +29,10 @@ KERNEL = r'''namespace eka2l1 {
     }
 }
 '''
+KERNEL = KERNEL.replace(
+    "            msgs_[i].reset();\n",
+    "            msgs_[i].reset();" + (" " * 3) + "\n",
+)
 
 
 class B91IpcTeardownTests(unittest.TestCase):

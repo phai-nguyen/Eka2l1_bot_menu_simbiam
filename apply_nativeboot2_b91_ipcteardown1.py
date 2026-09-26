@@ -2,6 +2,7 @@
 """NATIVEBOOT2 B91: neutralize IPC references before kernel wipeout reset."""
 
 from pathlib import Path
+import re
 import sys
 
 
@@ -41,10 +42,11 @@ def apply(upstream_root):
         if source.count(required) != 1:
             fail(f"expected one wipeout anchor: {required.strip()}")
 
-    old = """        for (std::size_t i = 0; i < msgs_.size(); i++) {
-            msgs_[i].reset();
-        }
-"""
+    old = re.compile(
+        r"(?m)^        for \(std::size_t i = 0; i < msgs_\.size\(\); i\+\+\) \{\n"
+        r"            msgs_\[i\]\.reset\(\);[ \t]*\n"
+        r"        \}\n"
+    )
     new = """        for (std::size_t i = 0; i < msgs_.size(); i++) {
             if (msgs_[i]) {
                 // B91 IPC messages must not unref dead sessions or threads.
@@ -58,10 +60,10 @@ def apply(upstream_root):
             msgs_[i].reset();
         }
 """
-    if source.count(old) != 1:
+    if len(old.findall(source)) != 1:
         fail("expected one original IPC message wipeout loop")
 
-    source = source.replace(old, new, 1)
+    source = old.sub(new, source, count=1)
     kernel.write_text(source, encoding="utf-8")
     print(MARK + ": applied")
     print("scope=kernel wipeout only; guest IPC and NativeBoot unchanged")
