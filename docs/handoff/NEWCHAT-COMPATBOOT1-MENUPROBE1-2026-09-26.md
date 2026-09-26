@@ -7,7 +7,7 @@ Updated: 2026-09-26
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Current PR commit: `840314d898e72bcbd3d17fef5a01d452202e39fc`
+- Current PR commit: `0bced6f0f897cfcce0e214ce77814177800c9887`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
@@ -15,7 +15,7 @@ Do not restart earlier milestone research. The current objective is COMPATBOOT1-
 
 ## Build status
 
-FASTBUILD #280, run [36241579876](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241579876), is **GREEN** on commit `840314d898e72bcbd3d17fef5a01d452202e39fc`. B28 baseline validation, manifest regressions, CMake configuration, iOS compile, binary invariants, unsigned IPA packaging, and artifact upload all succeeded.
+FASTBUILD #281, run [36241917700](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241917700), is **GREEN** on commit `0bced6f0f897cfcce0e214ce77814177800c9887`. B28 baseline validation, manifest regressions, CMake configuration, iOS compile, binary invariants, unsigned IPA packaging, and artifact upload all succeeded.
 
 The two previous compile failures and fixes:
 
@@ -26,16 +26,18 @@ The two previous compile failures and fixes:
 ## IPA artifact
 
 - Artifact: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`
-- Artifact ID: `10906670626`
+- Artifact ID: `10906140997`
 - IPA inside the ZIP: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa`
 - Expiration: 2026-10-10 (14-day retention)
-- Run page: [FASTBUILD #280](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241579876)
+- Run page: [FASTBUILD #281](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241917700)
 
 On iPhone, open the run page in Safari while signed in to GitHub, scroll to **Artifacts**, and tap the IPA artifact name. In Files, open **Downloads** and tap the downloaded ZIP once to extract it. Import the `.ipa` into ESign Match to sign/install it; this workflow deliberately produces an unsigned IPA, so tapping the IPA in Files alone will not install it.
 
-## Device test still needed
+## B90 device result
 
-After installing the signed IPA, open EKA2L1 and choose the explicit CompatBoot probe option from **Emulator**. Keep Native Boot as the default. Capture the first resulting log and screen recording, especially:
+B90 (`EKA2L1_TakeThis(20260926-125351).log`) confirms the barrier became ready and launched real `menu3.exe`. The visible marker did not fire. The first system-wide TfxServer miss is from `eiksrvs` at 19:49:16.979; Menu3 reports its own first failure at 19:49:21.932. Before those misses, AknSkinSrv reads Themes CenRep `0x102818E8` key `0x09` as `0x7FFFFFFF` (`enabled=0 suppressed=1`). Alfred starts and its AppServer registers successfully, but no TFX plugin DLL load or `TfxServer` registration is observed. See [B90 device evidence](history/B90-COMPATBOOT1-DEVICE1.md).
+
+The observed value `0x7FFFFFFF` matches the extracted stock V60 ROM repository default for `0x102818E8:0x09`. B90's generic `changes saved` lines do not establish that this key was written at runtime. Continue diagnosing Menu3 with this stock gate and the original `TfxServer -> KErrNotFound` behavior preserved; add key-level write tracing only if runtime mutation itself becomes a necessary question. Do not force-enable TFX or fabricate a server. A device-visible Menu3 surface remains unconfirmed. Capture the next diagnostic log and screen recording, especially:
 
 - `[COMPATBOOT][BARRIER_WAIT]` / `[COMPATBOOT][BARRIER_READY]`
 - `[COMPATBOOT][TARGET_LAUNCH]`
