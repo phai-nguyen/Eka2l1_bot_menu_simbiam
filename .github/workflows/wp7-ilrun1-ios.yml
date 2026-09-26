@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          if grep -R -nE 'ProjectReference|Reference Include="IlPayload"' src/ILRun1Host/ILRun1Host.csproj; then
+          if grep -nE '<ProjectReference([[:space:]]|>)|<Reference[[:space:]][^>]*Include="IlPayload' src/ILRun1Host/ILRun1Host.csproj; then
             echo '[ILRUN1][STATIC_REFERENCE_FAIL] IlPayload must remain an opaque runtime file.'
             exit 1
           fi
