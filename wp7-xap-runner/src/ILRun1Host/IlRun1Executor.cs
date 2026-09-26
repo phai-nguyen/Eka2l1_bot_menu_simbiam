@@ -23,6 +23,7 @@ internal static class IlRun1Executor
         }
 
         Emit("[ILRUN1][START]");
+        Emit("[ILRUN1][BUILD] ILRUN1-IOS1");
         Emit($"[ILRUN1][RUNTIME] {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
         Emit($"[ILRUN1][OS] {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
         Emit($"[ILRUN1][ARCH] {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
@@ -102,6 +103,8 @@ internal static class IlRun1Executor
 
         IlRun1Result Finish(bool passed)
         {
+            Emit(passed ? "[ILRUN1][END] PASS" : "[ILRUN1][END] FAIL");
+
             try
             {
                 var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
@@ -109,7 +112,6 @@ internal static class IlRun1Executor
                 {
                     Directory.CreateDirectory(documents);
                     savedPath = Path.Combine(documents, "ILRUN1.log");
-                    File.WriteAllText(savedPath, log.ToString());
                     Emit($"[ILRUN1][LOG_SAVED] {savedPath}");
                     File.WriteAllText(savedPath, log.ToString());
                 }
@@ -119,7 +121,6 @@ internal static class IlRun1Executor
                 Emit($"[ILRUN1][LOG_SAVE_FAIL] {ex.GetType().Name}: {ex.Message}");
             }
 
-            Emit(passed ? "[ILRUN1][END] PASS" : "[ILRUN1][END] FAIL");
             return new IlRun1Result(passed, log.ToString(), savedPath);
         }
     }
