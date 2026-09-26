@@ -1,55 +1,53 @@
-# B83 PHONEUICENREPDIAG1 — Native descriptor/status probe
+# B83 PHONEUICENREPDIAG1 — Central Repository IPC trace
 
 Date: 2026-09-26
-Branch: `nativeboot2-b82-callhandlingui-register`
-Status: **PATCH IMPLEMENTED; LOCAL CONTRACTS PASS; BUILD/DEVICE TEST PENDING**
+Branch: `nativeboot2-current`
+Status: **B28-COMPATIBLE PATCH IMPLEMENTED; LOCAL CONTRACT PASS; FASTBUILD PENDING**
 
-## Scope
+## Why the original patch was replaced
 
-B83 is diagnostic-only. It adds three native software-breakpoint callbacks
-for the exact RM-356 `centralrepository.dll` path. The callbacks read registers
-and log; they do not modify guest registers, register resources, change the
-CONE lookup, or add global fallback behavior.
+The first B83 implementation tried to patch
+`src/emu/scripting/src/builtin_patches.cpp`. FASTBUILD run #254 restored the
+immutable B28 cache and stopped before compilation because that source file is
+not present in the cached tree. The earlier local test used a newer upstream
+checkout and therefore did not establish compatibility with the B28 cache.
 
-The callbacks are compiled through the native-patches path used by iOS
-(`ENABLE_SCRIPTING_LUA` is not defined there); no LuaJIT hook is required.
-Each software breakpoint briefly pauses the emulated core while its callback
-runs, then the original guest instruction is restored and execution resumes.
+The file belongs to a newer native no-Lua scripting path; it is not a valid
+assumption for this older bootstrap. B28 remains unchanged. The revised probe
+uses the Central Repository HLE source files already exercised by B29+ on the
+B28-derived build.
 
-## Verified addresses and captured fields
+## Revised diagnostic
 
-RM-356 CentralRepository UID3 is `0x101FBC70`; runtime E32 code base is
-`0x80391CF8`. Thumb function addresses set bit zero:
+The probe adds two read-only records:
 
-| Boundary | Thumb pointer | Captured data |
-|---|---:|---|
-| `+0x43C` entry | `0x80392135` | incoming object `r0`, descriptor pointer `r1`, `lr` |
-| `+0x448` after `+0xF60` | `0x80392141` | returned status `r0`, saved object `r5`, descriptor pointer `r6` |
-| `+0x4CA` caller continuation | `0x803921C3` | returned status `r0`, object `r4` |
+- `[NBOOT2][CENREP_IPC_ENTRY]` in `centralrepo.cpp`: message ID, thread,
+  opcode, and four raw IPC argument words at Central Repository entry.
+- `[NBOOT2][CENREP_IPC_COMPLETE]` in `context.cpp`: matching message ID,
+  thread, opcode, and completion status, filtered to
+  `!CentralRepository`.
 
-The descriptor is logged by pointer only; its guest memory is not decoded.
-The last marker proves normal return to the wrapper. A missing marker alone
-does not prove a Leave; it must be correlated with Leave/panic and surrounding
-PhoneUI/CONE records.
+Correlate records by message ID/thread with existing FileServer resource-path,
+PhoneUI, CONE, and Leave/panic logs. This observes the service boundary rather
+than the guest `centralrepository.dll` instruction boundary; it can prove
+whether a request reached the HLE service and what status the service returned,
+but does not decode the guest descriptor or prove the native wrapper returned.
 
-## Files and verification
+No guest registers, descriptors, IPC arguments, CenRep values, resource
+registration, CONE behavior, or completion codes are modified by the probe.
+B79 and earlier are out of scope for this continuation.
 
-- `apply_nativeboot2_b83_phoneuicenrepdiag1.py`
-- `test_nativeboot2_b83_phoneuicenrepdiag1.py`
-- `ci/fastbuild1_manifest.txt`
-- `.github/workflows/build-ios-nativeboot2-current-fast.yml`
-- `docs/handoff/CURRENT.md`
+## Verification status
 
-Local checks run:
+- RED observed: revised B83 contract failed on a clean source tree because the
+  entry marker was absent.
+- GREEN observed: patcher applied to a clean upstream source worktree; contract
+  passed; second apply reported `already applied`.
+- `git diff --check`: PASS on the patched source worktree.
+- FASTBUILD run #254: FAIL before compilation on the obsolete B83 source-path
+  assumption; it does not validate this revised implementation.
+- Revised FASTBUILD/iOS compile, package, binary markers, and RM-356 device test:
+  PENDING.
 
-- B83 contract test: PASS
-- B83 patch re-application: idempotent
-- FASTBUILD1 manifest validation: PASS
-- `test_fastbuild1_manifest.py` and `test_fastbuild1_workflows.py`: PASS
-- `git diff --check`: PASS
-
-The workspace has no iOS compiler/FASTBUILD runner, so B83 has not yet been
-compiled, packaged, or device-tested. Do not treat the patch as build-GREEN.
-After an authorized build and RM-356 device run, correlate the B83 markers with
-EFSrv `callhandlingui.r01` activity and PhoneUI's CONE lookup. B79 and earlier
-are out of scope for this continuation.
+Do not call B83 build-GREEN until the revised FASTBUILD verifies both markers,
+compiles, and packages the IPA. Device validation is a separate step.

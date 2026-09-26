@@ -85,9 +85,8 @@ class FastbuildWorkflowContract(unittest.TestCase):
         verify_end = text.index("    - name: Package unsigned IPA", verify_start)
         verify = text[verify_start:verify_end]
         for marker in (
-            "[NBOOT2][PHONEUI_CENREP43C_ENTRY]",
-            "[NBOOT2][PHONEUI_CENREP43C_STATUS]",
-            "[NBOOT2][PHONEUI_CENREP43C_RETURN]",
+            "[NBOOT2][CENREP_IPC_ENTRY]",
+            "[NBOOT2][CENREP_IPC_COMPLETE]",
         ):
             self.assertIn(f"grep -Fq '{marker}'", verify)
 
