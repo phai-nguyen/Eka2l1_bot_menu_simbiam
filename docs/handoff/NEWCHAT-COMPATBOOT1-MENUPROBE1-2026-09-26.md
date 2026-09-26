@@ -29,7 +29,7 @@ Latest IPA artifact:
 
 On iPhone, open the run page in Safari while signed in to GitHub, download the IPA artifact under **Artifacts**, and tap the ZIP in Files to extract it. The IPA is unsigned; import it into ESign Match or the user's normal sideloading tool to sign/install it. Files cannot install the unsigned IPA directly.
 
-PR #6 is still open and unmerged. The latest device log shows no return-to-Home crash, but has no `[COMPATBOOT][TARGET_VISIBLE]` marker. Use the new B92 trace in the next device capture; the menu surface and whether the `FindEqInt` match is required remain unconfirmed. See [B92 history](history/B92-CENREP-FINDEQDIAG1.md).
+PR #6 is still open and unmerged. The B92 device capture used overwrite installation with previous logs cleared (test method 2). It reached `BARRIER_READY`, launched real `menu3.exe`, and completed host shutdown followed by a normal restart without a return-to-Home crash. It has no `[COMPATBOOT][TARGET_VISIBLE]` marker. All five `FindEqInt` calls against repo `0x102858F2` returned `-1`; the Menu query for UID3 `0x101F4CD2` happened after the first trapped `Leave(-5)` and after Menu's first `TfxServer` miss, so it does not explain that first leave. Full event ordering and hashes: [B92 device evidence](history/B92-DEVICE1.md). The query match requirement and visible Menu surface remain unconfirmed.
 
 ## Earlier build checkpoints
 
