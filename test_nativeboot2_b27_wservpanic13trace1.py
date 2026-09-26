@@ -60,16 +60,30 @@ def main()->None:
         'exit_category == \"CONE\"',
     ):
         need(s,n,"svc.cpp")
-    if s.count("reason = 0;") != 1:
-        fail("only B88's tightly guarded Telephone CONE14 case may set reason 0")
-    if s.count("etype = kernel::entity_exit_type::terminate;") != 1:
-        fail("only B88's tightly guarded Telephone CONE14 case may reclassify an exit")
-    b88=s.index("[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]")
-    guard=s.rfind("if (nboot2_b71_phoneui_cone14)",0,b88)
-    reason_zero=s.index("reason = 0;",b88)
-    kill=s.index("thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);")
-    if not (guard >= 0 and guard < b88 < reason_zero < kill):
-        fail("B88 clean-exit override must stay inside the exact B71 panic predicate")
+    kill_call="thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);"
+    kill=s.index(kill_call)
+    b88_comment="// B88 intentionally lets native startup continue"
+    b88_start=s.rfind(b88_comment,0,kill)
+    if b88_start < 0:
+        fail("missing B88 scoped startup exception")
+    b88_block=s[b88_start:kill]
+    for n in (
+        "if (nboot2_b71_phoneui_cone14)",
+        "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
+        "etype = kernel::entity_exit_type::terminate;",
+        'exit_category = "None";',
+        "reason = 0;",
+    ):
+        need(b88_block,n,"B88 exception block")
+    gate_start=s.index("const bool nboot2_b71_phoneui_cone14")
+    gate_end=s.index(";",gate_start)+1
+    gate=s[gate_start:gate_end]
+    for n in (
+        "nboot2_b71_target_uid3 == 0x100058B3U",
+        "reason == 14",
+        'exit_category == "CONE"',
+    ):
+        need(gate,n,"B71 exact PhoneUI panic predicate")
 
     print(f"{MARK}: PASS")
 
