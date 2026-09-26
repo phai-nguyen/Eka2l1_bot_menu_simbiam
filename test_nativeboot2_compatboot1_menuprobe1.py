@@ -1,4 +1,5 @@
 import importlib.util
+import re
 import sys
 import tempfile
 import unittest
@@ -165,6 +166,23 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertIn('"101fdfae_10207218_AppServer"', svc)
         self.assertIn("if (!missing.empty())", svc)
         self.assertIn("return;", svc[svc.index("if (!missing.empty())"):])
+
+    def test_service_helpers_close_namespace_before_original_svc_namespace(self):
+        svc = PATCH.patch_svc(SVC_CPP)
+        original_namespace = svc.index("namespace eka2l1::epoc {\n    BRIDGE_FUNC")
+        prefix = svc[:original_namespace]
+        code_only = re.sub(
+            r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'',
+            "",
+            prefix,
+            flags=re.DOTALL,
+        )
+        self.assertEqual(code_only.count("{"), code_only.count("}"))
+
+    def test_service_probe_uses_kernel_version_without_system_definition(self):
+        svc = PATCH.patch_svc(SVC_CPP)
+        self.assertIn("kern->get_epoc_version()", svc)
+        self.assertNotIn("kern->get_system()->get_symbian_version_use()", svc)
 
     def test_live_process_without_ready_server_does_not_release_barrier(self):
         self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")

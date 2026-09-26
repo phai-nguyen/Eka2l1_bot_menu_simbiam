@@ -308,7 +308,7 @@ def patch_svc(source):
                           "COMPATBOOT service interfaces")
     helper = r'''namespace eka2l1::kernel::svc {
     static std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
-        const epocver ver = kern->get_system()->get_symbian_version_use();
+        const epocver ver = kern->get_epoc_version();
         auto ready = [kern](const std::string &name, bool guest_ready) {
             service::server *registered = kern->get_by_name<service::server>(name);
             return registered && (registered->is_hle() || guest_ready);
@@ -328,7 +328,7 @@ def patch_svc(source):
     static void compatboot1_check_barrier(kernel_system *kern, service::server *current) {
         config::state *cfg = kern->get_config();
         if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
-        const epocver ver = kern->get_system()->get_symbian_version_use();
+        const epocver ver = kern->get_epoc_version();
         if (current) {
             const std::string &name = current->name();
             if (name == epoc::fs::get_server_name_through_epocver(ver)) cfg->compat_seen_file_server = true;
@@ -365,6 +365,7 @@ def patch_svc(source):
         LOG_WARN(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUNNING process={} one_shot=1",
             common::ucs2_to_utf8(menu_path), menu->name());
     }
+}
 '''
     declarations = '''namespace eka2l1::epoc {
     std::string get_fbs_server_name_by_epocver(const epocver ver);
