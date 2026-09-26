@@ -50,8 +50,8 @@ Menu's second process instance eventually exits with `exit_type=0 reason=0` at
 `05:32:26.922`, about 8.45 seconds after the target launch. Host shutdown
 reaches `shutdown_done` at `05:36:12.469`; the short post-session log records
 `normal_restart_done has_device=1` at `05:36:12.600`. The video ends on the
-iOS Home screen, but no crash report was supplied, so the video alone cannot
-distinguish a user exit from an app crash after the logged orderly shutdown.
+iOS Home screen; the user confirms they exited the app manually. This run did
+not crash.
 
 ## Supplied files
 

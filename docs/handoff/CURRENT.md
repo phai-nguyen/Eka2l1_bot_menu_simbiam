@@ -14,7 +14,7 @@ Target: RM-356 / Nokia 5800 firmware on EKA2L1 iOS.
 
 Current objective: keep Native Boot as the default and test explicitly selected CompatBoot, which waits for the UI services before launching the real firmware `menu3.exe`.
 
-The B92 method-2 run and B93 method-3 run both reached the readiness barrier and launched real `menu3.exe`, but neither produced `[COMPATBOOT][TARGET_VISIBLE]`. Both show five identical no-match `FindEqInt` queries against `0x102858F2`. Menu's own query occurs after the first trapped `Leave(-5)` and its first `TfxServer` miss. B93's video shows the Nokia logo, not the Symbian Menu; its logs record clean shutdown and normal restart, while the video ends on iOS Home without a crash report to identify how the app was closed. See [B93 device evidence](history/B93-DEVICE1.md).
+The B92 method-2 run and B93 method-3 run both reached the readiness barrier and launched real `menu3.exe`, but neither produced `[COMPATBOOT][TARGET_VISIBLE]`. Both show five identical no-match `FindEqInt` queries against `0x102858F2`. Menu's own query occurs after the first trapped `Leave(-5)` and its first `TfxServer` miss. B93's video shows the Nokia logo, not the Symbian Menu; its logs record clean shutdown and normal restart, and the user confirms the app was exited manually without a crash. See [B93 device evidence](history/B93-DEVICE1.md).
 
 B92 adds a read-only `[COMPATBOOT][CENREP_FIND_EQ_INT]` trace around the real CenRep FindEqInt request/result. It records repository UID, validated filter, comparison value, result count, and status only when CompatBoot is active. It preserves the existing IPC completion values, Native Boot default, stock firmware state, and readiness checks.
 
