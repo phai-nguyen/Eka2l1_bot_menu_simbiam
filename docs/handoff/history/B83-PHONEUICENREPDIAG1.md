@@ -2,7 +2,7 @@
 
 Date: 2026-09-26
 Branch: `nativeboot2-current`
-Status: **B28-COMPATIBLE PATCH IMPLEMENTED; LOCAL CONTRACT PASS; FASTBUILD PENDING**
+Status: **BUILD-GREEN; RM-356 DEVICE TEST REQUIRED**
 
 ## Why the original patch was replaced
 
@@ -59,9 +59,32 @@ B79 and earlier are out of scope for this continuation.
   rewrite to that file alone still failed the B20 contract. The current patch
   explicitly preserves the entire B20 ResetAll block and wraps only other
   `repo.cpp` completions; a synthetic regression fixture tests that boundary.
-- Neither run #256 nor #257 validates the current narrowed patch.
+- FASTBUILD run #258 / run ID `36215233436` / job `108329304750`:
+  - commit `f0c6ed94a1921ed61f58604deb02f36f446e1bed`
+  - B28 cache restore: PASS
+  - B83 apply/contract: PASS
+  - B20-B28 regressions: PASS
+  - all post-bootstrap milestone apply/tests: PASS
+  - iOS build/link: PASS
+  - both B83 binary marker checks: PASS
+  - IPA package/upload: PASS
+  - sccache: 152 requests, 143 hits, 9 misses/compilations, 0 failures
+  - build audit: bootstrap 49s; patch/regressions 6s; build 55s;
+    package 3s; total 143s
+  - Xcode 16.4 Build 16F6; Apple clang 17
+  - NOJAVA / MANIC3: preserved
+  - IPA SHA-256:
+    `4deaafd918517bd7875bb231a1645b1a9293d87a25bcc085e0fa9bd5d8590c37`
+  - IPA artifact ID `10897146861`; audit artifact ID `10897586156`;
+    both expire 2026-10-10
+- The audit artifact's IPA SHA-256 was independently compared with the
+  downloaded IPA payload and matched.
 - Revised FASTBUILD/iOS compile, package, binary markers, and RM-356 device test:
   PENDING.
 
-Do not call B83 build-GREEN until the revised FASTBUILD verifies both markers,
-compiles, and packages the IPA. Device validation is a separate step.
+Device-test this IPA on RM-356 over B82. Reproduce the same Phone startup
+condition, wait 5-10 seconds, exit normally, and send standard EKA2L1 logs.
+Correlate `[NBOOT2][CENREP_IPC_ENTRY]` and
+`[NBOOT2][CENREP_IPC_COMPLETE]` by message ID/thread with FileServer
+resource-path, PhoneUI, CONE, and Leave/panic records. These show HLE service
+traffic/status, not guest descriptor decoding or native wrapper return.
