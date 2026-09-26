@@ -591,7 +591,7 @@ internal sealed record EntryPointResolution(bool? AssemblyResolved, bool? TypeRe
 internal sealed record Finding(string Code, string Message);
 internal sealed record AssemblyReferenceInfo(string Name, string Version, string? Culture, string? PublicKeyToken, string Flags);
 internal sealed record PInvokeInfo(string ManagedMethod, string NativeModule, string? EntryPoint, string Attributes);
-internal sealed record ManagedResourceInfo(string Name, string Attributes, uint Offset, string ImplementationKind);
+internal sealed record ManagedResourceInfo(string Name, string Attributes, long Offset, string ImplementationKind);
 internal sealed record ApiReference(string? TargetAssembly, string TypeName, string? MemberName);
 internal sealed record ApiDependencyGroup(string Assembly, List<ApiTypeDependency> Types);
 internal sealed record ApiTypeDependency(string Type, List<string> Members);
