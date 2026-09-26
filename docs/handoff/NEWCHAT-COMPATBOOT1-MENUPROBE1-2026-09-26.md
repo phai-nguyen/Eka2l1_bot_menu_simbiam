@@ -7,7 +7,7 @@ Updated: 2026-09-26
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Latest build-validated source commit: `0bced6f0f897cfcce0e214ce77814177800c9887`
+- Latest build-validated source commit: `2ff5817ef0e347d59408632d944b6a89059d9ce5`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
@@ -16,6 +16,8 @@ Do not restart earlier milestone research. The current objective is COMPATBOOT1-
 ## Build status
 
 FASTBUILD #281, run [36241917700](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241917700), is **GREEN** on commit `0bced6f0f897cfcce0e214ce77814177800c9887`. B28 baseline validation, manifest regressions, CMake configuration, iOS compile, binary invariants, unsigned IPA packaging, and artifact upload all succeeded.
+
+The next patch added a CompatBoot-only `Leave(-5)` trace for Menu3: register values, trap/caller frame resolution, and at most 32 stack words. The trace leaves exception handling and guest behavior unchanged. FASTBUILD #284 initially stopped in patch application because the GitHub copy of the patcher had acquired a truncated-output banner. It was restored from the worktree in commit `2ff5817ef0e347d59408632d944b6a89059d9ce5`. FASTBUILD #285, run [36245715377](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36245715377), is **GREEN** on that commit. It passed B28 baseline validation, manifest regressions, iOS compile, binary marker invariants, unsigned IPA packaging, and artifact uploads.
 
 The two previous compile failures and fixes:
 
@@ -26,10 +28,10 @@ The two previous compile failures and fixes:
 ## IPA artifact
 
 - Artifact: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`
-- Artifact ID: `10906140997`
+- Artifact ID: `10907232828` (FASTBUILD #285; latest artifact)
 - IPA inside the ZIP: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa`
 - Expiration: 2026-10-10 (14-day retention)
-- Run page: [FASTBUILD #281](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241917700)
+- Run page: [FASTBUILD #285](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36245715377)
 
 On iPhone, open the run page in Safari while signed in to GitHub, scroll to **Artifacts**, and tap the IPA artifact name. In Files, open **Downloads** and tap the downloaded ZIP once to extract it. Import the `.ipa` into ESign Match to sign/install it; this workflow deliberately produces an unsigned IPA, so tapping the IPA in Files alone will not install it.
 
@@ -37,7 +39,7 @@ On iPhone, open the run page in Safari while signed in to GitHub, scroll to **Ar
 
 B90 (`EKA2L1_TakeThis(20260926-125351).log`) confirms the barrier became ready and launched real `menu3.exe`. The visible marker did not fire. The first system-wide TfxServer miss is from `eiksrvs` at 19:49:16.979; Menu3 reports its own first failure at 19:49:21.932. Before those misses, AknSkinSrv reads Themes CenRep `0x102818E8` key `0x09` as `0x7FFFFFFF` (`enabled=0 suppressed=1`). Alfred starts and its AppServer registers successfully, but no TFX plugin DLL load or `TfxServer` registration is observed. See [B90 device evidence](history/B90-COMPATBOOT1-DEVICE1.md).
 
-The observed value `0x7FFFFFFF` matches the extracted stock V60 ROM repository default for `0x102818E8:0x09`; generic `changes saved` lines do not establish a per-key write. Menu continues after the expected missing `TfxServer`. Its next notable event is FileServer `Fs::Entry` opcode 22 for `C:\\private\\101F4CD2\\appshell.ini`, returning `KErrNotFound`, followed by `Leave(-5)` in the same thread. This is correlated evidence, not proof the file is required or caused the leave. The follow-up patch adds a CompatBoot-only register/trap/32-word stack trace for Menu3 Leave(-5), preserving the leave path. FASTBUILD is pending for that patch; do not device-test a new IPA until it passes. Do not force-enable TFX, create `appshell.ini`, fabricate a server, or change firmware.
+The observed value `0x7FFFFFFF` matches the extracted stock V60 ROM repository default for `0x102818E8:0x09`; generic `changes saved` lines do not establish a per-key write. Menu continues after the expected missing `TfxServer`. Its next notable event is FileServer `Fs::Entry` opcode 22 for `C:\\private\\101F4CD2\\appshell.ini`, returning `KErrNotFound`, followed by `Leave(-5)` in the same thread. This is correlated evidence, not proof the file is required or caused the leave. FASTBUILD #285 passed with the CompatBoot-only register/trap/32-word stack trace, preserving the leave path, so this IPA can be used for the next device capture. Do not force-enable TFX, create `appshell.ini`, fabricate a server, or change firmware.
 
 - `[COMPATBOOT][BARRIER_WAIT]` / `[COMPATBOOT][BARRIER_READY]`
 - `[COMPATBOOT][TARGET_LAUNCH]`
