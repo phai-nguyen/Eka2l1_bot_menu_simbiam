@@ -1,8 +1,9 @@
 # EKA2L1 Nokia 5800 NativeBoot — Current Project Handoff
 
-Updated: 2026-09-25
+Updated: 2026-09-26
 Latest build diagnostic milestone: B81 PHONEUIBLXDECODE1 — DEVICE-OBSERVED; Phone CONE14 persists; Emulator exits cleanly
 Latest diagnostic build HEAD: 42ca0136983714b01fd259120921188066c71af4
+Latest implementation candidate: B83 PHONEUICENREPDIAG1 — three read-only native breakpoint callbacks at RM-356 `centralrepository.dll +0x43C`, `+0x448` (`+0xF60` status), and `+0x4CA` (normal caller continuation). Contract/workflow checks pass locally; iOS compile, FASTBUILD IPA, and device observation remain pending. No resource registration or guest register mutation.
 Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 Active development branch: nativeboot2-current
 Latest FASTBUILD1 CI implementation commit: ab4415d0f94b002d01e6ea2035600a2dddc99c1d
@@ -6531,3 +6532,41 @@ Do not select a functional B83 before B82 DEVICE1 is parsed.
 
 Start a fresh chat with:
 docs/handoff/NEWCHAT-B82-2026-09-26.md
+
+The design was approved; implementation status and verification are recorded
+below under B83 PHONEUICENREPDIAG1.
+
+## B83 implementation — PHONEUICENREPDIAG1
+
+Status: **PATCH IMPLEMENTED; LOCAL CONTRACTS PASS; BUILD/DEVICE TEST PENDING**
+
+`apply_nativeboot2_b83_phoneuicenrepdiag1.py` adds three native-only
+breakpoint callbacks to `builtin_patches.cpp`, guarded by the existing
+`#ifndef ENABLE_SCRIPTING_LUA` path used by the iOS build. It registers against
+the exact RM-356 CentralRepository ROM UID3 `0x101FBC70` and verified runtime
+code base `0x80391CF8`:
+
+- `+0x43C` (`0x80392135`, Thumb): logs incoming object `r0`, descriptor
+  pointer `r1`, and `lr`.
+- `+0x448` (`0x80392141`, Thumb): logs `+0xF60`'s returned status in `r0`,
+  with saved object `r5` and descriptor pointer `r6`.
+- `+0x4CA` (`0x803921C3`, Thumb): logs the status and object at the normal
+  caller continuation after `+0x43C` returns.
+
+These are software breakpoints and briefly pause the emulated core while each
+callback runs. The callbacks only read registers and log; they do not set CPU
+state, register the resource, or alter CONE behavior. Absence of the normal
+return marker alone is not proof of a Leave; correlate it with Leave/panic
+records and the surrounding call-chain logs. The descriptor is recorded as a
+pointer, not decoded or copied from guest memory.
+
+Local evidence so far:
+- B83 contract test passes on the patched EKA2L1 source tree.
+- Patch application is idempotent.
+- FASTBUILD1 manifest validates.
+- FASTBUILD manifest/workflow unit tests pass.
+- No iOS compiler/build environment is available in this workspace; no IPA
+  has been produced and no device test has been run.
+
+Do not infer that PhoneUI resource registration succeeded until device logs
+show the descriptor path and subsequent `callhandlingui.r01` / CONE lookup.

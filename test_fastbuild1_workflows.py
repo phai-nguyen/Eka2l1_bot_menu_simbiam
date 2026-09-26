@@ -79,6 +79,18 @@ class FastbuildWorkflowContract(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
+    def test_current_build_verifies_b83_probe_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[NBOOT2][PHONEUI_CENREP43C_ENTRY]",
+            "[NBOOT2][PHONEUI_CENREP43C_STATUS]",
+            "[NBOOT2][PHONEUI_CENREP43C_RETURN]",
+        ):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+
 
     def test_workflows_have_no_malformed_github_expressions(self):
         for path in (FAST, SEED):
