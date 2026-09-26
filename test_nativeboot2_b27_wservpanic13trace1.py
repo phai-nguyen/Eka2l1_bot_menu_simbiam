@@ -66,16 +66,15 @@ def main()->None:
     if marker not in s:
         fail("missing B88 startup-exception marker")
     b88=s.index(marker)
-    guard=s.rfind("if (nboot2_b71_phoneui_cone14)",0,b88)
-    b88_block=s[guard:kill] if guard >= 0 else ""
+    b88_block=s[b88:kill]
     for n in (
-        "if (nboot2_b71_phoneui_cone14)",
         marker,
         "etype = kernel::entity_exit_type::terminate;",
         'exit_category = "None";',
         "reason = 0;",
     ):
         need(b88_block,n,"B88 exception block")
+
     gate_start=s.index("const bool nboot2_b71_phoneui_cone14")
     gate_end=s.index(";",gate_start)+1
     gate=s[gate_start:gate_end]
