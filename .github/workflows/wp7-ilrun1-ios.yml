@@ -24,6 +24,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Select Xcode 26.0
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer
+
       - name: Environment
         shell: bash
         run: |
