@@ -99,6 +99,37 @@ WINUSER_CPP = '''            set_visible(visible != 0);
             ctx.complete(epoc::error_none);
 '''
 
+FS_FLUSH_CPP = '''    void fs_server_client::file_flush(service::ipc_context *ctx) {
+        std::optional<std::int32_t> handle_res = ctx->get_argument_value<std::int32_t>(3);
+
+        if (!handle_res) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        fs_node *node = get_file_node(*handle_res);
+
+        if (node == nullptr || node->vfs_node->type != io_component_type::file) {
+            ctx->complete(epoc::error_bad_handle);
+            return;
+        }
+
+        file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
+
+        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.
+        if (!vfs_file->flush()) {
+            LOG_ERROR(SERVICE_EFSRV, "Fail flushing file with path {}", common::ucs2_to_utf8(vfs_file->file_name()));
+
+            ctx->complete(epoc::error_general);
+            return;
+        }
+
+        ctx->complete(epoc::error_none);
+    }
+    void fs_server_client::file_rename(service::ipc_context *ctx) {
+    }
+'''
+
 LEAVE_START_CPP = '''    BRIDGE_FUNC(eka2l1::ptr<void>, leave_start) {
         kernel::thread *thr = kern->crr_thread();
         thr->increase_leave_depth();
@@ -263,6 +294,7 @@ class CompatBootModeContracts(unittest.TestCase):
                 "src/emu/config/include/config/config.h": CONFIG_H,
                 "src/emu/ios/src/state.cpp": STATE_CPP,
                 "src/emu/kernel/src/svc.cpp": SVC_CPP,
+                "src/emu/services/src/fs/files.cpp": FS_FLUSH_CPP,
                 "src/emu/services/src/window/classes/winuser.cpp": WINUSER_CPP,
             }
             for relpath, body in files.items():
@@ -295,6 +327,21 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertIn("[COMPATBOOT][FIRST_FAILURE]", traced)
         self.assertIn("compat_uid3 == kern->get_config()->compat_target_uid3", traced)
         self.assertIn("compat_first_failure_logged.compare_exchange_strong", traced)
+
+    def test_menu3_file_flush_path_trace_is_profile_scoped_and_preserves_results(self):
+        self.assertTrue(hasattr(PATCH, "patch_menu3_file_flush"), "Menu3 FileFlush path trace is absent")
+        source_with_unrelated_marker = FS_FLUSH_CPP + "\n// [COMPATBOOT][MENU3_FSFLUSH] marker in another function\n"
+        traced = PATCH.patch_menu3_file_flush(source_with_unrelated_marker)
+        self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", traced)
+        self.assertIn("compat_menu_flush_cfg->compat_menu_probe_mode", traced)
+        self.assertIn("compat_target_uid3", traced)
+        self.assertIn("common::ucs2_to_utf8(vfs_file->file_name())", traced)
+        self.assertEqual(traced.count("vfs_file->flush()"), 1)
+        self.assertEqual(traced.count("ctx->complete(epoc::error_general);"), 1)
+        self.assertEqual(traced.count("ctx->complete(epoc::error_none);"), 1)
+        self.assertIn("if (!compat_menu_flush_ok)", traced)
+        self.assertNotIn("native_phone_boot", traced)
+        self.assertEqual(PATCH.patch_menu3_file_flush(traced), traced)
 
     def test_visible_marker_requires_menu3_window_surface(self):
         self.assertTrue(hasattr(PATCH, "patch_target_visible"), "Menu3 visibility trace is absent")

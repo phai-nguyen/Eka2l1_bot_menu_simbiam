@@ -36,6 +36,7 @@ class FastbuildWorkflowContract(unittest.TestCase):
             "[COMPATBOOT][MENU3_LEAVE5]",
             "[COMPATBOOT][MENU3_LEAVE5_FRAME]",
             "[COMPATBOOT][MENU3_LEAVE5_STACK]",
+            "[COMPATBOOT][MENU3_FSFLUSH]",
         ):
             self.assertIn(f"grep -Fq '{marker}'", verify)
 

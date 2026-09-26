@@ -521,6 +521,62 @@ def patch_missing_server(source):
     return replace_once(source, anchor, trace + anchor, "profile-scoped first missing-server trace")
 
 
+def patch_menu3_file_flush(source):
+    marker = "[COMPATBOOT][MENU3_FSFLUSH]"
+    begin = "    void fs_server_client::file_flush(service::ipc_context *ctx) {"
+    end = "\n    void fs_server_client::file_rename(service::ipc_context *ctx) {"
+    start = source.find(begin)
+    finish = source.find(end, start + 1)
+    if start < 0 or finish < 0:
+        fail("FileFlush block bounds are missing for Menu3 path trace")
+    body = source[start:finish]
+    if marker in body:
+        return source
+
+    handle_anchor = '''        std::optional<std::int32_t> handle_res = ctx->get_argument_value<std::int32_t>(3);
+'''
+    handle_trace = '''        std::optional<std::int32_t> handle_res = ctx->get_argument_value<std::int32_t>(3);
+        auto *compat_menu_flush_cfg = ctx->sys->get_config();
+        const bool compat_menu_flush_profile = compat_menu_flush_cfg
+            && compat_menu_flush_cfg->compat_menu_probe_mode
+            && compat_menu_flush_cfg->compat_target_uid3 != 0;
+        kernel::thread *compat_menu_flush_thr = compat_menu_flush_profile && ctx->msg
+            ? ctx->msg->own_thr : nullptr;
+        kernel::process *compat_menu_flush_pr = compat_menu_flush_thr
+            ? compat_menu_flush_thr->owning_process() : nullptr;
+        const std::uint32_t compat_menu_flush_uid3 = compat_menu_flush_pr
+            ? static_cast<std::uint32_t>(std::get<2>(compat_menu_flush_pr->get_uid_type())) : 0U;
+        const bool compat_menu_flush = compat_menu_flush_profile && compat_menu_flush_pr
+            && compat_menu_flush_uid3 == compat_menu_flush_cfg->compat_target_uid3;
+'''
+    if body.count(handle_anchor) != 1:
+        fail("FileFlush argument anchor count is not one")
+    body = body.replace(handle_anchor, handle_trace, 1)
+
+    flush_anchor = '''        file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
+
+        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.
+        if (!vfs_file->flush()) {
+'''
+    flush_trace = '''        file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
+
+        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.
+        const bool compat_menu_flush_ok = vfs_file->flush();
+        if (compat_menu_flush) {
+            LOG_WARN(SERVICE_EFSRV,
+                "[COMPATBOOT][MENU3_FSFLUSH] process={} uid3=0x{:08X} thread={} handle={} path={} opcode=0x27 flush_ok={} completion={} behavior=OBSERVE_ONLY",
+                compat_menu_flush_pr->name(), compat_menu_flush_uid3,
+                compat_menu_flush_thr->name(), handle_res.value(),
+                common::ucs2_to_utf8(vfs_file->file_name()), compat_menu_flush_ok ? 1 : 0,
+                compat_menu_flush_ok ? epoc::error_none : epoc::error_general);
+        }
+        if (!compat_menu_flush_ok) {
+'''
+    if body.count(flush_anchor) != 1:
+        fail("FileFlush call anchor count is not one")
+    body = body.replace(flush_anchor, flush_trace, 1)
+    return source[:start] + body + source[finish:]
+
 def patch_target_visible(source):
     marker = "[COMPATBOOT][TARGET_VISIBLE]"
     if marker in source:
@@ -573,8 +629,9 @@ def apply(upstream_root):
     config_h = upstream / "src/emu/config/include/config/config.h"
     state_cpp = upstream / "src/emu/ios/src/state.cpp"
     svc = upstream / "src/emu/kernel/src/svc.cpp"
+    files = upstream / "src/emu/services/src/fs/files.cpp"
     winuser = upstream / "src/emu/services/src/window/classes/winuser.cpp"
-    for path in (state_h, root, bridge_h, bridge_mm, localization, config_h, state_cpp, svc, winuser):
+    for path in (state_h, root, bridge_h, bridge_mm, localization, config_h, state_cpp, svc, files, winuser):
         if not path.is_file():
             fail(f"missing source: {path}")
     state_text = patch_state_header(state_h.read_text(encoding="utf-8"))
@@ -585,6 +642,7 @@ def apply(upstream_root):
     config_text = patch_config_header(config_h.read_text(encoding="utf-8"))
     state_cpp_text = patch_state_cpp(state_cpp.read_text(encoding="utf-8"))
     svc_text = patch_missing_server(patch_svc(svc.read_text(encoding="utf-8")))
+    files_text = patch_menu3_file_flush(files.read_text(encoding="utf-8"))
     winuser_text = patch_target_visible(winuser.read_text(encoding="utf-8"))
     state_h.write_text(state_text, encoding="utf-8")
     root.write_text(root_text, encoding="utf-8")
@@ -594,6 +652,7 @@ def apply(upstream_root):
     config_h.write_text(config_text, encoding="utf-8")
     state_cpp.write_text(state_cpp_text, encoding="utf-8")
     svc.write_text(svc_text, encoding="utf-8")
+    files.write_text(files_text, encoding="utf-8")
     winuser.write_text(winuser_text, encoding="utf-8")
     print(MARK + ": applied; explicit CompatBoot choice is wired")
 
