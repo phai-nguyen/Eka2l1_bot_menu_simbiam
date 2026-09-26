@@ -53,9 +53,13 @@ B79 and earlier are out of scope for this continuation.
   assumption; it does not validate this revised implementation.
 - FASTBUILD run #255: FAIL before compilation because the cached B28
   `ipc_context::complete()` anchor differed from newer local source.
-- FASTBUILD run #256: B83 applied and passed its contract on B28, but the broad
-  completion rewrite broke the B20 ResetAll regression. The wrapper scope is
-  now narrowed to `repo.cpp`; run #256 does not validate this narrower patch.
+- FASTBUILD run #256: B83 applied and passed its contract on B28, but a broad
+  completion rewrite broke the B20 ResetAll regression.
+- FASTBUILD run #257: the B20 ResetAll block is in `repo.cpp`, so limiting the
+  rewrite to that file alone still failed the B20 contract. The current patch
+  explicitly preserves the entire B20 ResetAll block and wraps only other
+  `repo.cpp` completions; a synthetic regression fixture tests that boundary.
+- Neither run #256 nor #257 validates the current narrowed patch.
 - Revised FASTBUILD/iOS compile, package, binary markers, and RM-356 device test:
   PENDING.
 

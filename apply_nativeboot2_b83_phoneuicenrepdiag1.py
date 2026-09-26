@@ -21,6 +21,26 @@ def replace_once(source, old, new, label):
     return source.replace(old, new, 1)
 
 
+def wrap_repo_completions(source):
+    marker = "// NATIVEBOOT2-B20 CENRESETALL1:"
+    if marker not in source:
+        return source.replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
+
+    start = source.index(marker)
+    end_anchor = "void central_repo_client_subsession::create_value"
+    end = source.find(end_anchor, start)
+    if end < 0:
+        fail("cannot isolate B20 ResetAll block; refusing broad completion rewrite")
+
+    # Preserve the complete B20 ResetAll contract literally; only instrument
+    # other CenRep operation handlers around it.
+    return (
+        source[:start].replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
+        + source[start:end]
+        + source[end:].replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
+    )
+
+
 def main():
     if len(sys.argv) != 2:
         fail("usage: apply_nativeboot2_b83_phoneuicenrepdiag1.py <upstream-root>")
@@ -74,9 +94,9 @@ def main():
     if repo.count("ctx->complete(") == 0:
         fail("no CenRep completion call sites found")
 
-    # Redirect the repo operation handlers only. Older session-level paths in
-    # centralrepo.cpp (including the B20 ResetAll contract) stay untouched.
-    repo = repo.replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
+    # Redirect repo operation handlers, preserving the B20 ResetAll block.
+    # Older session-level paths in centralrepo.cpp also stay untouched.
+    repo = wrap_repo_completions(repo)
     cenrep = replace_once(cenrep, entry_anchor, entry_code, "CenRep IPC entry")
     header = replace_once(header, header_anchor, header_anchor + complete_declaration + "\n", "CenRep completion declaration")
     cenrep = replace_once(cenrep, namespace_anchor, namespace_anchor + completion_definition, "CenRep completion wrapper")
