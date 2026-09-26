@@ -7,7 +7,7 @@ Updated: 2026-09-26
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Latest build-validated source commit: `2ff5817ef0e347d59408632d944b6a89059d9ce5`
+- Latest build-validated source commit: `65ac01722e8a741b3a5d15e2a70dd7763a7df8b3`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
@@ -47,3 +47,40 @@ The observed value `0x7FFFFFFF` matches the extracted stock V60 ROM repository d
 - `[COMPATBOOT][TARGET_VISIBLE]`, if a Menu3 window becomes visible
 
 FASTBUILD proves the binary compiles and preserves its markers. It does not prove that the firmware menu is visible on the phone. PR #6 is unmerged, and device acceptance remains pending.
+
+## B91 shutdown crash result
+
+Three new clean-install attempts reproduced the same host crash: `EXC_BAD_ACCESS`
+at `0x2f` on the `Symbian OS thread`, with the stack
+`ipc_msg::~ipc_msg()` -> `kernel_system::wipeout()` -> system destruction ->
+iOS `os_thread`. The logs end after `exit_requested` / `os_join_begin` and do
+not reach `shutdown_done`. The guest Menu3 `Leave(-5)` diagnostics occur before
+exit and are a separate issue.
+
+Root cause was confirmed against B28 source: wipeout destroys sessions/servers,
+then resets messages; an outstanding message destructor forces `unref()` and
+can touch stale `msg_session` / `own_thr`. B91 nulls those references and zeros
+the count before reset, only during full kernel shutdown. NativeBoot remains the
+default; no firmware values, guest IPC semantics, or readiness checks changed.
+See [B91 evidence](history/B91-IPCTEARDOWN1.md).
+
+FASTBUILD #288 (`36251705615`) stopped before compilation because the patch
+anchor omitted trailing spaces in the B28 reset line. The B91 regression now
+includes that source shape, and the patcher accepts the trailing whitespace.
+FASTBUILD #289, run [36251856831](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36251856831),
+is GREEN on `65ac01722e8a741b3a5d15e2a70dd7763a7df8b3`: B28 validation,
+manifest apply/regressions, iOS build, binary checks, unsigned IPA packaging,
+and upload all passed. Local unittest discovery passed 48 tests.
+
+Latest artifact:
+
+- `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`
+- Artifact ID `10909561923`; expires 2026-10-10
+- ZIP contains `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa`
+- Download from the FASTBUILD #289 run page above, open/extract the ZIP in Files,
+  then import the unsigned IPA into ESign Match to sign and install it.
+
+This build is not yet device-validated. Repeat the clean-install run, use the
+Emulator menu to exit, and report whether the app returns normally or crashes
+to Home. Keep the three-run logs and `.ips` reports. Do not merge PR #6 until
+that device result is reviewed.
