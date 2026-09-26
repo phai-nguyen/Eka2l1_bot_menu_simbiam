@@ -27,6 +27,18 @@ class FastbuildWorkflowContract(unittest.TestCase):
             text,
         )
 
+    def test_current_build_verifies_menu3_leave5_trace_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[COMPATBOOT][MENU3_LEAVE5]",
+            "[COMPATBOOT][MENU3_LEAVE5_FRAME]",
+            "[COMPATBOOT][MENU3_LEAVE5_STACK]",
+        ):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+
     def test_b28_workflow_is_untouched(self):
         self.assertEqual(git_blob_sha(B28), B28_GIT_BLOB)
 
@@ -99,6 +111,13 @@ class FastbuildWorkflowContract(unittest.TestCase):
             "[NBOOT2][PHONEUI_RESID_SUMMARY]",
         ):
             self.assertIn(f"grep -Fq '{marker}'", verify)
+
+    def test_current_build_verifies_b92_compatboot_cenrep_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        self.assertIn("grep -Fq '[COMPATBOOT][CENREP_FIND_EQ_INT]'", verify)
 
 
     def test_workflows_have_no_malformed_github_expressions(self):
