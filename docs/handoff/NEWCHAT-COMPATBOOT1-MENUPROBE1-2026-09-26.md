@@ -80,7 +80,41 @@ Latest artifact:
 - Download from the FASTBUILD #289 run page above, open/extract the ZIP in Files,
   then import the unsigned IPA into ESign Match to sign and install it.
 
-This build is not yet device-validated. Repeat the clean-install run, use the
-Emulator menu to exit, and report whether the app returns normally or crashes
-to Home. Keep the three-run logs and `.ips` reports. Do not merge PR #6 until
-that device result is reviewed.
+At the time of the original B91 handoff, this build had not been device-validated.
+The later post-fix attempt is recorded below.
+
+## B91 post-fix device result
+
+The user reports that the latest attempt exited without crashing back to the
+iOS Home screen. The persistent device log ends the requested exit through
+`os_join_done`, `state_reset_done`, and `shutdown_done`; no crash signature is
+present in this capture. The install method was not stated, so record this as
+one successful shutdown observation, not a clean-install validation series.
+
+CompatBoot reached `BARRIER_READY` and launched the real firmware
+`Z:\sys\bin\menu3.exe` as `menu3[101f4cd2]0001`. The log has zero
+`[COMPATBOOT][TARGET_VISIBLE]` records, so the guest Menu surface is not
+confirmed. The first Menu3 failure marker is a missing `TfxServer` at
+22:45:58.428. Before it, Themes CenRep `0x102818E8:0x09` was read as
+`0x7FFFFFFF` (`enabled=0 suppressed=1`), matching the stock firmware setting;
+Menu3 continues after the missing server.
+
+The first Menu3 `Leave(-5)` is at 22:45:58.391. Its preceding FileServer
+`FileFlush` completes with result 0, and the leave is trapped. Later, an
+`appshell.ini` `Fs::Entry` returns `-1`, but the same path is successfully
+opened shortly afterward. At 22:45:58.894, CentralRepository opcode 12 returns
+`-1` for Menu3 message 231; the trace contains only raw pointer arguments
+(`0x0050385C`, `0x101F4CD2`, `0x00503870`, `0x0000000D`), so the request and
+meaning of that status remain unknown. Menu3's thread later exits with
+`exit_type=0 reason=0` at 22:46:01.937. This is not a host crash and does not
+identify which guest condition caused Menu3 to exit.
+
+The supplied 14:10 screen recording has metadata creation time 15:08 UTC and
+ends before this log's 22:45 local-time session; do not use it as visual
+evidence for this attempt. Full evidence and hashes are in
+[B91 post-fix device evidence](history/B91-POSTFIX-DEVICE1.md).
+
+Next diagnostic: identify the B28 CentralRepository handler for opcode 12 and
+decode the request/status before adding any instrumentation. Preserve the
+stock firmware state, Native Boot default, and all startup checks. PR #6 stays
+open and unmerged; FASTBUILD #289 remains the latest confirmed green build.

@@ -61,3 +61,11 @@ both artifact uploads passed. Local `python3 -m unittest discover -p
 Build GREEN confirms compilation and packaging only; the fix is not yet
 confirmed on device. Install this IPA and repeat the clean-install exit test.
 Do not merge PR #6 until the user evaluates the device result.
+
+## Later device follow-up
+
+The pending device check above was the status when this note was written. A
+later single attempt has a user-reported no-crash exit and reaches
+`shutdown_done`; the install method was not stated. See
+[B91 post-fix device evidence](B91-POSTFIX-DEVICE1.md) for the current result
+and the still-unresolved Menu3 startup trace.
