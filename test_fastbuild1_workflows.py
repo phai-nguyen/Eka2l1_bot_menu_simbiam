@@ -27,6 +27,18 @@ class FastbuildWorkflowContract(unittest.TestCase):
             text,
         )
 
+    def test_current_build_verifies_menu3_leave5_trace_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[COMPATBOOT][MENU3_LEAVE5]",
+            "[COMPATBOOT][MENU3_LEAVE5_FRAME]",
+            "[COMPATBOOT][MENU3_LEAVE5_STACK]",
+        ):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+
     def test_b28_workflow_is_untouched(self):
         self.assertEqual(git_blob_sha(B28), B28_GIT_BLOB)
 

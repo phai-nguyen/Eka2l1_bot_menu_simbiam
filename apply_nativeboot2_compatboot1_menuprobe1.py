@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 7513)
+Total output lines: 608
+
 #!/usr/bin/env python3
 """Add an explicit, transient COMPATBOOT Menu Probe entry beside Native Boot."""
 from pathlib import Path
@@ -240,74 +243,7 @@ def patch_state_cpp(source):
         conf.compat_menu_probe_timed_out = false;
         conf.compat_menu_probe_finished = false;
         conf.compat_first_failure_logged = false;
-        conf.compat_menu_probe_deadline_ms = 0;
-        conf.compat_target_uid3 = 0;
-        conf.compat_menu_probe_timeout_event = -1;
-        conf.compat_timeout_event_registered = false;
-        conf.compat_seen_file_server = false;
-        conf.compat_seen_fbs = false;
-        conf.compat_seen_window_server = false;
-        conf.compat_seen_cenrep = false;
-        conf.compat_seen_apparc = false;
-        conf.compat_seen_akncap = false;
-'''
-    source = replace_once(source,
-        "        conf.native_phone_boot = native_phone_mode;\n",
-        "        conf.native_phone_boot = native_phone_mode;\n" + reset,
-        "reset CompatBoot runtime state")
-    anchor = "                            native_boot_handoff_ok = true;\n"
-    deadline = anchor + '''                            if (compat_menu_probe_mode) {
-                                const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                    std::chrono::steady_clock::now().time_since_epoch()).count();
-                                conf.compat_menu_probe_deadline_ms =
-                                    static_cast<std::uint64_t>(now_ms) + 60000;
-                                auto *compat_cfg = &conf;
-                                auto *compat_kern = symsys->get_kernel_system();
-                                const int compat_event = compat_kern->get_ntimer()->register_event(
-                                    "COMPATBOOT1_STARTUP_TIMEOUT",
-                                    [compat_cfg](std::uint64_t, int) {
-                                        if (!compat_cfg->compat_menu_probe_mode || compat_cfg->compat_menu_probe_finished) return;
-                                        std::string missing;
-                                        if (!compat_cfg->compat_seen_file_server) missing += "FileServer,";
-                                        if (!compat_cfg->compat_seen_fbs) missing += "FBS,";
-                                        if (!compat_cfg->compat_seen_window_server) missing += "WindowServer,";
-                                        if (!compat_cfg->compat_seen_cenrep) missing += "CenRep,";
-                                        if (!compat_cfg->compat_seen_apparc) missing += "AppArc,";
-                                        if (!compat_cfg->compat_seen_akncap) missing += "AknCapServer,";
-                                        if (!missing.empty()) missing.pop_back();
-                                        bool expected = false;
-                                        if (compat_cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
-                                            compat_cfg->compat_menu_probe_timed_out = true;
-                                            LOG_ERROR(FRONTEND_CMDLINE,
-                                                "[COMPATBOOT][BARRIER_TIMEOUT] missing_or_unobserved={}", missing);
-                                        }
-                                    });
-                                conf.compat_menu_probe_timeout_event = compat_event;
-                                if (compat_event >= 0) {
-                                    compat_kern->get_ntimer()->schedule_event(60000000, compat_event, 0);
-                                    conf.compat_timeout_event_registered = true;
-                                } else {
-                                    LOG_ERROR(FRONTEND_CMDLINE,
-                                        "[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL] event_id={}", compat_event);
-                                }
-                                LOG_WARN(FRONTEND_CMDLINE,
-                                    "[COMPATBOOT][DEADLINE_START] after=EStart_run timeout_ms=60000");
-                                LOG_WARN(FRONTEND_CMDLINE,
-                                    "[COMPATBOOT][BARRIER_WAIT] services=6");
-                            }
-'''
-    return replace_once(source, anchor, deadline, "start deadline after EStart")
-
-
-def patch_svc(source):
-    if "[COMPATBOOT][TARGET_LAUNCH]" in source:
-        return source
-    includes = "#include <sstream>\n"
-    source = replace_once(source, "#include <kernel/kernel.h>\n",
-                          "#include <kernel/kernel.h>\n" + includes,
-                          "COMPATBOOT service interfaces")
-    helper = r'''namespace eka2l1::kernel::svc {
-    static std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
+        conf.compat_me…2513 tokens truncated…*kern, config::state *cfg) {
         const epocver ver = kern->get_epoc_version();
         auto ready = [kern](const std::string &name, bool guest_ready) {
             service::server *registered = kern->get_by_name<service::server>(name);
@@ -384,9 +320,10 @@ namespace eka2l1 {
     receive = ("    BRIDGE_FUNC(void, server_receive, kernel::handle h, eka2l1::ptr<epoc::request_status> req_sts, eka2l1::ptr<void> data_ptr) {\n"
                "        server_ptr server = kern->get<service::server>(h);\n\n"
                "        if (!server) {\n            return;\n        }\n")
-    return replace_once(source, receive,
-                        receive + "\n        eka2l1::kernel::svc::compatboot1_check_barrier(kern, server);\n",
-                        "poll from server readiness SVC")
+    source = replace_once(source, receive,
+                          receive + "\n        eka2l1::kernel::svc::compatboot1_check_barrier(kern, server);\n",
+                          "poll from server readiness SVC")
+    return patch_menu3_leave5(source)
 
 
 def patch_missing_server(source):

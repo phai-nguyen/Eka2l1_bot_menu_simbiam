@@ -48,6 +48,34 @@ was written or altered.
   AknSkinSrv does send generic ECom IPC requests; the log does not show a TFX
   plugin DLL load or TfxServer registration.
 
+## Follow-up after the expected TFX gate
+
+Menu does not stop at the stock-suppressed `TfxServer` request. At
+`19:49:23.252`, the FileServer logs:
+
+```text
+Get entry of: C:\\private\\101F4CD2\\appshell.ini
+MENUUI6 NEGIPC: server=!FileServer opcode=22 result=-1
+```
+
+At `19:49:23.253`, the same Menu thread emits `V11 LEAVE5` with
+`r0=0xFFFFFFFB` (`KErrNotSupported` / `-5`) and the same last
+`!FileServer` IPC arguments. Upstream's FileServer opcode table identifies
+decimal opcode 22 as `Fs::Entry`; its handler returns `KErrNotFound` when
+`get_entry_info(C:\\private\\101F4CD2\\appshell.ini)` finds no entry.
+Menu continues running after this event. The timing and IPC context correlate
+the events, but do not prove the missing file caused the leave or that the
+configuration file is required.
+
+## Next diagnostic build
+
+The COMPATBOOT1 follow-up adds `[COMPATBOOT][MENU3_LEAVE5]`,
+`[COMPATBOOT][MENU3_LEAVE5_FRAME]`, and `[COMPATBOOT][MENU3_LEAVE5_STACK]`.
+They are emitted only for the selected CompatBoot target when it executes
+`Leave(-5)`; the trace records registers, trap address, and at most 32 stack
+words with resolvable code modules. It does not modify the leave code, trap,
+or return path. FASTBUILD must pass before a new IPA is device-tested.
+
 ## Conclusion and next step
 
 B90 reached the intended real Menu3 probe. The first failure exposed to Menu3 is
@@ -57,12 +85,10 @@ extracted ROM default. B90 alone cannot tell whether the emulator's runtime
 repository was later modified: its generic save lines do not contain per-key
 write details. No evidence currently justifies changing key `0x9`.
 
-Next, keep the stock gate and missing-server semantics intact while diagnosing
-the first Menu3 failure in context. If a future question specifically requires
-proving whether key `0x9` changes at runtime, add item-level write tracing;
-generic repository save messages are insufficient. Do not change the firmware,
-force-enable TFX, fabricate `TfxServer`, or treat Alfred startup as a
-substitute for the TFX provider.
+Next, inspect the Menu3 `Leave(-5)` frame and stack output from the follow-up
+build. Treat `appshell.ini` as an observed missing FileServer entry, not as a
+confirmed required dependency. Do not create the file or change FileServer,
+firmware, the TFX setting, or `TfxServer` semantics to test the hypothesis.
 
 ## Log integrity
 

@@ -75,6 +75,11 @@ namespace eka2l1::epoc {
             return epoc::error_not_found;
         }
     }
+    BRIDGE_FUNC(eka2l1::ptr<void>, leave_start) {
+        kernel::thread *thr = kern->crr_thread();
+        thr->increase_leave_depth();
+        return current_local_data(kern)->trap_handler;
+    }
 }
 """
 MISSING_SERVER_CPP = '''        if (!server) {
@@ -92,6 +97,15 @@ WINUSER_CPP = '''            set_visible(visible != 0);
                     is_visible() ? 1 : 0, can_be_physically_seen() ? 1 : 0);
             }
             ctx.complete(epoc::error_none);
+'''
+
+LEAVE_START_CPP = '''    BRIDGE_FUNC(eka2l1::ptr<void>, leave_start) {
+        kernel::thread *thr = kern->crr_thread();
+        thr->increase_leave_depth();
+        return current_local_data(kern)->trap_handler;
+    }
+    BRIDGE_FUNC(void, leave_next) {
+    }
 '''
 
 ROOT_VIEW = """- (void)onEmulator {
@@ -183,6 +197,19 @@ class CompatBootModeContracts(unittest.TestCase):
         svc = PATCH.patch_svc(SVC_CPP)
         self.assertIn("kern->get_epoc_version()", svc)
         self.assertNotIn("kern->get_system()->get_symbian_version_use()", svc)
+
+    def test_menu3_leave5_trace_is_scoped_and_preserves_leave_path(self):
+        self.assertTrue(hasattr(PATCH, "patch_menu3_leave5"), "Menu3 Leave(-5) trace is absent")
+        traced = PATCH.patch_menu3_leave5(LEAVE_START_CPP)
+        self.assertIn("[COMPATBOOT][MENU3_LEAVE5]", traced)
+        self.assertIn("compat_menu_probe_mode", traced)
+        self.assertIn("compat_target_uid3", traced)
+        self.assertIn("epoc::error_not_supported", traced)
+        self.assertIn("get_codeseg_from_addr", traced)
+        self.assertIn("i < 32", traced)
+        self.assertEqual(traced.count("thr->increase_leave_depth();"), 1)
+        self.assertEqual(traced.count("return current_local_data(kern)->trap_handler;"), 1)
+        self.assertLess(traced.index("[COMPATBOOT][MENU3_LEAVE5]"), traced.index("thr->increase_leave_depth();"))
 
     def test_live_process_without_ready_server_does_not_release_barrier(self):
         self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")
