@@ -48,7 +48,12 @@ def apply(upstream_root):
     )
     source = source.replace(thread_sig, helper + thread_sig, 1)
 
-    arm_anchor = "        if (nboot2_b71_phoneui_cone14) {\n"
+    arm_anchor = (
+        "        // B88 intentionally lets native startup continue after the one\n"
+        "        // proven Telephone/PhoneUI CONE 14 resource panic. This does not\n"
+        "        // repair the missing guest resource; all other exits are unchanged.\n"
+        "        if (nboot2_b71_phoneui_cone14) {\n"
+    )
     if source.count(arm_anchor) != 1:
         fail("B88 exact Telephone panic gate not found once")
     arm = arm_anchor + (

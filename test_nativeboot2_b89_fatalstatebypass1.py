@@ -20,6 +20,12 @@ SVC = r'''namespace eka2l1::kernel::svc {
         kernel::entity_exit_type etype, std::int32_t reason,
         eka2l1::ptr<desc8> reason_des) {
         if (nboot2_b71_phoneui_cone14) {
+            LOG_WARN(KERNEL, "[NBOOT2][CONE14_PHONEUI]");
+        }
+        // B88 intentionally lets native startup continue after the one
+        // proven Telephone/PhoneUI CONE 14 resource panic. This does not
+        // repair the missing guest resource; all other exits are unchanged.
+        if (nboot2_b71_phoneui_cone14) {
             LOG_WARN(KERNEL, "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88] phase=before");
             etype = kernel::entity_exit_type::terminate;
             exit_category = "None";
