@@ -103,9 +103,22 @@ The first Menu3 `Leave(-5)` is at 22:45:58.391. Its preceding FileServer
 `FileFlush` completes with result 0, and the leave is trapped. Later, an
 `appshell.ini` `Fs::Entry` returns `-1`, but the same path is successfully
 opened shortly afterward. At 22:45:58.894, CentralRepository opcode 12 returns
-`-1` for Menu3 message 231; the trace contains only raw pointer arguments
-(`0x0050385C`, `0x101F4CD2`, `0x00503870`, `0x0000000D`), so the request and
-meaning of that status remain unknown. Menu3's thread later exits with
+`-1` for Menu3 message 231. The current upstream enum maps opcode 12 to
+`cen_rep_find_eq_int`; the handler treats arg0 as a key-filter descriptor,
+arg1 as the signed integer to match, arg2 as the result array, and arg3 as the
+subsession ID. Here arg1 is Menu3 UID3 `0x101F4CD2`, and `-1` means no key in
+the attached repository matched the filter and value. The filter contents and
+repository UID remain unknown. This is a query miss, not evidence that the
+CenRep service or repository is absent. Cross-reference:
+[upstream opcode enum](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/include/services/centralrepo/common.h#L42)
+and [upstream Find handler](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/src/centralrepo/repo.cpp#L517-L640).
+The current source routes arg3 to a subsession and reads the repository UID
+during `init` ([session handler](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/src/centralrepo/centralrepo.cpp#L815-L857)).
+The existing B83 entry marker is in the subsession handler, so it misses that
+UID and the filter descriptor values. The B28 cache source is not present in
+this worktree; verify the mapping against that baseline before changing
+instrumentation or drawing a repository-specific conclusion. Menu3's thread
+later exits with
 `exit_type=0 reason=0` at 22:46:01.937. This is not a host crash and does not
 identify which guest condition caused Menu3 to exit.
 
@@ -114,7 +127,9 @@ ends before this log's 22:45 local-time session; do not use it as visual
 evidence for this attempt. Full evidence and hashes are in
 [B91 post-fix device evidence](history/B91-POSTFIX-DEVICE1.md).
 
-Next diagnostic: identify the B28 CentralRepository handler for opcode 12 and
-decode the request/status before adding any instrumentation. Preserve the
-stock firmware state, Native Boot default, and all startup checks. PR #6 stays
-open and unmerged; FASTBUILD #289 remains the latest confirmed green build.
+Next diagnostic: add a profile-scoped, read-only trace for Menu3's `FindEqInt`
+using the B28 handler. Log the attached repository UID, validated filter
+values, comparison value, and result count while preserving its current
+status/guest behavior. Preserve the stock firmware state, Native Boot default,
+and all startup checks. PR #6 stays open and unmerged; FASTBUILD #289 remains
+the latest confirmed green build.

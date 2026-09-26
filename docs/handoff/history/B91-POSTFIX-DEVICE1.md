@@ -34,9 +34,25 @@ failed flush or a fatal Menu3 exit.
 
 At `22:45:58.894`, Menu3 sends CentralRepository opcode 12. The HLE completion
 is status `-1`; the raw arguments are
-`[0x0050385C, 0x101F4CD2, 0x00503870, 0x0000000D]`. These values include guest
-addresses and have not been decoded into a repository/key/query. Treat this
-as an unresolved negative CenRep result, not yet as a missing dependency.
+`[0x0050385C, 0x101F4CD2, 0x00503870, 0x0000000D]`. The current upstream enum
+maps opcode 12 to `cen_rep_find_eq_int`. Its handler consumes arg0 as a
+`central_repo_key_filter` descriptor, arg1 as a signed integer value, arg2 as
+the result-key array, and the session handler uses arg3 to select the
+subsession. Here the integer is Menu3 UID3 `0x101F4CD2`; the status `-1` means
+the filter/value query found no matching key in the attached repository. The
+filter contents and repository UID are not logged, so the searched-for keyspace
+is unknown. This is a no-match result, not evidence that the CenRep service or
+repository is missing. Source cross-check at upstream commit
+`dd3e2219f561d5f938cbd78c606980bbd5cd4723`:
+[opcode enum](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/include/services/centralrepo/common.h#L42),
+[Find handler](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/src/centralrepo/repo.cpp#L517-L640),
+and [session argument routing and repository init](https://github.com/EKA2L1/EKA2L1/blob/dd3e2219f561d5f938cbd78c606980bbd5cd4723/src/emu/services/src/centralrepo/centralrepo.cpp#L815-L857).
+The B28 cache source is not in this worktree; validate this mapping against the
+exact cached baseline before adding instrumentation or interpreting the
+repository-specific result. The existing B83 IPC marker is inserted in
+`central_repo_client_subsession::handle_message`, so it does not log the
+session-level `init` that attaches a repository and assigns a subsession ID.
+That is why this capture does not reveal which repository subsession 13 is.
 
 At `22:45:59.694`, FileServer `Fs::Entry` for
 `C:\private\101F4CD2\appshell.ini` returns `-1`. The same path is opened at
@@ -50,13 +66,13 @@ agreement with the user's report.
 
 ## Next diagnostic
 
-Identify the exact B28 CentralRepository opcode-12 handler and determine how
-it consumes the four IPC arguments. If a new trace is needed, decode only
-validated descriptor/query data and preserve the returned status and guest
-behavior. Keep Native Boot as the default; leave stock firmware values,
-readiness checks, `appshell.ini`, and `TfxServer` behavior untouched. The next
-device evidence should establish whether Menu3's window ever becomes visible
-and what causes its self-termination.
+Add a profile-scoped, read-only trace for Menu3's `FindEqInt` request after
+verifying the exact B28 handler. Log the attached repository UID, validated
+filter values, comparison value, and result count; preserve the return status
+and guest behavior. Keep Native Boot as the default; leave stock firmware
+values, readiness checks, `appshell.ini`, and `TfxServer` behavior untouched.
+The next device evidence should establish whether Menu3's window ever becomes
+visible and what causes its self-termination.
 
 ## Capture integrity
 
