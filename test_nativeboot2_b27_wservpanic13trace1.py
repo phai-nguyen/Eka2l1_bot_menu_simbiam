@@ -6,7 +6,7 @@ B27 is diagnostic-only. It must:
 - add focused deep tracing for ewsrv/Wserv self-kill/panic paths;
 - record PC/LR/SP/CPSR/registers and stack candidates when category is
   WSERV-INTERNAL or Domino, especially reason 13;
-- not rewrite/suppress panic reason/category or alter guest behavior.
+- preserve panic behavior except for the single, later-authorized B88 Telephone CONE 14 startup-continuation exception.
 """
 from __future__ import annotations
 import sys
@@ -49,10 +49,27 @@ def main()->None:
     ):
         need(s,n,"svc.cpp")
 
-    # Must remain diagnostic-only.
+    # Preserve ordinary panic semantics. B88 is the only authorized exception:
+    # Telephone UID3 0x100058B3 / CONE / reason 14 exits cleanly for startup.
     need(s,"thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);","svc.cpp")
-    if "reason = 0" in s or "exit_category =" in s[s.find("[NBOOT2][WSERV_TRACE]"):s.find("[NBOOT2][WSERV_TRACE]")+800]:
-        fail("B27 must not rewrite panic reason/category")
+    for n in (
+        "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
+        "const bool nboot2_b71_phoneui_cone14",
+        "nboot2_b71_target_uid3 == 0x100058B3U",
+        "reason == 14",
+        'exit_category == \"CONE\"',
+    ):
+        need(s,n,"svc.cpp")
+    if s.count("reason = 0;") != 1:
+        fail("only B88's tightly guarded Telephone CONE14 case may set reason 0")
+    if s.count("etype = kernel::entity_exit_type::terminate;") != 1:
+        fail("only B88's tightly guarded Telephone CONE14 case may reclassify an exit")
+    b88=s.index("[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]")
+    guard=s.rfind("if (nboot2_b71_phoneui_cone14)",0,b88)
+    reason_zero=s.index("reason = 0;",b88)
+    kill=s.index("thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);")
+    if not (guard >= 0 and guard < b88 < reason_zero < kill):
+        fail("B88 clean-exit override must stay inside the exact B71 panic predicate")
 
     print(f"{MARK}: PASS")
 
