@@ -318,7 +318,7 @@ def patch_svc(source):
         };
         std::ostringstream missing;
         if (!ready(epoc::fs::get_server_name_through_epocver(ver), cfg->compat_seen_file_server)) missing << "FileServer,";
-        if (!ready(get_fbs_server_name_by_epocver(ver), cfg->compat_seen_fbs)) missing << "FBS,";
+        if (!ready(epoc::get_fbs_server_name_by_epocver(ver), cfg->compat_seen_fbs)) missing << "FBS,";
         if (!ready(get_winserv_name_by_epocver(ver), cfg->compat_seen_window_server)) missing << "WindowServer,";
         if (!ready(CENTRAL_REPO_SERVER_NAME, cfg->compat_seen_cenrep)) missing << "CenRep,";
         if (!ready(get_app_list_server_name_by_epocver(ver), cfg->compat_seen_apparc)) missing << "AppArc,";
@@ -335,7 +335,7 @@ def patch_svc(source):
         if (current) {
             const std::string &name = current->name();
             if (name == epoc::fs::get_server_name_through_epocver(ver)) cfg->compat_seen_file_server = true;
-            if (name == get_fbs_server_name_by_epocver(ver)) cfg->compat_seen_fbs = true;
+            if (name == epoc::get_fbs_server_name_by_epocver(ver)) cfg->compat_seen_fbs = true;
             if (name == get_winserv_name_by_epocver(ver)) cfg->compat_seen_window_server = true;
             if (name == CENTRAL_REPO_SERVER_NAME) cfg->compat_seen_cenrep = true;
             if (name == get_app_list_server_name_by_epocver(ver)) cfg->compat_seen_apparc = true;

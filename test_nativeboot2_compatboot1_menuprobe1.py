@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -158,6 +159,7 @@ class CompatBootModeContracts(unittest.TestCase):
         for service in ("FileServer", "FBS", "WindowServer", "CenRep", "AppArc", "AknCapServer"):
             with self.subTest(service=service):
                 self.assertIn(service, svc)
+        self.assertIn("epoc::get_fbs_server_name_by_epocver(ver)", svc)
         self.assertIn("if (!missing.empty())", svc)
         self.assertIn("return;", svc[svc.index("if (!missing.empty())"):])
 
