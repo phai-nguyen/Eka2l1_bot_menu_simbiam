@@ -7,13 +7,31 @@ Updated: 2026-09-26
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Latest build-validated source commit: `65ac01722e8a741b3a5d15e2a70dd7763a7df8b3`
+- Latest build-validated source commit: `a9ceeb2b6e589c3195aa533f5f9babbbaa249e0f`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
 Do not restart earlier milestone research. The current objective is COMPATBOOT1-MENUPROBE1: retain Native Boot as the default, wait for the required UI services, then launch the real firmware `menu3.exe` and report the first missing dependency or visible target marker. No firmware replacement or readiness bypass is part of this change.
 
-## Build status
+## Latest status — B92 and FASTBUILD #294
+
+B92 adds `[COMPATBOOT][CENREP_FIND_EQ_INT]` in `central_repo_client_subsession::find()`. It logs the attached repository UID, validated filter values, signed comparison value, result count, and status, gated on `compat_menu_probe_mode` and the `cen_rep_find_eq_int` opcode. It does not change the result or completion status. The FASTBUILD integration contract verifies that this patch applies to the B28 cache and that the trace remains after argument validation.
+
+FASTBUILD #293 stopped before compilation because the new test used the upstream directory argument as a `unittest` test selector. The test harness now consumes that argument and verifies the patched source. FASTBUILD #294, run [36256303111](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36256303111), is **GREEN** on commit `a9ceeb2b6e589c3195aa533f5f9babbbaa249e0f`: B28 validation, manifest patch application and regressions, iOS compile, binary invariants, unsigned IPA packaging, and upload all passed.
+
+Latest IPA artifact:
+
+- `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`, ID `10910382274`
+- IPA in ZIP: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa`
+- Artifact expires 2026-10-10 16:43 UTC
+- SHA-256: `ba28cf8781426e5e698f6ccc8e700dc5600e118c3ffe5878069b9b484f384dc5`
+- Run page: [FASTBUILD #294](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36256303111)
+
+On iPhone, open the run page in Safari while signed in to GitHub, download the IPA artifact under **Artifacts**, and tap the ZIP in Files to extract it. The IPA is unsigned; import it into ESign Match or the user's normal sideloading tool to sign/install it. Files cannot install the unsigned IPA directly.
+
+PR #6 is still open and unmerged. The latest device log shows no return-to-Home crash, but has no `[COMPATBOOT][TARGET_VISIBLE]` marker. Use the new B92 trace in the next device capture; the menu surface and whether the `FindEqInt` match is required remain unconfirmed. See [B92 history](history/B92-CENREP-FINDEQDIAG1.md).
+
+## Earlier build checkpoints
 
 FASTBUILD #281, run [36241917700](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36241917700), is **GREEN** on commit `0bced6f0f897cfcce0e214ce77814177800c9887`. B28 baseline validation, manifest regressions, CMake configuration, iOS compile, binary invariants, unsigned IPA packaging, and artifact upload all succeeded.
 
@@ -25,7 +43,7 @@ The two previous compile failures and fixes:
 - FASTBUILD #279 then exposed the target-visible marker's `config::state` lookup resolving under `epoc::config` and its `ctx.sys` dereference of incomplete `system`. It now uses `eka2l1::config::state` and the existing window-client path `client->get_ws().get_kernel_system()->get_config()`.
 - The final local suite passed 44 Python tests; the COMPATBOOT contract module passed all 17 tests; `ci/fastbuild1_manifest.py validate .` and `git diff --check` passed.
 
-## IPA artifact
+## Earlier IPA artifact (#285)
 
 - Artifact: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`
 - Artifact ID: `10907232828` (FASTBUILD #285; latest artifact)
@@ -48,7 +66,7 @@ The observed value `0x7FFFFFFF` matches the extracted stock V60 ROM repository d
 
 FASTBUILD proves the binary compiles and preserves its markers. It does not prove that the firmware menu is visible on the phone. PR #6 is unmerged, and device acceptance remains pending.
 
-## B91 shutdown crash result
+## B91 shutdown crash result (before fix)
 
 Three new clean-install attempts reproduced the same host crash: `EXC_BAD_ACCESS`
 at `0x2f` on the `Symbian OS thread`, with the stack
@@ -72,7 +90,7 @@ is GREEN on `65ac01722e8a741b3a5d15e2a70dd7763a7df8b3`: B28 validation,
 manifest apply/regressions, iOS build, binary checks, unsigned IPA packaging,
 and upload all passed. Local unittest discovery passed 48 tests.
 
-Latest artifact:
+Artifact at the #289 checkpoint (superseded by #294 above):
 
 - `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`
 - Artifact ID `10909561923`; expires 2026-10-10
@@ -127,9 +145,8 @@ ends before this log's 22:45 local-time session; do not use it as visual
 evidence for this attempt. Full evidence and hashes are in
 [B91 post-fix device evidence](history/B91-POSTFIX-DEVICE1.md).
 
-Next diagnostic: add a profile-scoped, read-only trace for Menu3's `FindEqInt`
-using the B28 handler. Log the attached repository UID, validated filter
-values, comparison value, and result count while preserving its current
-status/guest behavior. Preserve the stock firmware state, Native Boot default,
-and all startup checks. PR #6 stays open and unmerged; FASTBUILD #289 remains
-the latest confirmed green build.
+The B92 trace now covers that `FindEqInt` request on the B28 cache. It logs the
+repository UID, validated filter values, comparison value, result count, and
+status only for CompatBoot, while preserving IPC completion semantics. The
+latest GREEN build is #294 above. Preserve the stock firmware state, Native
+Boot default, and all startup checks. PR #6 stays open and unmerged.
