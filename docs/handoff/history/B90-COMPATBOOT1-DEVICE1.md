@@ -3,7 +3,7 @@
 Updated: 2026-09-26
 Branch: `codex/compatboot1-menuprobe1`
 PR: #6 (open; not merged)
-Build tested: FASTBUILD #281, run `36241917700`, commit `0bced6f0f897cfcce0e214ce77814177800c9887`
+Build tested: FASTBUILD #285, run `36245715377`, commit `2ff5817ef0e347d59408632d944b6a89059d9ce5`
 
 ## Result
 
@@ -74,7 +74,7 @@ The COMPATBOOT1 follow-up adds `[COMPATBOOT][MENU3_LEAVE5]`,
 They are emitted only for the selected CompatBoot target when it executes
 `Leave(-5)`; the trace records registers, trap address, and at most 32 stack
 words with resolvable code modules. It does not modify the leave code, trap,
-or return path. FASTBUILD must pass before a new IPA is device-tested.
+or return path. FASTBUILD #285 passed on commit `2ff5817ef0e347d59408632d944b6a89059d9ce5`, including binary invariant checks for all three markers. The IPA artifact `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA` (ID `10907232828`) is available from [run #285](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36245715377) until 2026-10-10 and is ready for the next device capture.
 
 ## Conclusion and next step
 
