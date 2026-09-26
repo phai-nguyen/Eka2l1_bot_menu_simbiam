@@ -7,7 +7,7 @@ Updated: 2026-09-26
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Current PR commit: `0bced6f0f897cfcce0e214ce77814177800c9887`
+- Latest build-validated source commit: `0bced6f0f897cfcce0e214ce77814177800c9887`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
