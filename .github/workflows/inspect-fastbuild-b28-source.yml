@@ -1,0 +1,44 @@
+name: Inspect FASTBUILD B28 source layout
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nativeboot2-current
+      - name: Restore exact FASTBUILD B28 cache
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream
+          key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+      - name: Inspect cached scripting and native hook sources
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/FASTBUILD-B28-SOURCE-INSPECT.txt"
+          {
+            echo "cache_hit=${{ steps.cache.outputs.cache-hit }}"
+            echo "=== scripting sources ==="
+            if [ -d upstream/src/emu/scripting ]; then
+              find upstream/src/emu/scripting -maxdepth 3 -type f | sort
+            else
+              echo "NO_SCRIPTING_DIRECTORY"
+            fi
+            echo "=== related APIs and build wiring ==="
+            rg -n "register_builtin_patches|register_breakpoint|breakpoint_hit_callback|codeseg_loaded_callback|ENABLE_SCRIPTING|scripting" upstream/src/emu/kernel upstream/src/emu/system upstream/src/emu/scripting upstream/src/emu/CMakeLists.txt upstream/src/emu/ios/CMakeLists.txt 2>/dev/null || true
+            echo "=== candidate source directories ==="
+            find upstream/src/emu -maxdepth 3 -type f \( -name 'epoc.cpp' -o -name 'kernel.cpp' -o -name '*patch*.cpp' -o -name '*debug*.cpp' \) | sort
+          } > "$OUT"
+          cat "$OUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FASTBUILD-B28-SOURCE-INSPECT
+          path: FASTBUILD-B28-SOURCE-INSPECT.txt
+          retention-days: 3
