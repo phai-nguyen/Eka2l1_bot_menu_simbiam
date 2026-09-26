@@ -553,15 +553,9 @@ def patch_menu3_file_flush(source):
         fail("FileFlush argument anchor count is not one")
     body = body.replace(handle_anchor, handle_trace, 1)
 
-    flush_anchor = '''        file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
-
-        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.
-        if (!vfs_file->flush()) {
+    flush_anchor = '''        if (!vfs_file->flush()) {
 '''
-    flush_trace = '''        file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
-
-        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.
-        const bool compat_menu_flush_ok = vfs_file->flush();
+    flush_trace = '''        const bool compat_menu_flush_ok = vfs_file->flush();
         if (compat_menu_flush) {
             LOG_WARN(SERVICE_EFSRV,
                 "[COMPATBOOT][MENU3_FSFLUSH] process={} uid3=0x{:08X} thread={} handle={} path={} opcode=0x27 flush_ok={} completion={} behavior=OBSERVE_ONLY",

@@ -332,6 +332,13 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertTrue(hasattr(PATCH, "patch_menu3_file_flush"), "Menu3 FileFlush path trace is absent")
         source_with_unrelated_marker = FS_FLUSH_CPP + "\n// [COMPATBOOT][MENU3_FSFLUSH] marker in another function\n"
         traced = PATCH.patch_menu3_file_flush(source_with_unrelated_marker)
+        commentless_source = FS_FLUSH_CPP.replace(
+            "        // On Symbian, read-only file is fine with flushing. The VFS is changed to reflect this behaviour.\n",
+            "",
+        )
+        commentless_traced = PATCH.patch_menu3_file_flush(commentless_source)
+        self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", commentless_traced)
+        self.assertEqual(commentless_traced.count("vfs_file->flush()"), 1)
         self.assertIn("[COMPATBOOT][MENU3_FSFLUSH]", traced)
         self.assertIn("compat_menu_flush_cfg->compat_menu_probe_mode", traced)
         self.assertIn("compat_target_uid3", traced)
