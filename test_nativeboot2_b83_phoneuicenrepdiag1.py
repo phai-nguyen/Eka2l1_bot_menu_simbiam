@@ -21,20 +21,22 @@ def main():
 
     upstream = Path(sys.argv[1]).resolve()
     cenrep_path = upstream / "src/emu/services/src/centralrepo/centralrepo.cpp"
-    context_path = upstream / "src/emu/services/src/context.cpp"
-    if not cenrep_path.is_file():
-        fail(f"missing B28 CenRep service source: {cenrep_path}")
-    if not context_path.is_file():
-        fail(f"missing B28 IPC completion source: {context_path}")
+    repo_path = upstream / "src/emu/services/src/centralrepo/repo.cpp"
+    header_path = upstream / "src/emu/services/include/services/centralrepo/repo.h"
+    for path in (cenrep_path, repo_path, header_path):
+        if not path.is_file():
+            fail(f"missing B28 CenRep source: {path}")
 
     cenrep = cenrep_path.read_text(encoding="utf-8")
-    context = context_path.read_text(encoding="utf-8")
+    repo = repo_path.read_text(encoding="utf-8")
+    header = header_path.read_text(encoding="utf-8")
     require(cenrep, "[NBOOT2][CENREP_IPC_ENTRY]", "centralrepo.cpp")
-    require(cenrep, "ctx->msg->function", "centralrepo.cpp")
     require(cenrep, "ctx->msg->args.args[0]", "centralrepo.cpp")
-    require(context, "[NBOOT2][CENREP_IPC_COMPLETE]", "context.cpp")
-    require(context, "CENTRAL_REPO_SERVER_NAME", "context.cpp")
-    require(context, "status={}", "context.cpp")
+    require(repo, "complete_central_repo_ipc(ctx, ", "repo.cpp")
+    require(cenrep, "complete_central_repo_ipc(ctx, ", "centralrepo.cpp")
+    require(header, "void complete_central_repo_ipc(service::ipc_context *ctx, int res);", "repo.h")
+    require(cenrep, "[NBOOT2][CENREP_IPC_COMPLETE]", "centralrepo.cpp")
+    require(cenrep, "ctx->complete(res);", "centralrepo.cpp completion wrapper")
 
     print(MARK + ": PASS")
     print("probe=CentralRepository_IPC_entry_and_completion")

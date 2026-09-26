@@ -15,7 +15,10 @@ checkout and therefore did not establish compatibility with the B28 cache.
 The file belongs to a newer native no-Lua scripting path; it is not a valid
 assumption for this older bootstrap. B28 remains unchanged. The revised probe
 uses the Central Repository HLE source files already exercised by B29+ on the
-B28-derived build.
+B28-derived build. A first attempt to log in generic `ipc_context::complete()`
+also failed on run #255 because the completion implementation anchor differs
+in the cached B28 tree. This version wraps CenRep-owned completions directly,
+without assuming the newer generic IPC implementation.
 
 ## Revised diagnostic
 
@@ -23,9 +26,10 @@ The probe adds two read-only records:
 
 - `[NBOOT2][CENREP_IPC_ENTRY]` in `centralrepo.cpp`: message ID, thread,
   opcode, and four raw IPC argument words at Central Repository entry.
-- `[NBOOT2][CENREP_IPC_COMPLETE]` in `context.cpp`: matching message ID,
-  thread, opcode, and completion status, filtered to
-  `!CentralRepository`.
+- `[NBOOT2][CENREP_IPC_COMPLETE]` from a shared CenRep completion wrapper in
+  `centralrepo.cpp`: matching message ID, thread, opcode, and result status.
+  CenRep completions in `centralrepo.cpp` and `repo.cpp` delegate through the
+  wrapper to the original `ctx->complete(res)` unchanged.
 
 Correlate records by message ID/thread with existing FileServer resource-path,
 PhoneUI, CONE, and Leave/panic logs. This observes the service boundary rather
@@ -46,6 +50,8 @@ B79 and earlier are out of scope for this continuation.
 - `git diff --check`: PASS on the patched source worktree.
 - FASTBUILD run #254: FAIL before compilation on the obsolete B83 source-path
   assumption; it does not validate this revised implementation.
+- FASTBUILD run #255: FAIL before compilation because the cached B28
+  `ipc_context::complete()` anchor differed from newer local source.
 - Revised FASTBUILD/iOS compile, package, binary markers, and RM-356 device test:
   PENDING.
 
