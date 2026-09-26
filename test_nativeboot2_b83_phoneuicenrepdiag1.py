@@ -33,10 +33,10 @@ def main():
     require(cenrep, "[NBOOT2][CENREP_IPC_ENTRY]", "centralrepo.cpp")
     require(cenrep, "ctx->msg->args.args[0]", "centralrepo.cpp")
     require(repo, "complete_central_repo_ipc(ctx, ", "repo.cpp")
-    require(cenrep, "complete_central_repo_ipc(ctx, ", "centralrepo.cpp")
     require(header, "void complete_central_repo_ipc(service::ipc_context *ctx, int res);", "repo.h")
     require(cenrep, "[NBOOT2][CENREP_IPC_COMPLETE]", "centralrepo.cpp")
     require(cenrep, "ctx->complete(res);", "centralrepo.cpp completion wrapper")
+    require(cenrep, "ctx->complete(epoc::error_not_found);", "unchanged CenRep session path")
 
     print(MARK + ": PASS")
     print("probe=CentralRepository_IPC_entry_and_completion")

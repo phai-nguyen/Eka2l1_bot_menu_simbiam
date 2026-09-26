@@ -71,12 +71,11 @@ def main():
         fail(f"CenRep declaration anchor expected once, found {header.count(header_anchor)}")
     if cenrep.count(namespace_anchor) != 1:
         fail(f"CenRep namespace anchor expected once, found {cenrep.count(namespace_anchor)}")
-    if cenrep.count("ctx->complete(") + repo.count("ctx->complete(") == 0:
+    if repo.count("ctx->complete(") == 0:
         fail("no CenRep completion call sites found")
 
-    # Redirect only existing CenRep service completions through the observer;
-    # the helper itself delegates to the original ipc_context::complete.
-    cenrep = cenrep.replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
+    # Redirect the repo operation handlers only. Older session-level paths in
+    # centralrepo.cpp (including the B20 ResetAll contract) stay untouched.
     repo = repo.replace("ctx->complete(", "complete_central_repo_ipc(ctx, ")
     cenrep = replace_once(cenrep, entry_anchor, entry_code, "CenRep IPC entry")
     header = replace_once(header, header_anchor, header_anchor + complete_declaration + "\n", "CenRep completion declaration")
