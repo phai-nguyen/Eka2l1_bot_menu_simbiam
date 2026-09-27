@@ -13,7 +13,30 @@ Updated: 2026-09-27
 
 Do not restart earlier milestone research. The current objective is COMPATBOOT1-MENUPROBE1: retain Native Boot as the default, wait for the required UI services, then launch the real firmware `menu3.exe` and report the first missing dependency or visible target marker. No firmware replacement or readiness bypass is part of this change.
 
-## Latest status — B94 teardown probe and FASTBUILD #313
+## Newest device result and next diagnostic — B95 / B96
+
+B95 was installed over the prior app while retaining old logs. Its 247-second
+recording shows “Phone start-up failed” unchanged until the user manually opens
+**Thoát Emulator**. The log records `exit_requested` followed by a normal
+shutdown, with no automatic crash to iOS Home during the capture. Detailed
+timestamps, TFX findings, and hashes are in
+[B95 device evidence](history/B95-DEVICE1.md).
+
+The first Menu `Leave(-5)` precedes Menu's own `TfxServer` miss by 38 ms. The
+same B95 run shows stock Themes CenRep `0x102818E8:0x09 = 0x7FFFFFFF`, which
+suppresses TFX; TFX files exist in the firmware, but no plugin load or public
+server registration occurs. This explains the absent TfxServer provider but
+does not prove it caused the Menu leave.
+
+B96 adds read-only nearest-export and bounded instruction-window details to
+the scoped Menu3 Leave stack. Its local contracts pass; FASTBUILD/iOS compile
+is pending. Do not claim an IPA or GREEN status until the run confirms it.
+After GREEN, use the IPA for a CompatBoot device capture and inspect the EStor
+stack addresses from B95. Do not alter firmware, TFX/CenRep state, server
+semantics, Native Boot default, or readiness checks. See
+[B96 diagnostic](history/B96-ESTORLEAVEEXPORTS1.md) and [CURRENT](CURRENT.md).
+
+## Previous diagnostic build — B94 teardown probe and FASTBUILD #313
 
 B94 added read-only diagnostics, enabled only in explicit CompatBoot mode, for
 process kill entry, property cancellation, `notify_info::complete()` status
@@ -71,9 +94,12 @@ B94 was installed over the prior app and the old logs were cleared. The user con
 
 The iOS .ips report records `EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE` at a PC resolving to `vtable for eka2l1::kernel::chunk + 16`. The stack passes through `notify_info::complete()`, `property::cancel()`, `property_reference::~property_reference()`, `kernel_system::destroy()`, and `process::kill()`. This points to an invalid virtual dispatch or object-lifetime problem during guest process teardown, but does not yet identify the stale object or guest process. Full capture details and hashes are in [B94 crash evidence](history/B94-CRASH1.md).
 
-## Next investigation
+## B94 next-work item — superseded by B95
 
-Repeat B94's install-over test with old logs cleared, using the FASTBUILD #313 IPA, and return the fresh log plus the iOS `.ips` file if it crashes. Inspect `[COMPATBOOT][PROCESS_KILL]`, `[COMPATBOOT][PROP_CANCEL]`, `[COMPATBOOT][NOTIFY_STATUS]`, and `[COMPATBOOT][NOTIFY_STATUS_MAP]` around the crash. The probe is diagnostic-only: if the app exits normally, say so and retain the log anyway. Do not change firmware or bypass readiness while collecting this evidence. PR #6 remains open and unmerged.
+B94's teardown investigation is recorded in
+[history/B94-TEARDOWNPROBE1.md](history/B94-TEARDOWNPROBE1.md). B95 exited
+normally after a longer device run, so the active next step is B96's Menu3/
+EStor stack resolution above, not another repetition of B94's test.
 
 PR #6 is still open and unmerged. B92 (test method 2) and B93 (method 3) both reached `BARRIER_READY` and launched real `menu3.exe`; neither emitted `[COMPATBOOT][TARGET_VISIBLE]`. B93's video shows the Nokia logo persisting without the Symbian Menu. Its logs record `shutdown_done` and `normal_restart_done has_device=1`; the user confirms they exited manually, without a crash. All five `FindEqInt` calls against repo `0x102858F2` returned `-1`; the Menu query for UID3 `0x101F4CD2` followed the first trapped `Leave(-5)` and the first Menu `TfxServer` miss. The matching order across methods 2 and 3 does not identify the cause. The B93 checkpoint proposed symbolizing the Leave stack and decoding opcode `0x27`; FASTBUILD #302 now adds the read-only FileFlush path/result trace for the next device capture. See [B93 device evidence](history/B93-DEVICE1.md) and [B92 device evidence](history/B92-DEVICE1.md).
 
