@@ -20,7 +20,14 @@ The historical B88/B89 patchers and their standalone contract tests remain in th
 - `python3 -m unittest discover -v`: 64 passed, 2 skipped because no FASTBUILD upstream checkout was supplied.
 - `python3 ci/fastbuild1_manifest.py validate .`: passed.
 - `git diff --check`: passed.
-- FASTBUILD/iOS compile and runtime validation: pending; do not report green or an IPA until the workflow confirms them.
+- FASTBUILD #321, run `36310459634`, commit `1611e3533306a604435c9b12d59f7606ecfeb879`: GREEN.
+  - B28 baseline and all manifest regressions passed, including updated B27 panic/SYSSTART assertions.
+  - iOS compile, binary invariants, unsigned IPA packaging, and artifact upload passed.
+  - Binary check confirmed B88 and B89 bypass markers are absent.
+  - IPA artifact: [download from GitHub Actions](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36310459634/artifacts/10929206594), 20,009,182-byte ZIP, available until 2026-10-11.
+  - IPA SHA-256: `acb839f04d3aa4e51ee6999877586f0fcd7033bf353f7a52936baedd3f6de021`.
+  - Audit artifact ID: `10928393854`.
+- Device installation and runtime validation: pending; this workflow produced an unsigned IPA.
 
 ## Guardrails
 
