@@ -276,6 +276,27 @@ def patch_state_cpp(source):
         source = replace_once(source, "#include <kernel/process.h>\n",
                               "#include <kernel/process.h>\n#include <kernel/timing.h>\n",
                               "CompatBoot startup timeout API")
+    if "#include <kernel/kernel.h>" not in source:
+        source = replace_once(source, "#include <kernel/process.h>\n",
+                              "#include <kernel/process.h>\n#include <kernel/kernel.h>\n",
+                              "CompatBoot shared barrier readiness API")
+    if "#include <config/config.h>" not in source:
+        source = replace_once(source, "#include <kernel/process.h>\n",
+                              "#include <kernel/process.h>\n#include <config/config.h>\n",
+                              "CompatBoot shared barrier config type")
+    if "#include <string>" not in source:
+        source = replace_once(source, "#include <kernel/process.h>\n",
+                              "#include <kernel/process.h>\n#include <string>\n",
+                              "CompatBoot timeout missing-service string")
+    if "std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg);" not in source:
+        source = replace_once(
+            source,
+            "#include <chrono>\n",
+            "#include <chrono>\n\nnamespace eka2l1::kernel::svc {\n"
+            "    std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg);\n"
+            "}\n",
+            "shared CompatBoot barrier readiness declaration",
+        )
     reset = '''        conf.compat_menu_probe_mode = compat_menu_probe_mode;
         conf.compat_target_kind = compat_target_kind;
         conf.compat_menu_probe_launched = false;
@@ -307,21 +328,15 @@ def patch_state_cpp(source):
                                 auto *compat_kern = symsys->get_kernel_system();
                                 const int compat_event = compat_kern->get_ntimer()->register_event(
                                     "COMPATBOOT1_STARTUP_TIMEOUT",
-                                    [compat_cfg](std::uint64_t, int) {
+                                    [compat_cfg, compat_kern](std::uint64_t, int) {
                                         if (compat_cfg->compat_target_kind == 0 || compat_cfg->compat_menu_probe_finished) return;
-                                        std::string missing;
-                                        if (!compat_cfg->compat_seen_file_server) missing += "FileServer,";
-                                        if (!compat_cfg->compat_seen_fbs) missing += "FBS,";
-                                        if (!compat_cfg->compat_seen_window_server) missing += "WindowServer,";
-                                        if (!compat_cfg->compat_seen_cenrep) missing += "CenRep,";
-                                        if (!compat_cfg->compat_seen_apparc) missing += "AppArc,";
-                                        if (!compat_cfg->compat_seen_akncap) missing += "AknCapServer,";
-                                        if (!missing.empty()) missing.pop_back();
+                                        const std::string missing =
+                                            eka2l1::kernel::svc::compatboot1_missing_services(compat_kern, compat_cfg);
                                         bool expected = false;
                                         if (compat_cfg->compat_menu_probe_finished.compare_exchange_strong(expected, true)) {
                                             compat_cfg->compat_menu_probe_timed_out = true;
                                             LOG_ERROR(FRONTEND_CMDLINE,
-                                                "[COMPATBOOT][BARRIER_TIMEOUT] missing_or_unobserved={}", missing);
+                                                "[COMPATBOOT][BARRIER_TIMEOUT] missing={}", missing);
                                         }
                                     });
                                 conf.compat_menu_probe_timeout_event = compat_event;
@@ -329,8 +344,11 @@ def patch_state_cpp(source):
                                     compat_kern->get_ntimer()->schedule_event(60000000, compat_event, 0);
                                     conf.compat_timeout_event_registered = true;
                                 } else {
+                                    conf.compat_menu_probe_finished = true;
+                                    conf.compat_menu_probe_timed_out = true;
                                     LOG_ERROR(FRONTEND_CMDLINE,
-                                        "[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL] event_id={}", compat_event);
+                                        "[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL] event_id={} target_blocked=1",
+                                        compat_event);
                                 }
                                 LOG_WARN(FRONTEND_CMDLINE,
                                     "[COMPATBOOT][DEADLINE_START] after=EStart_run timeout_ms=60000");
@@ -459,7 +477,7 @@ def patch_svc(source):
                           "#include <kernel/kernel.h>\n" + includes,
                           "COMPATBOOT service interfaces")
     helper = r'''namespace eka2l1::kernel::svc {
-    static std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
+    std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg) {
         const epocver ver = kern->get_epoc_version();
         auto ready = [kern](const std::string &name, bool guest_ready) {
             service::server *registered = kern->get_by_name<service::server>(name);
@@ -562,7 +580,7 @@ namespace eka2l1 {
 
 
 def patch_missing_server(source):
-    if "[COMPATBOOT][FIRST_FAILURE]" in source:
+    if "[COMPATBOOT][MISSING_SERVER]" in source:
         return source
     anchor = '                LOG_WARN(KERNEL, "[NBOOT2][MISSING_SERVER] process={} server={} msg_slots={} mode={}",\n'
     trace = '''                if (kern->get_config()->compat_target_kind != 0 && pr &&
@@ -661,7 +679,7 @@ def patch_target_visible(source):
     if end < 0:
         fail("B50 canvas visibility completion anchor is missing")
     trace = '''            eka2l1::config::state *compat_cfg = client->get_ws().get_kernel_system()->get_config();
-            if (compat_cfg->compat_target_kind != 0 &&
+            if (compat_cfg->compat_target_kind == 2 &&
                 b50_uid3 == compat_cfg->compat_target_uid3 && b50_group &&
                 is_visible() && can_be_physically_seen()) {
                 LOG_WARN(SERVICE_WINDOW,

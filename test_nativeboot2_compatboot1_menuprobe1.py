@@ -267,7 +267,9 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertIn("[COMPATBOOT][BARRIER_TIMEOUT]", state)
         self.assertIn("get_ntimer()->register_event", state)
         self.assertIn("schedule_event(60000000", state)
-        self.assertIn("missing_or_unobserved", state)
+        self.assertIn("compatboot1_missing_services(compat_kern, compat_cfg)", state)
+        self.assertIn('"[COMPATBOOT][BARRIER_TIMEOUT] missing={}"', state)
+        self.assertNotIn("missing_or_unobserved", state)
         self.assertIn("services=6", state)
         self.assertIn("static_cast<std::uint64_t>(now_ms) + 60000", state)
 
@@ -370,11 +372,12 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertNotIn("native_phone_boot", traced)
         self.assertEqual(PATCH.patch_menu3_file_flush(traced), traced)
 
-    def test_visible_marker_requires_menu3_window_surface(self):
+    def test_visible_marker_requires_direct_home_window_surface(self):
         self.assertTrue(hasattr(PATCH, "patch_target_visible"), "Menu3 visibility trace is absent")
         traced = PATCH.patch_target_visible(WINUSER_CPP)
-        for condition in ("compat_target_kind != 0", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
+        for condition in ("compat_target_kind == 2", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
             self.assertIn(condition, traced)
+        self.assertNotIn("compat_target_kind != 0", traced)
         self.assertIn("[COMPATBOOT][TARGET_VISIBLE]", traced)
 
     def test_visibility_probe_uses_window_server_kernel_config_accessor(self):

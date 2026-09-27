@@ -104,13 +104,42 @@ class DirectHomeSelectionContracts(unittest.TestCase):
         self.assertIn("compat_target_kind != 0", missing)
         self.assertIn("[COMPATBOOT][FIRST_FAILURE]", missing)
 
-    def test_visible_marker_accepts_either_selected_target_but_requires_real_window(self):
+    def test_visible_marker_is_direct_home_only_and_requires_real_window(self):
         visible = PATCH.patch_target_visible(baseline.WINUSER_CPP)
 
-        for condition in ("compat_target_kind != 0", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
+        for condition in ("compat_target_kind == 2", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
             with self.subTest(condition=condition):
                 self.assertIn(condition, visible)
+        self.assertNotIn("compat_target_kind != 0", visible)
         self.assertIn("[COMPATBOOT][TARGET_VISIBLE]", visible)
+
+    def test_combined_svc_patch_keeps_missing_server_trace_and_is_idempotent(self):
+        combined = PATCH.patch_missing_server(PATCH.patch_svc(baseline.SVC_CPP))
+
+        self.assertIn("[COMPATBOOT][MISSING_SERVER]", combined)
+        self.assertIn("[COMPATBOOT][FIRST_FAILURE] source=MISSING_SERVER", combined)
+        self.assertEqual(
+            combined.count("[COMPATBOOT][MISSING_SERVER]"),
+            PATCH.patch_missing_server(combined).count("[COMPATBOOT][MISSING_SERVER]"),
+        )
+
+    def test_timeout_uses_same_server_readiness_predicate_as_barrier(self):
+        svc = PATCH.patch_svc(baseline.SVC_CPP)
+        state = PATCH.patch_state_cpp(baseline.STATE_CPP)
+
+        self.assertIn("std::string compatboot1_missing_services(kernel_system *kern, config::state *cfg)", state)
+        self.assertIn("compatboot1_missing_services(compat_kern, compat_cfg)", state)
+        self.assertIn("[COMPATBOOT][BARRIER_TIMEOUT] missing={}", state)
+        self.assertIn("registered->is_hle() || guest_ready", svc)
+        self.assertNotIn("missing_or_unobserved", state)
+
+    def test_timeout_registration_failure_fails_barrier_closed(self):
+        state = PATCH.patch_state_cpp(baseline.STATE_CPP)
+
+        failure_branch = state[state.index("if (compat_event >= 0)"):state.index("LOG_WARN(FRONTEND_CMDLINE,\n                                    \"[COMPATBOOT][DEADLINE_START]")]
+        self.assertIn("conf.compat_menu_probe_finished = true;", failure_branch)
+        self.assertIn("conf.compat_menu_probe_timed_out = true;", failure_branch)
+        self.assertIn("[COMPATBOOT][BARRIER_TIMEOUT_REGISTER_FAIL]", failure_branch)
 
 
 if __name__ == "__main__":
