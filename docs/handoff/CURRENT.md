@@ -4,7 +4,7 @@ Updated: 2026-09-27
 
 Latest handoff: [NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md](NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md)
 Latest device evidence: [B97 overlay-install log](history/B97-DEVICE1.md)
-Latest diagnostic change: [B96 EStor Leave stack export probe](history/B96-ESTORLEAVEEXPORTS1.md)
+Latest diagnostic change: [B98 Menu3 FileServer Entry status probe](history/B98-MENU3ENTRY1.md)
 
 Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6), open and unmerged
@@ -24,19 +24,38 @@ The first Menu `Leave(-5)` again follows a successful FileFlush of
 `hasclassicgrid.o0001` and maps to stock EStor `CFileStore::DoRevertL()` in the
 stack. B97 also records a second `Leave(-5)` from Avkon's
 `CAknApplication::OpenIniFileLC(RFs&) const`, whose ROM code explicitly calls
-`User::Leave(-5)`. The attempted INI filename and its relationship to phone
-startup are not yet known. `TfxServer` is missing for several system processes
-before Menu3; the Menu3-scoped first-failure marker is not the first
-system-wide miss. Neither that miss nor the EStor Leave is proven to cause the
-persistent startup message.
+`User::Leave(-5)`. At 15:33:34.662 FileServer logs an `Entry` query for
+`C:\private\101F4CD2\appshell.ini`; one millisecond later Avkon's
+`OpenIniFileLC` traps `-5`, and the leave record names the preceding FileServer
+opcode `0x16`. B97 does not record the Entry completion status, so this
+sequence does not yet prove the returned value. `TfxServer` is missing for
+several system processes before Menu3; the Menu3-scoped first-failure marker
+is not the first system-wide miss. Neither that miss nor the EStor Leave is
+proven to cause the persistent startup message.
 
 The log also confirms inherited B89 behavior: Telephone `CONE 14` is converted
 to a clean exit, and SYSSTART's global-state request `101 -> 116` is overridden
-to `109` (`NormalRfOn`). This is a startup-gate bypass that predates B97; the
-Phone startup error remained visible despite it. B97 is therefore not a
-no-bypass test. The current COMPATBOOT1 scope says not to bypass checks, so
-settle whether this inherited B89 behavior remains in the device-test baseline
-before the next run. See [B97 device evidence](history/B97-DEVICE1.md).
+to `109` (`NormalRfOn`). Branch 1 intentionally retains this B89 behavior;
+B97 is not a no-bypass test. See [B97 device evidence](history/B97-DEVICE1.md).
+
+At 15:33:34.662 FileServer logs an `Entry` query for
+`C:\private\101F4CD2\appshell.ini`; one millisecond later Avkon's
+`OpenIniFileLC` traps `-5`, and the leave record names the preceding FileServer
+opcode `0x16`. B97 does not record the Entry completion status, so the sequence
+does not yet prove the returned value.
+
+## Current diagnostic change — B98
+
+B98 adds a read-only `[COMPATBOOT][MENU3_ENTRY]` record after the Entry VFS
+lookup. It logs only the active CompatBoot target UID3, normalized path, found
+flag, and exact status that the existing completion branch will return. The
+FileServer result, six-service barrier, real Menu3 launch, Native Boot default,
+firmware, and Branch 1 B88/B89 behavior are unchanged. See
+[B98 diagnostic](history/B98-MENU3ENTRY1.md).
+
+Local B98 contract, manifest validation, full-suite status, FASTBUILD run, and
+artifact details will be added after verification; no GREEN/IPA claim is made
+until Actions confirms the result.
 
 ## Previous device result — B96
 
@@ -96,9 +115,9 @@ sideloading tool to sign and install; Files does not install an unsigned IPA.
 
 ## Next
 
-Trace the Phone startup failure and inspect the INI path/status behind
-`CAknApplication::OpenIniFileLC`. Continue determining whether Menu's trapped
-EStor `KErrNotFound` is expected cleanup or reaches startup. Keep Native Boot
-as default; do not change firmware, the stock TFX setting, server behavior, or
-readiness checks. Add only read-only caller/status diagnostics if static
-analysis cannot resolve the relationship.
+Verify the B98 Menu3 FileServer Entry path/status trace in GitHub Actions, then
+device-test it. Check whether `appshell.ini` lookup returns `KErrNotFound`
+immediately before `OpenIniFileLC` traps `-5`. Keep the EStor Revert,
+TfxServer miss, and phone-startup message separate until a causal link is
+demonstrated. Keep Native Boot as default and preserve Branch 1's B88/B89
+behavior, firmware, and six-service readiness barrier.

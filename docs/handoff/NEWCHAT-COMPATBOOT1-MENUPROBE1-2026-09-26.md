@@ -16,7 +16,9 @@ The first Menu `Leave(-5)` again follows a successful FileFlush of
 cleanup frames. A second Menu `Leave(-5)` maps to Avkon
 `CAknApplication::OpenIniFileLC(RFs&) const`; the matching ROM instructions
 immediately before the return address explicitly call `User::Leave(-5)`. The
-log does not reveal which INI filename was used or whether this is expected.
+log records a FileServer `Entry` query for
+`C:\private\101F4CD2\appshell.ini` one millisecond before this Leave, but does
+not record the Entry completion status.
 `TfxServer` is missing earlier for several system
 processes, so the Menu3 `[COMPATBOOT][FIRST_FAILURE]` marker is only first
 within Menu3's target scope, not system-wide. No causal link to the persistent
@@ -24,16 +26,13 @@ Phone startup message is established.
 
 The log also confirms inherited B89 behavior: Telephone `CONE 14` is changed
 to a clean exit, and SYSSTART's global startup-state request `101 -> 116` is
-overridden to `109` (`NormalRfOn`). This bypass predates B97, but conflicts
-with the current COMPATBOOT1 instruction not to bypass checks. The Phone
-startup failure remained visible despite it, so B97 is not a no-bypass test.
-Resolve whether B89 remains in the device-test baseline before another run.
-Full details and input hashes:
+overridden to `109` (`NormalRfOn`). Branch 1 intentionally retains this B89
+behavior; B97 is not a no-bypass test. Full details and input hashes:
 [B97 device evidence](history/B97-DEVICE1.md).
 
-Next, trace the attempted INI path/status and phone startup failure through
-read-only ROM/log evidence. Keep Native Boot as default and preserve the
-firmware, TFX/CenRep state, server behavior, and readiness checks.
+Next, verify the read-only B98 target-scoped Entry path/status trace in Actions
+and then on-device. Keep Native Boot as default and preserve the firmware,
+six-service barrier, server behavior, and Branch 1 B88/B89 behavior.
 
 ## Continue from here
 
