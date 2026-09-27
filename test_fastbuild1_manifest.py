@@ -136,6 +136,18 @@ class FastbuildManifestTests(unittest.TestCase):
             ],
         )
 
+    def test_directhome_contract_accepts_manifest_upstream_argument(self):
+        root = Path(__file__).resolve().parent
+        script = root / "test_nativeboot2_compatboot1_directhome1.py"
+        with tempfile.TemporaryDirectory() as td:
+            result = subprocess.run(
+                ["python3", str(script), td],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

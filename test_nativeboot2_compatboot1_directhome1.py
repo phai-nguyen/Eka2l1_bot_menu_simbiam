@@ -1,4 +1,6 @@
 import unittest
+import sys
+from pathlib import Path
 
 import test_nativeboot2_compatboot1_menuprobe1 as baseline
 
@@ -143,4 +145,6 @@ class DirectHomeSelectionContracts(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2 and Path(sys.argv[1]).is_dir():
+        sys.argv = [sys.argv[0]]
     unittest.main()
