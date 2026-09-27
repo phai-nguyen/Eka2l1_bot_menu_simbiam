@@ -36,13 +36,26 @@ the workflow now checks both marker strings in the compiled binary.
 ## Verification status
 
 - B96 unit contract: 3 tests pass.
-- Full unittest discovery: 63 tests pass, 1 upstream-dependent test skipped.
+- Full unittest discovery: 62 tests pass, 2 upstream-dependent tests skipped
+  (64 total).
 - `python3 ci/fastbuild1_manifest.py validate .`: PASS.
 - `git diff --check`: PASS.
-- FASTBUILD/iOS compile: pending; no IPA or GREEN status is claimed.
+- FASTBUILD #315 exposed a test assertion that started its source slice at the
+  log marker, after the export lookup. The test now starts at
+  `const auto compat_leave_exports`.
+- FASTBUILD #316, run `36295344432`, is **GREEN** on commit
+  `9268e8bfbf546afef801a3bd24c090a0bdb7affe`. Baseline, patch application,
+  regressions, iOS compile, binary markers, unsigned IPA packaging, and upload
+  passed. Audit: 121 seconds total, 43 seconds compiling, 3 seconds packaging.
+- IPA artifact `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`, ID
+  `10923757448`, expires 2026-10-11 04:49 UTC. IPA SHA-256:
+  `cf9e2ce80f9748d23d04362ab7efe156c796ad935e8496da42dba3c722719cb2`.
 
-After FASTBUILD passes, device-test this IPA in explicit CompatBoot mode and
-retain the usual logs/video. Interpret an absent TfxServer against the stock
+On iPhone, open [FASTBUILD #316](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36295344432)
+in Safari while signed into GitHub, download the IPA artifact ZIP, tap it in
+Files to extract, and import the unsigned IPA into ESign Match or the usual
+sideloading tool to sign and install. Then device-test in explicit CompatBoot
+mode and retain logs/video. Interpret an absent TfxServer against the stock
 disabled-TFX setting; do not force-enable TFX, fabricate the service, or bypass
 the startup barrier. The primary question is which EStor operation is active
 at the first Menu `Leave(-5)`.

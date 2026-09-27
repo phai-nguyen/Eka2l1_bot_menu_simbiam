@@ -38,14 +38,27 @@ handling, firmware, CenRep, TFX/server behavior, and the six-service barrier
 are unchanged.
 
 Local verification: 62 tests passed, two upstream-dependent tests skipped
-(64 total); manifest validation and `git diff --check` passed. B96 has not yet been
-FASTBUILD-validated. The latest GREEN build is FASTBUILD #313, source commit
-`c83d4b3749ba0436ecf467ee25ba087f02a04b09`, run
-[36290239618](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36290239618).
+(64 total); manifest validation and `git diff --check` passed. FASTBUILD #315
+found one B96 integration-test scope assertion error; the assertion was fixed
+to cover the whole diagnostic block. FASTBUILD #316 is **GREEN** on source
+commit `9268e8bfbf546afef801a3bd24c090a0bdb7affe`, run
+[36295344432](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36295344432).
+B28 baseline, milestone application and regressions, iOS compile, binary
+invariants, unsigned IPA packaging, and artifact upload all passed. The build
+took 121 seconds; iOS compile took 43 seconds.
+
+Latest IPA artifact: `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`,
+ID `10923757448`, ZIP size 20,011,611 bytes, expires 2026-10-11 04:49 UTC.
+The contained unsigned IPA SHA-256 is
+`cf9e2ce80f9748d23d04362ab7efe156c796ad935e8496da42dba3c722719cb2`.
+On iPhone, open the FASTBUILD #316 run page above in Safari while signed into
+GitHub, download that artifact under **Artifacts**, then tap the ZIP in Files
+to extract it. Import the unsigned `.ipa` into ESign Match or the usual
+sideloading tool to sign and install; Files does not install an unsigned IPA.
 
 ## Next
 
-Build and validate B96 through FASTBUILD. If GREEN, use that IPA for one
-CompatBoot capture and inspect the new export/halfword records for the first
-Menu `Leave(-5)`. Keep Native Boot as default and do not change firmware, the
-stock TFX setting, server behavior, or readiness checks based on B95 alone.
+Use the FASTBUILD #316 IPA for one CompatBoot capture and inspect the new
+export/halfword records for the first Menu `Leave(-5)`. Keep Native Boot as
+default and do not change firmware, the stock TFX setting, server behavior, or
+readiness checks based on B95 alone.

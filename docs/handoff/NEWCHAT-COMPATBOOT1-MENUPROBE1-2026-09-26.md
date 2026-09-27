@@ -7,7 +7,7 @@ Updated: 2026-09-27
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Latest build-validated source commit: `c83d4b3749ba0436ecf467ee25ba087f02a04b09`
+- Latest build-validated source commit: `9268e8bfbf546afef801a3bd24c090a0bdb7affe`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
@@ -29,12 +29,22 @@ server registration occurs. This explains the absent TfxServer provider but
 does not prove it caused the Menu leave.
 
 B96 adds read-only nearest-export and bounded instruction-window details to
-the scoped Menu3 Leave stack. Its local contracts pass; FASTBUILD/iOS compile
-is pending. Do not claim an IPA or GREEN status until the run confirms it.
-After GREEN, use the IPA for a CompatBoot device capture and inspect the EStor
-stack addresses from B95. Do not alter firmware, TFX/CenRep state, server
-semantics, Native Boot default, or readiness checks. See
+the scoped Menu3 Leave stack. FASTBUILD #315 exposed an integration-test scope
+assertion error, which was corrected. FASTBUILD #316 is **GREEN** on commit
+`9268e8bfbf546afef801a3bd24c090a0bdb7affe`; B28 baseline, regressions, iOS
+compile, binary checks, and unsigned IPA packaging/upload passed. Use the
+FASTBUILD #316 IPA for a CompatBoot capture and inspect the EStor stack
+addresses from B95. Do not alter firmware, TFX/CenRep state, server semantics,
+Native Boot default, or readiness checks. See
 [B96 diagnostic](history/B96-ESTORLEAVEEXPORTS1.md) and [CURRENT](CURRENT.md).
+
+Latest IPA: artifact `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`, ID
+`10923757448`, expires 2026-10-11 04:49 UTC; IPA SHA-256
+`cf9e2ce80f9748d23d04362ab7efe156c796ad935e8496da42dba3c722719cb2`. On
+iPhone, open [FASTBUILD #316](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36295344432)
+in Safari while signed into GitHub, download the artifact, tap its ZIP in
+Files to extract, then import the unsigned `.ipa` into ESign Match or the usual
+sideloading tool to sign and install.
 
 ## Previous diagnostic build — B94 teardown probe and FASTBUILD #313
 
