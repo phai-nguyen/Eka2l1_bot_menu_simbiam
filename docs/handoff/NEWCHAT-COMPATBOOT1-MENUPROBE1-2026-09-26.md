@@ -20,7 +20,15 @@ log does not reveal which INI filename was used or whether this is expected.
 `TfxServer` is missing earlier for several system
 processes, so the Menu3 `[COMPATBOOT][FIRST_FAILURE]` marker is only first
 within Menu3's target scope, not system-wide. No causal link to the persistent
-Phone startup message is established. Full details and input hashes:
+Phone startup message is established.
+
+The log also confirms inherited B89 behavior: Telephone `CONE 14` is changed
+to a clean exit, and SYSSTART's global startup-state request `101 -> 116` is
+overridden to `109` (`NormalRfOn`). This bypass predates B97, but conflicts
+with the current COMPATBOOT1 instruction not to bypass checks. The Phone
+startup failure remained visible despite it, so B97 is not a no-bypass test.
+Resolve whether B89 remains in the device-test baseline before another run.
+Full details and input hashes:
 [B97 device evidence](history/B97-DEVICE1.md).
 
 Next, trace the attempted INI path/status and phone startup failure through

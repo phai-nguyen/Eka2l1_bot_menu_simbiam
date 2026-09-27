@@ -17,6 +17,22 @@ The six-service barrier became ready at 15:33:28.023 and the real firmware
 `[COMPATBOOT][TARGET_VISIBLE]` marker. The continuing phone-startup message is
 user-reported; the log does not itself record rendered text.
 
+## Inherited B89 startup-state override
+
+This B97 runtime includes the earlier B89 behavior. At 15:33:34.028 the log
+records the exact Telephone `CONE` reason-14 exit being converted to a clean
+termination. At 15:33:34.069, SYSSTART's global startup-state write for
+category `0x101F8766`, key `0x41`, is changed from requested value `116`
+(`FatalStartupError`) to applied value `109` (`NormalRfOn`). This is a
+targeted bypass of the failed critical
+PhoneUI/SIM startup gate, not an observe-only event. It predates B97; no new
+runtime code was built for this log. Despite that override, the user still saw
+the Phone startup failure and the Menu target did not become visible. This
+means B97 is not evidence from a no-bypass boot. The current
+COMPATBOOT1-MENUPROBE1 constraint says not to bypass checks, so this inherited
+behavior must be resolved explicitly before treating a later device run as a
+strict no-bypass test.
+
 ## Menu Leave evidence
 
 At 15:33:33.118, Menu flushes
@@ -52,8 +68,8 @@ phone-startup failure.
 
 No `[COMPATBOOT][TARGET_VISIBLE]` marker appears. The log contains no host
 crash sequence; the orderly shutdown markers match the user's statement that
-it exited cleanly. No firmware, TFX/CenRep values, startup checks, or server
-behavior were changed for this run.
+it exited cleanly. No firmware image was changed. The inherited B89 behavior
+does change the guest startup state, as described above.
 
 ## Evidence integrity
 

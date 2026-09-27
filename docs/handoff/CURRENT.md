@@ -28,7 +28,15 @@ stack. B97 also records a second `Leave(-5)` from Avkon's
 startup are not yet known. `TfxServer` is missing for several system processes
 before Menu3; the Menu3-scoped first-failure marker is not the first
 system-wide miss. Neither that miss nor the EStor Leave is proven to cause the
-persistent startup message. See [B97 device evidence](history/B97-DEVICE1.md).
+persistent startup message.
+
+The log also confirms inherited B89 behavior: Telephone `CONE 14` is converted
+to a clean exit, and SYSSTART's global-state request `101 -> 116` is overridden
+to `109` (`NormalRfOn`). This is a startup-gate bypass that predates B97; the
+Phone startup error remained visible despite it. B97 is therefore not a
+no-bypass test. The current COMPATBOOT1 scope says not to bypass checks, so
+settle whether this inherited B89 behavior remains in the device-test baseline
+before the next run. See [B97 device evidence](history/B97-DEVICE1.md).
 
 ## Previous device result — B96
 
