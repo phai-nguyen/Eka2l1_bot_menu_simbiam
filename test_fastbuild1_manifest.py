@@ -67,6 +67,10 @@ class FastbuildManifestTests(unittest.TestCase):
     def test_checked_in_manifest_includes_latest_compatboot_diagnostics(self):
         root = Path(__file__).resolve().parent
         post, regressions = fb.parse_manifest(root / "ci/fastbuild1_manifest.txt")
+        applied = "\n".join(apply for apply, _ in post)
+        self.assertNotIn("apply_nativeboot2_b88_phoneuicone14continue1.py", applied)
+        self.assertNotIn("apply_nativeboot2_b89_fatalstatebypass1.py", applied)
+        self.assertIn("apply_nativeboot2_compatboot1_menuprobe1.py", applied)
         self.assertEqual(
             post[-1],
             (

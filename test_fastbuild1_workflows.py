@@ -20,12 +20,19 @@ def git_blob_sha(path: Path) -> str:
 
 
 class FastbuildWorkflowContract(unittest.TestCase):
-    def test_current_build_verifies_b89_state_bypass_marker(self):
+    def test_current_build_rejects_phoneui_startup_bypass_markers(self):
         text = FAST.read_text(encoding="utf-8")
-        self.assertIn(
-            "grep -Fq '[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]'",
-            text,
-        )
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
+            "[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]",
+        ):
+            self.assertIn(
+                f"! grep -Fq '{marker}' \"$RUNNER_TEMP/fastbuild1.strings\"",
+                verify,
+            )
 
     def test_current_build_verifies_menu3_leave5_trace_markers(self):
         text = FAST.read_text(encoding="utf-8")
