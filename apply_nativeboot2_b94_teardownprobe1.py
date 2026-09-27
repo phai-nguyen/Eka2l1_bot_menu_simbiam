@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Apply read-only, CompatBoot-scoped B94 teardown diagnostics."""
 from pathlib import Path
+import re
 import sys
 
 MARK = "NATIVEBOOT2-B94-TEARDOWNPROBE1"
@@ -140,22 +141,31 @@ def patch_property_cancel(source):
         return source
     source = ensure_include(source, "#include <config/config.h>", "property::cancel")
     signature = "bool property::cancel(const epoc::notify_info &info) {"
-    old = "        if (kern->is_thread_alive((*subscription_iterator)->requester)) {\n            (*subscription_iterator)->complete(epoc::error_cancel);\n        }\n"
-    new = '''        auto *nboot2_b94_requester = (*subscription_iterator)->requester;
-        const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
-        if (kern->get_config()->compat_menu_probe_mode) {
-            LOG_INFO(KERNEL,
-                "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={} property_ptr={} requester_ptr={} requester={} requester_alive={} request_status=0x{:08X}",
-                static_cast<const void *>(&info), static_cast<const void *>(this),
-                static_cast<const void *>(nboot2_b94_requester),
-                nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"),
-                nboot2_b94_requester_alive ? 1 : 0, info.sts.ptr_address());
-        }
-        if (nboot2_b94_requester_alive) {
-            (*subscription_iterator)->complete(epoc::error_cancel);
-        }
-'''
-    return patch_function(source, signature, lambda body: replace_once(body, old, new, "property cancel liveness"), "property::cancel")
+    new_lines = '''auto *nboot2_b94_requester = (*subscription_iterator)->requester;
+const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
+if (kern->get_config()->compat_menu_probe_mode) {
+    LOG_INFO(KERNEL,
+        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={} property_ptr={} requester_ptr={} requester={} requester_alive={} request_status=0x{:08X}",
+        static_cast<const void *>(&info), static_cast<const void *>(this),
+        static_cast<const void *>(nboot2_b94_requester),
+        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"),
+        nboot2_b94_requester_alive ? 1 : 0, info.sts.ptr_address());
+}
+if (nboot2_b94_requester_alive) {
+    (*subscription_iterator)->complete(epoc::error_cancel);
+}'''
+    def patch_body(body):
+        pattern = re.compile(
+            r"(?m)^([ \t]*)if \(kern->is_thread_alive\(\(\*subscription_iterator\)->requester\)\) \{\n"
+            r"[ \t]*\(\*subscription_iterator\)->complete\(epoc::error_cancel\);\n[ \t]*\}\n"
+        )
+        matches = list(pattern.finditer(body))
+        if len(matches) != 1:
+            fail(f"property cancel liveness: expected one anchor, found {len(matches)}")
+        indent = matches[0].group(1)
+        replacement = "\n".join(indent + line if line else "" for line in new_lines.splitlines()) + "\n"
+        return body[:matches[0].start()] + replacement + body[matches[0].end():]
+    return patch_function(source, signature, patch_body, "property::cancel")
 
 def patch_process_kill(source):
     marker = "[COMPATBOOT][PROCESS_KILL]"
