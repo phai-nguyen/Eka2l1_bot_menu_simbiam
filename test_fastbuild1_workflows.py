@@ -22,13 +22,17 @@ def git_blob_sha(path: Path) -> str:
 
 
 class FastbuildWorkflowContract(unittest.TestCase):
-    def test_current_build_requires_b99_h2_runtime_identity_marker(self):
+    def test_current_build_requires_directhome_identity_and_rejects_b99_marker(self):
         text = FAST.read_text(encoding="utf-8")
         verify_start = text.index("    - name: Verify binary invariants")
         verify_end = text.index("    - name: Package unsigned IPA", verify_start)
         verify = text[verify_start:verify_end]
         self.assertIn(
-            "grep -Fq '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1'",
+            "grep -Fc '[NBOOT2][BUILD_ID] build=COMPATBOOT1_DIRECTHOME1 track=H2_COMPATBOOT1_DIRECTHOME1'",
+            verify,
+        )
+        self.assertIn(
+            "if grep -Fq '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1'",
             verify,
         )
 

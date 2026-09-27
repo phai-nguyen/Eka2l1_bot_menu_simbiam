@@ -91,6 +91,7 @@
 **Tệp:**
 - Tạo: `apply_nativeboot2_compatboot1_directhomefingerprint1.py`
 - Tạo: `test_nativeboot2_compatboot1_directhomefingerprint1.py`
+- Sửa riêng trên nhánh thử: `apply_nativeboot2_b99_buildfingerprint1.py` và `test_nativeboot2_b99_buildfingerprint1.py` để marker B99 trung gian bám vào hàm bắt đầu phiên CompatBoot mới.
 - Sửa: `ci/fastbuild1_manifest.txt`
 - Sửa: `test_fastbuild1_manifest.py`
 - Sửa: `.github/workflows/build-ios-nativeboot2-current-fast.yml`
@@ -113,7 +114,7 @@
 - [ ] **Bước 5: Cập nhật cổng workflow** để yêu cầu marker Direct Home chính xác, từ chối marker B99 và tiếp tục gọi verifier cấm bypass B88/B89.
 - [ ] **Bước 6: Chạy kiểm thử FASTBUILD cục bộ**.
 
-  Chạy: `python3 -m unittest test_nativeboot2_compatboot1_directhomefingerprint1.py test_nativeboot2_compatboot1_directhome1.py test_nativeboot2_compatboot1_menuprobe1.py test_nativeboot2_b96_estorleaveexports1.py test_fastbuild1_manifest.py test_fastbuild1_workflows.py -v`
+  Chạy: `python3 -m unittest test_nativeboot2_compatboot1_directhomefingerprint1.py test_nativeboot2_b99_buildfingerprint1.py test_nativeboot2_compatboot1_directhome1.py test_nativeboot2_compatboot1_menuprobe1.py test_nativeboot2_b96_estorleaveexports1.py test_fastbuild1_manifest.py test_fastbuild1_workflows.py -v`
   Mong đợi: PASS; manifest hợp lệ, target/profile đúng và các marker kiểm soát chính xác.
 - [ ] **Bước 7: Commit** fingerprint, manifest và workflow sau khi test đạt.
 

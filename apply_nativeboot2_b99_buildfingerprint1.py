@@ -8,7 +8,7 @@ from pathlib import Path
 
 MARK = "NATIVEBOOT2-B99-BUILDFINGERPRINT1"
 LOG_MARKER = "[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1"
-ANCHOR = "- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {\n"
+ANCHOR = "- (void)startEmulatorWithCompatTarget:(NSInteger)compatTarget {\n"
 INSERTION = f'    NSLog(@"{LOG_MARKER}");\n'
 
 

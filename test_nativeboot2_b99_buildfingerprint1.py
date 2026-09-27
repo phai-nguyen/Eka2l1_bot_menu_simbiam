@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 APPLY = ROOT / "apply_nativeboot2_b99_buildfingerprint1.py"
 MARKER = '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1'
+ANCHOR = '- (void)startEmulatorWithCompatTarget:(NSInteger)compatTarget {\n'
 
 
 class B99BuildFingerprintTests(unittest.TestCase):
@@ -19,11 +20,10 @@ class B99BuildFingerprintTests(unittest.TestCase):
         source = root / "src/emu/ios/app/RootViewController.mm"
         source.parent.mkdir(parents=True)
         source.write_text(
-            """- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {
-    if (compatProbe) {
-        eka2l1::ios::bridge::start_compat_phone();
-    } else {
+            ANCHOR + """    if (compatTarget == 0) {
         eka2l1::ios::bridge::start_native_phone();
+    } else {
+        eka2l1::ios::bridge::start_compat_boot(target);
     }
 }
 """,
@@ -52,8 +52,7 @@ class B99BuildFingerprintTests(unittest.TestCase):
                 text.index("eka2l1::ios::bridge::start_native_phone();"),
             )
             self.assertIn(
-                '- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {\n'
-                f'    NSLog(@"{MARKER}");',
+                ANCHOR + f'    NSLog(@"{MARKER}");',
                 text,
             )
 
@@ -69,7 +68,7 @@ class B99BuildFingerprintTests(unittest.TestCase):
         if not APPLY.is_file():
             self.skipTest("B99 fingerprint patcher is not implemented yet")
         for body in ("@implementation RootViewController\n", "\n".join(
-            ["- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {", "}"] * 2
+            [ANCHOR.rstrip(), "}"] * 2
         )):
             with self.subTest(body=body), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
@@ -90,10 +89,11 @@ class B99BuildFingerprintTests(unittest.TestCase):
         invalid_sources = (
             f'NSLog(@"{MARKER}");\n@implementation RootViewController\n',
             f'void unrelated() {{ NSLog(@"{MARKER}"); }}\n'
-            '- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {\n}\n',
-            f'- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {{\n'
+            + ANCHOR + '}\n',
+            f'{ANCHOR}'
             f'    NSLog(@"{MARKER}");\n}}\n'
-            f'- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {{\n}}\n',
+            f'{ANCHOR}'
+            f'}}\n',
         )
         for body in invalid_sources:
             with self.subTest(body=body), tempfile.TemporaryDirectory() as temp:

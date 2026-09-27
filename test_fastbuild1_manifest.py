@@ -74,40 +74,47 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertEqual(
             post[-1],
             (
+                "apply_nativeboot2_compatboot1_directhomefingerprint1.py",
+                "test_nativeboot2_compatboot1_directhomefingerprint1.py",
+            ),
+        )
+        self.assertEqual(
+            post[-2],
+            (
                 "apply_nativeboot2_b99_buildfingerprint1.py",
                 "test_nativeboot2_b99_buildfingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-2],
+            post[-3],
             (
                 "apply_nativeboot2_b96_estorleaveexports1.py",
                 "test_nativeboot2_b96_estorleaveexports1.py",
             ),
         )
         self.assertEqual(
-            post[-3],
+            post[-4],
             (
                 "apply_nativeboot2_b94_teardownprobe1.py",
                 "test_nativeboot2_b94_teardownprobe1.py",
             ),
         )
         self.assertEqual(
-            post[-4],
+            post[-5],
             (
                 "apply_nativeboot2_b92_cenrepfindeqdiag1.py",
                 "test_nativeboot2_b92_cenrepfindeqdiag1.py",
             ),
         )
         self.assertEqual(
-            post[-5],
+            post[-6],
             (
                 "apply_nativeboot2_b91_ipcteardown1.py",
                 "test_nativeboot2_b91_ipcteardown1.py",
             ),
         )
         self.assertEqual(
-            post[-6],
+            post[-7],
             (
                 "apply_nativeboot2_compatboot1_menuprobe1.py",
                 "test_nativeboot2_compatboot1_menuprobe1.py",
@@ -125,6 +132,7 @@ class FastbuildManifestTests(unittest.TestCase):
                 "test_nativeboot2_b26_ioslibraryexit1.py",
                 "test_nativeboot2_b27_wservpanic13trace1.py",
                 "test_nativeboot2_b28_wservlibtype1.py",
+                "test_nativeboot2_compatboot1_directhome1.py",
             ],
         )
 
