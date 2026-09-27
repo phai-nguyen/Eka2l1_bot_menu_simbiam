@@ -3,7 +3,7 @@
 Updated: 2026-09-27
 
 Latest handoff: [NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md](NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md)
-Latest device evidence: [B95 installed-over, retained logs](history/B95-DEVICE1.md)
+Latest device evidence: [B96 EStor Leave trace](history/B96-DEVICE1.md)
 Latest diagnostic change: [B96 EStor Leave stack export probe](history/B96-ESTORLEAVEEXPORTS1.md)
 
 Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
@@ -12,20 +12,26 @@ Branch: `codex/compatboot1-menuprobe1`
 Worktree: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 Base branch: `nativeboot2-current` (B89 baseline)
 
-## Current finding
+## Latest device result — B96
 
-B95 was installed over the app with old logs retained. The recording lasts
-247 seconds. The user observed the unchanged “Phone start-up failed” screen and
-then manually chose **Thoát Emulator**; the log records an orderly exit. There
-was no automatic return to iOS Home during this run.
+B96's 328.7-second recording shows “Phone start-up failed. Contact the
+retailer.” still present near the five-minute mark, then shows the emulator's
+**Thoát Emulator** dialog near the end. The app did not crash to iOS Home; its
+log records `exit_requested` at 14:08:07.628 and `shutdown_done` at
+14:08:07.688. There was no `[COMPATBOOT][TARGET_VISIBLE]` marker.
 
-CompatBoot reached its six-service barrier and launched the real firmware
-`menu3.exe`. The ROM's Themes CenRep `0x102818E8:0x09` returned
-`0x7FFFFFFF` (`suppressed=1`); the TFX DLLs exist in the ROM, but no TFX plugin
-load or `TfxServer` registration was observed. Menu's first logged
-`Leave(-5)` precedes Menu's own `TfxServer` miss by 38 ms. Thus the missing
-server is explained by the stock disabled-TFX setting, but the capture does
-not prove that it caused Menu's leave or the phone startup failure.
+CompatBoot passed its six-service barrier at 14:03:25.436 and launched the
+real `menu3.exe` at 14:03:25.463. The first Menu `Leave(-5)` occurred at
+14:03:30.669, just after Menu opened and flushed the theme object
+`hasclassicgrid.o0001` (`flush_ok=1`, `completion=0`). EPOC9 export mapping
+places the first Leave in stock `CFileStore::DoRevertL()`: the ROM Thumb code
+loads `-5` into `r0` and calls the EUser `User::Leave(int)` import. The B96
+stack contains that call's return address, and its logged `r0` is `0xFFFFFFFB`.
+`CStreamStore::Revert()` and destructor frames fit the cleanup path. This
+explains this specific trapped Leave, but not why Menu enters Revert or why the
+phone-startup screen remains failed. FileFlush had succeeded; the target-scoped
+`TfxServer` miss came 38 ms after the Leave and is not established as its cause.
+See [B96 device evidence](history/B96-DEVICE1.md).
 
 ## Current change — B96
 
@@ -58,7 +64,8 @@ sideloading tool to sign and install; Files does not install an unsigned IPA.
 
 ## Next
 
-Use the FASTBUILD #316 IPA for one CompatBoot capture and inspect the new
-export/halfword records for the first Menu `Leave(-5)`. Keep Native Boot as
-default and do not change firmware, the stock TFX setting, server behavior, or
-readiness checks based on B95 alone.
+Inspect Menu's caller/context for `CStreamStore::Revert()` and whether its
+trapped `KErrNotFound` is expected cleanup behavior or reaches the phone
+startup path. Keep Native Boot as default; do not change firmware, the stock
+TFX setting, server behavior, or readiness checks. Add only read-only
+caller/status diagnostics if static analysis cannot resolve that relationship.

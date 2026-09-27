@@ -13,28 +13,24 @@ Updated: 2026-09-27
 
 Do not restart earlier milestone research. The current objective is COMPATBOOT1-MENUPROBE1: retain Native Boot as the default, wait for the required UI services, then launch the real firmware `menu3.exe` and report the first missing dependency or visible target marker. No firmware replacement or readiness bypass is part of this change.
 
-## Newest device result and next diagnostic — B95 / B96
+## Newest device result and next diagnostic — B96
 
-B95 was installed over the prior app while retaining old logs. Its 247-second
-recording shows “Phone start-up failed” unchanged until the user manually opens
-**Thoát Emulator**. The log records `exit_requested` followed by a normal
-shutdown, with no automatic crash to iOS Home during the capture. Detailed
-timestamps, TFX findings, and hashes are in
-[B95 device evidence](history/B95-DEVICE1.md).
+B96's 328.7-second recording still shows “Phone start-up failed. Contact the
+retailer.” near the five-minute mark. The user opened **Thoát Emulator** near
+the end; `exit_requested` and `shutdown_done` confirm normal exit. The app did
+not crash to iOS Home, and `[COMPATBOOT][TARGET_VISIBLE]` did not occur. See
+[B96 device evidence](history/B96-DEVICE1.md).
 
-The first Menu `Leave(-5)` precedes Menu's own `TfxServer` miss by 38 ms. The
-same B95 run shows stock Themes CenRep `0x102818E8:0x09 = 0x7FFFFFFF`, which
-suppresses TFX; TFX files exist in the firmware, but no plugin load or public
-server registration occurs. This explains the absent TfxServer provider but
-does not prove it caused the Menu leave.
-
-B96 adds read-only nearest-export and bounded instruction-window details to
-the scoped Menu3 Leave stack. FASTBUILD #315 exposed an integration-test scope
-assertion error, which was corrected. FASTBUILD #316 is **GREEN** on commit
-`9268e8bfbf546afef801a3bd24c090a0bdb7affe`; B28 baseline, regressions, iOS
-compile, binary checks, and unsigned IPA packaging/upload passed. Use the
-FASTBUILD #316 IPA for a CompatBoot capture and inspect the EStor stack
-addresses from B95. Do not alter firmware, TFX/CenRep state, server semantics,
+Static disassembly of stock `estor.dll` resolves the first Menu `Leave(-5)`:
+`CFileStore::DoRevertL()` constructs `0xFFFFFFFB` and calls the EUser
+`User::Leave(int)` import. The Leave stack contains the return address after
+that call and the same `r0=-5`; `CStreamStore::Revert()` and destructor frames
+fit the cleanup path. FileFlush success is not the source of this Leave. This
+does not show why Menu called Revert or whether the trapped Leave causes the
+persistent phone-startup failure. Menu's `TfxServer` miss occurs 38 ms later
+and is not established as its cause. Next, inspect the Menu caller and phone
+startup path; add only read-only diagnostics if static analysis is
+insufficient. Do not change firmware, stock TFX/CenRep state, server behavior,
 Native Boot default, or readiness checks. See
 [B96 diagnostic](history/B96-ESTORLEAVEEXPORTS1.md) and [CURRENT](CURRENT.md).
 
