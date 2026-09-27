@@ -137,6 +137,7 @@ jobs:
         BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
         test -x "$BIN"
         strings "$BIN" > "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][WSERV_LIBRARY_TYPE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][LDR_ROOT_RESOLVED]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][LDR_ROOT_EXHAUSTED]' "$RUNNER_TEMP/fastbuild1.strings"
