@@ -141,30 +141,45 @@ def patch_property_cancel(source):
         return source
     source = ensure_include(source, "#include <config/config.h>", "property::cancel")
     signature = "bool property::cancel(const epoc::notify_info &info) {"
-    new_lines = '''auto *nboot2_b94_requester = (*subscription_iterator)->requester;
-const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
-if (kern->get_config()->compat_menu_probe_mode) {
-    LOG_INFO(KERNEL,
-        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={} property_ptr={} requester_ptr={} requester={} requester_alive={} request_status=0x{:08X}",
-        static_cast<const void *>(&info), static_cast<const void *>(this),
-        static_cast<const void *>(nboot2_b94_requester),
-        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"),
-        nboot2_b94_requester_alive ? 1 : 0, info.sts.ptr_address());
-}
-if (nboot2_b94_requester_alive) {
-    (*subscription_iterator)->complete(epoc::error_cancel);
-}'''
     def patch_body(body):
-        pattern = re.compile(
-            r"(?m)^([ \t]*)if \(kern->is_thread_alive\(\(\*subscription_iterator\)->requester\)\) \{\n"
-            r"[ \t]*\(\*subscription_iterator\)->complete\(epoc::error_cancel\);\n[ \t]*\}\n"
-        )
-        matches = list(pattern.finditer(body))
-        if len(matches) != 1:
-            fail(f"property cancel liveness: expected one anchor, found {len(matches)}")
-        indent = matches[0].group(1)
-        replacement = "\n".join(indent + line if line else "" for line in new_lines.splitlines()) + "\n"
-        return body[:matches[0].start()] + replacement + body[matches[0].end():]
+        call = "kern->is_thread_alive("
+        call_positions = [match.start() for match in re.finditer(re.escape(call), body)]
+        if len(call_positions) != 1:
+            fail(f"property cancel liveness: expected one liveness call, found {len(call_positions)}")
+        call_pos = call_positions[0]
+        expr_start = call_pos + len(call)
+        depth = 1
+        expr_end = expr_start
+        while expr_end < len(body) and depth:
+            if body[expr_end] == "(":
+                depth += 1
+            elif body[expr_end] == ")":
+                depth -= 1
+            expr_end += 1
+        if depth:
+            fail("property cancel liveness: unterminated is_thread_alive call")
+        requester_expr = body[expr_start:expr_end - 1].strip()
+        line_start = body.rfind("\n", 0, call_pos) + 1
+        line_end = body.find("\n", expr_end)
+        if line_end < 0:
+            fail("property cancel liveness: missing conditional line ending")
+        original_line = body[line_start:line_end]
+        indent = original_line[:len(original_line) - len(original_line.lstrip(" \t"))]
+        if "if" not in original_line or "{" not in original_line:
+            fail("property cancel liveness: liveness call is not an if condition")
+        replacement = f'''{indent}auto *nboot2_b94_requester = (*subscription_iterator)->requester;
+{indent}const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
+{indent}if (kern->get_config()->compat_menu_probe_mode) {{
+{indent}    LOG_INFO(KERNEL,
+{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester={{}} requester_alive={{}} request_status=0x{{:08X}}",
+{indent}        static_cast<const void *>(&info), static_cast<const void *>(this),
+{indent}        static_cast<const void *>(nboot2_b94_requester),
+{indent}        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"),
+{indent}        nboot2_b94_requester_alive ? 1 : 0, info.sts.ptr_address());
+{indent}}}
+{indent}if (nboot2_b94_requester_alive) {{'''
+        replacement = replacement.replace("(*subscription_iterator)->requester", requester_expr)
+        return body[:line_start] + replacement + body[line_end:]
     return patch_function(source, signature, patch_body, "property::cancel")
 
 def patch_process_kill(source):
