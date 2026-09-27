@@ -2,6 +2,31 @@
 
 Updated: 2026-09-27
 
+## Latest device evidence — B97
+
+B97 was installed over the existing app with previous logs cleared. The user
+reports “Phone start-up failed. Contact the retailer.” remained visible and
+the app exited cleanly; no video was supplied. The run log spans about 4m07s
+and records `exit_requested` followed by `shutdown_done`, without a crash
+sequence. The six-service barrier passed and real `menu3.exe` launched, but
+`[COMPATBOOT][TARGET_VISIBLE]` did not occur.
+
+The first Menu `Leave(-5)` again follows a successful FileFlush of
+`hasclassicgrid.o0001` and maps to stock EStor `CFileStore::DoRevertL()` plus
+cleanup frames. A second Menu `Leave(-5)` maps to Avkon
+`CAknApplication::OpenIniFileLC(RFs&) const`; the matching ROM instructions
+immediately before the return address explicitly call `User::Leave(-5)`. The
+log does not reveal which INI filename was used or whether this is expected.
+`TfxServer` is missing earlier for several system
+processes, so the Menu3 `[COMPATBOOT][FIRST_FAILURE]` marker is only first
+within Menu3's target scope, not system-wide. No causal link to the persistent
+Phone startup message is established. Full details and input hashes:
+[B97 device evidence](history/B97-DEVICE1.md).
+
+Next, trace the attempted INI path/status and phone startup failure through
+read-only ROM/log evidence. Keep Native Boot as default and preserve the
+firmware, TFX/CenRep state, server behavior, and readiness checks.
+
 ## Continue from here
 
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
