@@ -32,7 +32,7 @@
 
 ---
 
-### Nhiệm vụ 1: Thêm profile Direct Home tách biệt ở UI và bridge
+### Task 1 — Nhiệm vụ 1: Thêm profile Direct Home tách biệt ở UI và bridge
 
 **Tệp:**
 - Sửa: `apply_nativeboot2_compatboot1_menuprobe1.py`
@@ -58,7 +58,7 @@
   Mong đợi: PASS; Menu3 và Native Boot vẫn giữ hợp đồng cũ.
 - [ ] **Bước 5: Commit** phần profile UI/bridge/state và các kiểm thử.
 
-### Nhiệm vụ 2: Chạy ailaunch.exe sau barrier và giữ trace đúng phạm vi
+### Task 2 — Nhiệm vụ 2: Chạy ailaunch.exe sau barrier và giữ trace đúng phạm vi
 
 **Tệp:**
 - Sửa: `apply_nativeboot2_compatboot1_menuprobe1.py`
@@ -86,7 +86,7 @@
   Mong đợi: PASS; đủ sáu service mới mở barrier, timeout không spawn, AILaunch lỗi không fallback, marker visible cần đúng UID/cửa sổ.
 - [ ] **Bước 6: Commit** thay đổi barrier/target/trace sau khi các test tập trung đạt.
 
-### Nhiệm vụ 3: Định danh Direct Home và tích hợp FASTBUILD
+### Task 3 — Nhiệm vụ 3: Định danh Direct Home và tích hợp FASTBUILD
 
 **Tệp:**
 - Tạo: `apply_nativeboot2_compatboot1_directhomefingerprint1.py`
@@ -117,7 +117,7 @@
   Mong đợi: PASS; manifest hợp lệ, target/profile đúng và các marker kiểm soát chính xác.
 - [ ] **Bước 7: Commit** fingerprint, manifest và workflow sau khi test đạt.
 
-### Nhiệm vụ 4: Xác minh FASTBUILD và chuẩn bị lượt thử thiết bị
+### Task 4 — Nhiệm vụ 4: Xác minh FASTBUILD và chuẩn bị lượt thử thiết bị
 
 **Tệp:**
 - Cập nhật sau khi có kết quả: `docs/handoff/NEWCHAT-COMPATBOOT1-DIRECTHOME1-2026-09-27.md`
