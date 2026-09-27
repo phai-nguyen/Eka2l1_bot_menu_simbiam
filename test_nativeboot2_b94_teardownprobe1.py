@@ -129,6 +129,20 @@ void unrelated_notify() {
         self.assertIn("if (nboot2_b94_requester_alive)", traced)
         self.assertEqual(PATCH.patch_property_cancel(traced), traced)
 
+    def test_property_cancel_without_liveness_guard_only_logs_unknown_state(self):
+        no_guard = PROPERTY_CPP.replace(
+            "        if (kern->is_thread_alive((*subscription_iterator)->requester)) {\n"
+            "            (*subscription_iterator)->complete(epoc::error_cancel);\n"
+            "        }\n",
+            "        (*subscription_iterator)->complete(epoc::error_cancel);\n",
+        )
+        traced = PATCH.patch_property_cancel(no_guard)
+        self.assertIn("requester_alive=-1", traced)
+        self.assertEqual(traced.count("kern->is_thread_alive("), 0)
+        self.assertEqual(traced.count("(*subscription_iterator)->complete(epoc::error_cancel);"), 1)
+        self.assertIn("subscription_queue.erase(subscription_iterator);", traced)
+        self.assertEqual(PATCH.patch_property_cancel(traced), traced)
+
     def test_process_kill_trace_is_profile_scoped_and_before_teardown(self):
         traced = PATCH.patch_process_kill(PROCESS_CPP)
         self.assertIn("[COMPATBOOT][PROCESS_KILL] phase=begin", traced)

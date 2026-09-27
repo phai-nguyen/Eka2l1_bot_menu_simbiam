@@ -144,8 +144,25 @@ def patch_property_cancel(source):
     def patch_body(body):
         call = "kern->is_thread_alive("
         call_positions = [match.start() for match in re.finditer(re.escape(call), body)]
+        if len(call_positions) == 0:
+            complete_pattern = re.compile(r"(?m)^([ \t]*)(\(\*subscription_iterator\)->complete\(epoc::error_cancel\);)[ \t]*$")
+            complete_matches = list(complete_pattern.finditer(body))
+            if len(complete_matches) != 1:
+                fail(f"property cancel completion: expected one call, found {len(complete_matches)}")
+            match = complete_matches[0]
+            indent, complete_line = match.group(1), match.group(2)
+            trace = f'''{indent}auto *nboot2_b94_requester = (*subscription_iterator)->requester;
+{indent}if (kern->get_config()->compat_menu_probe_mode) {{
+{indent}    LOG_INFO(KERNEL,
+{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester={{}} requester_alive=-1 request_status=0x{{:08X}}",
+{indent}        static_cast<const void *>(&info), static_cast<const void *>(this),
+{indent}        static_cast<const void *>(nboot2_b94_requester),
+{indent}        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"), info.sts.ptr_address());
+{indent}}}
+{indent}{complete_line}'''
+            return body[:match.start()] + trace + body[match.end():]
         if len(call_positions) != 1:
-            fail(f"property cancel liveness: expected one liveness call, found {len(call_positions)}")
+            fail(f"property cancel liveness: expected at most one liveness call, found {len(call_positions)}")
         call_pos = call_positions[0]
         expr_start = call_pos + len(call)
         depth = 1
