@@ -175,4 +175,6 @@ void unrelated_notify() {
 
 
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) > 2:
+        raise SystemExit("usage: test_nativeboot2_b94_teardownprobe1.py [upstream-root]")
+    unittest.main(argv=[sys.argv[0]])
