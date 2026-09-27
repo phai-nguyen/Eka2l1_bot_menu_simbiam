@@ -60,6 +60,7 @@ class B96EStorLeaveExportContracts(unittest.TestCase):
         trace = traced.index("[COMPATBOOT][MENU3_LEAVE5_EXPORT]")
         original_leave = traced.index("thr->increase_leave_depth();")
         self.assertLess(gate, trace)
+        self.assertIn("compat_leave_cfg->compat_target_kind == 1", traced[gate:trace])
         self.assertLess(trace, original_leave)
         self.assertEqual(traced.count("thr->increase_leave_depth();"), 1)
         self.assertEqual(traced.count("return current_local_data(kern)->trap_handler;"), 1)
@@ -73,6 +74,16 @@ class B96EStorLeaveExportContracts(unittest.TestCase):
         twice = B96.patch_menu3_leave5_exports(once)
         self.assertEqual(once, twice)
         self.assertEqual(once.count("[COMPATBOOT][MENU3_LEAVE5_EXPORT]"), 1)
+
+    def test_refuses_to_attach_menu3_export_trace_without_menu3_target_gate(self):
+        self.assertIsNotNone(B90, "B90 patcher is missing")
+        self.assertIsNotNone(B96, "B96 patcher is missing")
+
+        b90 = B90.patch_menu3_leave5(LEAVE_START_CPP)
+        unguarded = b90.replace("&& compat_leave_cfg->compat_target_kind == 1\n", "")
+
+        with self.assertRaisesRegex(SystemExit, "Menu3 target gate"):
+            B96.patch_menu3_leave5_exports(unguarded)
 
     def test_fastbuild_checks_export_and_code_window_markers(self):
         workflow = (ROOT / ".github/workflows/build-ios-nativeboot2-current-fast.yml").read_text()
@@ -88,7 +99,7 @@ class B96EStorLeaveExportContracts(unittest.TestCase):
         trace_start = source.index("const auto compat_leave_exports")
         trace_end = source.index("thr->increase_leave_depth();", trace_start)
         trace = source[trace_start:trace_end]
-        self.assertIn("compat_menu_probe_mode", source[:trace_start])
+        self.assertIn("compat_target_kind == 1", source[:trace_start])
         self.assertIn("compat_target_uid3", source[:trace_start])
         self.assertIn("compat_leave_code == epoc::error_not_supported", source[:trace_start])
         self.assertIn("seg->get_export_table(compat_leave_pr)", trace)

@@ -182,8 +182,10 @@ def patch_bridge_cpp(source):
                 "[COMPATBOOT][BRIDGE_ENTER_FAIL] reason=no_active_device");
             return false;
         }
-        LOG_WARN(FRONTEND_CMDLINE, "[COMPATBOOT][MODE] explicit=1 target={}",
-            static_cast<int>(target));
+        const char *profile = target == compatboot_target::direct_home
+            ? "direct_home" : "menu3_probe";
+        LOG_WARN(FRONTEND_CMDLINE, "[COMPATBOOT][MODE] explicit=1 profile={} target={}",
+            profile, static_cast<int>(target));
         g_native_phone_mode = true;
         g_compat_menu_probe_mode = true;
         g_compat_target_kind = static_cast<int>(target);
@@ -296,7 +298,7 @@ def patch_state_cpp(source):
         "        conf.native_phone_boot = native_phone_mode;\n" + reset,
         "reset CompatBoot runtime state")
     anchor = "                            native_boot_handoff_ok = true;\n"
-    deadline = anchor + '''                            if (compat_menu_probe_mode) {
+    deadline = anchor + '''                            if (compat_target_kind != 0) {
                                 const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                     std::chrono::steady_clock::now().time_since_epoch()).count();
                                 conf.compat_menu_probe_deadline_ms =
@@ -306,7 +308,7 @@ def patch_state_cpp(source):
                                 const int compat_event = compat_kern->get_ntimer()->register_event(
                                     "COMPATBOOT1_STARTUP_TIMEOUT",
                                     [compat_cfg](std::uint64_t, int) {
-                                        if (!compat_cfg->compat_menu_probe_mode || compat_cfg->compat_menu_probe_finished) return;
+                                        if (compat_cfg->compat_target_kind == 0 || compat_cfg->compat_menu_probe_finished) return;
                                         std::string missing;
                                         if (!compat_cfg->compat_seen_file_server) missing += "FileServer,";
                                         if (!compat_cfg->compat_seen_fbs) missing += "FBS,";
@@ -374,6 +376,7 @@ def patch_menu3_leave5(source):
 
         if (compat_leave_cfg && compat_leave_pr && compat_leave_cpu && thr
             && compat_leave_cfg->compat_menu_probe_mode
+            && compat_leave_cfg->compat_target_kind == 1
             && compat_leave_cfg->compat_target_uid3 != 0
             && compat_leave_uid3 == compat_leave_cfg->compat_target_uid3
             && compat_leave_code == epoc::error_not_supported) {
@@ -476,7 +479,7 @@ def patch_svc(source):
 
     static void compatboot1_check_barrier(kernel_system *kern, service::server *current) {
         config::state *cfg = kern->get_config();
-        if (!cfg->compat_menu_probe_mode || cfg->compat_menu_probe_finished) return;
+        if (cfg->compat_target_kind == 0 || cfg->compat_menu_probe_finished) return;
         const epocver ver = kern->get_epoc_version();
         if (current) {
             const std::string &name = current->name();
@@ -497,22 +500,41 @@ def patch_svc(source):
         cfg->compat_menu_probe_launched = true;
         kern->get_ntimer()->unschedule_event(cfg->compat_menu_probe_timeout_event, 0);
         LOG_WARN(KERNEL, "[COMPATBOOT][BARRIER_READY] services=FileServer,FBS,WindowServer,CenRep,AppArc,AknCapServer");
-        static const std::u16string menu_path = u"Z:\\sys\\bin\\menu3.exe";
-        process_ptr menu = kern->spawn_new_process(menu_path, u"");
-        if (!menu) {
-            LOG_ERROR(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=CREATE_FAILED",
-                common::ucs2_to_utf8(menu_path));
+        const bool direct_home = cfg->compat_target_kind == 2;
+        const std::u16string target_path = direct_home
+            ? u"Z:\\sys\\bin\\ailaunch.exe"
+            : u"Z:\\sys\\bin\\menu3.exe";
+        const char *target_name = direct_home ? "ailaunch.exe" : "menu3.exe";
+        process_ptr target = kern->spawn_new_process(target_path, u"");
+        if (!target) {
+            LOG_ERROR(KERNEL,
+                "[COMPATBOOT][TARGET_LAUNCH] target={} path={} result=CREATE_FAILED",
+                target_name, common::ucs2_to_utf8(target_path));
+            bool expected_failure = false;
+            if (cfg->compat_first_failure_logged.compare_exchange_strong(expected_failure, true)) {
+                LOG_ERROR(KERNEL,
+                    "[COMPATBOOT][FIRST_FAILURE] source=TARGET_CREATE target={} path={}",
+                    target_name, common::ucs2_to_utf8(target_path));
+            }
             return;
         }
         cfg->compat_target_uid3 = static_cast<std::uint32_t>(
-            std::get<2>(menu->get_uid_type()));
-        if (!menu->run()) {
-            LOG_ERROR(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUN_FAILED process={}",
-                common::ucs2_to_utf8(menu_path), menu->name());
+            std::get<2>(target->get_uid_type()));
+        if (!target->run()) {
+            LOG_ERROR(KERNEL,
+                "[COMPATBOOT][TARGET_LAUNCH] target={} path={} result=RUN_FAILED process={}",
+                target_name, common::ucs2_to_utf8(target_path), target->name());
+            bool expected_failure = false;
+            if (cfg->compat_first_failure_logged.compare_exchange_strong(expected_failure, true)) {
+                LOG_ERROR(KERNEL,
+                    "[COMPATBOOT][FIRST_FAILURE] source=TARGET_RUN target={} path={} process={}",
+                    target_name, common::ucs2_to_utf8(target_path), target->name());
+            }
             return;
         }
-        LOG_WARN(KERNEL, "[COMPATBOOT][TARGET_LAUNCH] path={} result=RUNNING process={} one_shot=1",
-            common::ucs2_to_utf8(menu_path), menu->name());
+        LOG_WARN(KERNEL,
+            "[COMPATBOOT][TARGET_LAUNCH] target={} path={} result=RUNNING process={} one_shot=1",
+            target_name, common::ucs2_to_utf8(target_path), target->name());
     }
 }
 '''
@@ -543,7 +565,7 @@ def patch_missing_server(source):
     if "[COMPATBOOT][FIRST_FAILURE]" in source:
         return source
     anchor = '                LOG_WARN(KERNEL, "[NBOOT2][MISSING_SERVER] process={} server={} msg_slots={} mode={}",\n'
-    trace = '''                if (kern->get_config()->compat_menu_probe_mode && pr &&
+    trace = '''                if (kern->get_config()->compat_target_kind != 0 && pr &&
                     kern->get_config()->compat_target_uid3 != 0) {
                     const auto compat_uid3 = static_cast<std::uint32_t>(std::get<2>(pr->get_uid_type()));
                     bool compat_expected = false;
@@ -579,6 +601,7 @@ def patch_menu3_file_flush(source):
         auto *compat_menu_flush_cfg = ctx->sys->get_config();
         const bool compat_menu_flush_profile = compat_menu_flush_cfg
             && compat_menu_flush_cfg->compat_menu_probe_mode
+            && compat_menu_flush_cfg->compat_target_kind == 1
             && compat_menu_flush_cfg->compat_target_uid3 != 0;
         kernel::thread *compat_menu_flush_thr = compat_menu_flush_profile && ctx->msg
             ? ctx->msg->own_thr : nullptr;
@@ -638,7 +661,7 @@ def patch_target_visible(source):
     if end < 0:
         fail("B50 canvas visibility completion anchor is missing")
     trace = '''            eka2l1::config::state *compat_cfg = client->get_ws().get_kernel_system()->get_config();
-            if (compat_cfg->compat_menu_probe_mode &&
+            if (compat_cfg->compat_target_kind != 0 &&
                 b50_uid3 == compat_cfg->compat_target_uid3 && b50_group &&
                 is_visible() && can_be_physically_seen()) {
                 LOG_WARN(SERVICE_WINDOW,

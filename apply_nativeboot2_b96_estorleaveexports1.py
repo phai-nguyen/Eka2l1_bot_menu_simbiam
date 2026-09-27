@@ -90,6 +90,12 @@ def patch_menu3_leave5_exports(source: str) -> str:
                             i, relative_halfword, code_address, *code16);
                     }
 '''
+    anchor_pos = source.find(anchor)
+    if anchor_pos < 0:
+        fail("Menu3 Leave stack anchor is missing")
+    if "compat_leave_cfg->compat_target_kind == 1" not in source[:anchor_pos]:
+        fail("Menu3 target gate must scope B96 diagnostics")
+
     return replace_once(source, anchor, anchor + diagnostic,
                         "B96 Menu3 Leave stack export resolver")
 

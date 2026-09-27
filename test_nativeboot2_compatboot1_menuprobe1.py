@@ -274,11 +274,11 @@ class CompatBootModeContracts(unittest.TestCase):
     def test_menu3_launches_once_after_all_services_ready(self):
         self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")
         svc = PATCH.patch_svc(SVC_CPP)
-        self.assertIn("if (!cfg->compat_menu_probe_mode", svc)
+        self.assertIn("if (cfg->compat_target_kind == 0 || cfg->compat_menu_probe_finished)", svc)
         self.assertIn("cfg->compat_menu_probe_launched = true;", svc)
-        self.assertLess(svc.index("cfg->compat_menu_probe_launched = true;"), svc.index("spawn_new_process(menu_path"))
+        self.assertLess(svc.index("cfg->compat_menu_probe_launched = true;"), svc.index("spawn_new_process(target_path"))
         self.assertIn('u"Z:\\\\sys\\\\bin\\\\menu3.exe"', svc)
-        self.assertIn("menu->run()", svc)
+        self.assertIn("target->run()", svc)
 
     def test_config_and_deadline_state_are_transient_and_profile_scoped(self):
         self.assertTrue(hasattr(PATCH, "patch_config_header"), "transient barrier state patch is absent")
@@ -326,7 +326,7 @@ class CompatBootModeContracts(unittest.TestCase):
     def test_compat_markers_are_profile_gated(self):
         self.assertTrue(hasattr(PATCH, "patch_missing_server"), "CompatTrace forwarding is absent")
         traced = PATCH.patch_missing_server(MISSING_SERVER_CPP)
-        self.assertIn("kern->get_config()->compat_menu_probe_mode && pr", traced)
+        self.assertIn("kern->get_config()->compat_target_kind != 0 && pr", traced)
         self.assertIn("[COMPATBOOT][MISSING_SERVER]", traced)
 
     def test_first_target_failure_is_logged_without_semantic_override(self):
@@ -373,7 +373,7 @@ class CompatBootModeContracts(unittest.TestCase):
     def test_visible_marker_requires_menu3_window_surface(self):
         self.assertTrue(hasattr(PATCH, "patch_target_visible"), "Menu3 visibility trace is absent")
         traced = PATCH.patch_target_visible(WINUSER_CPP)
-        for condition in ("compat_menu_probe_mode", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
+        for condition in ("compat_target_kind != 0", "compat_target_uid3", "is_visible()", "can_be_physically_seen()"):
             self.assertIn(condition, traced)
         self.assertIn("[COMPATBOOT][TARGET_VISIBLE]", traced)
 
