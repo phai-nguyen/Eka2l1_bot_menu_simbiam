@@ -29,7 +29,7 @@ The relevant backtrace is:
 
 `notify_info::complete(int)` → `property::cancel(...)` → `property_reference::~property_reference()` → kernel object-vector erase → `kernel_system::destroy()` → `kernel_obj::decrease_access_count()` → `object_ix::reset()` → `process::kill()` → `epoc::process_kill()` → guest SVC dispatch.
 
-This confirms a host crash during kernel object/property-notification teardown while servicing a guest process-kill call. The vtable address used as an instruction target points toward an invalid virtual dispatch or object-lifetime problem; the report does not by itself prove which object was stale, nor identify which guest process initiated the kill. The CODESIGNING label accompanies the invalid executable page and is not evidence of a bad app signature.
+This confirms a host crash during kernel object/property-notification teardown while servicing a guest process-kill call. The vtable address used as an instruction target points toward an invalid virtual dispatch or object-lifetime problem; the report does not by itself prove which object was stale, nor identify which guest process initiated the kill. The report's CODESIGNING / Invalid Page label does not by itself establish that signing caused the crash; the fault address and native backtrace point to the invalid control transfer during teardown.
 
 The log ends at 09:20:32.660, with no normal emulator shutdown completion. The guest thread messages that end peacefully at that timestamp are not evidence that the iOS app was manually closed.
 
