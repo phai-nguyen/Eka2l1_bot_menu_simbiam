@@ -1,6 +1,6 @@
 # Thiết kế COMPATBOOT1: vào thẳng màn hình Home
 
-Trạng thái: tài liệu thiết kế để duyệt; chưa bắt đầu triển khai.
+Trạng thái: thiết kế đã được duyệt; chưa bắt đầu triển khai.
 
 ## Mục tiêu
 
