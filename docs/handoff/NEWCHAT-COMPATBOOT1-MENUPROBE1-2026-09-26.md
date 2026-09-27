@@ -32,9 +32,15 @@ Latest IPA artifact:
 
 On iPhone, open the FASTBUILD #302 run page in Safari while signed in to GitHub. Under **Artifacts**, download `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`. In Files, tap the downloaded ZIP once to extract it. Import the unsigned `.ipa` into ESign Match (or the user's normal sideloading tool) to sign/install it; Files cannot install it directly.
 
-## Next device test
+## B94 installed-over crash result
 
-Install the FASTBUILD #302 IPA and select **CompatBoot Menu Probe**. Capture fresh logs around the first `[COMPATBOOT][MENU3_FSFLUSH]`, including its `path`, `flush_ok`, and `completion`, plus any following `[COMPATBOOT][MENU3_LEAVE5]` and `[COMPATBOOT][TARGET_VISIBLE]`. The trace observes Menu3's FileServer request only. It does not establish that FileFlush caused the leave. Native Boot remains default; do not change stock firmware, CenRep results, TFX, guest files, server behavior, or readiness checks. PR #6 remains open and unmerged pending review and device validation.
+B94 was installed over the prior app and the old logs were cleared. The user confirms the video shows the app running and crashing to iOS Home without a swipe; this does not change the B93 manual-exit result. The capture reached `BARRIER_READY`, launched real `menu3.exe`, and recorded two successful Menu3 FileFlush calls (`flush_ok=1`, `completion=0`). It still had trapped `Leave(-5)`, a missing `TfxServer`, zero CenRep matches for Menu3's `FindEqInt`, and no `TARGET_VISIBLE`.
+
+The iOS .ips report records `EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE` at a PC resolving to `vtable for eka2l1::kernel::chunk + 16`. The stack passes through `notify_info::complete()`, `property::cancel()`, `property_reference::~property_reference()`, `kernel_system::destroy()`, and `process::kill()`. This points to an invalid virtual dispatch or object-lifetime problem during guest process teardown, but does not yet identify the stale object or guest process. Full capture details and hashes are in [B94 crash evidence](history/B94-CRASH1.md).
+
+## Next investigation
+
+Inspect B28's ownership and teardown ordering through `process::kill()` → `kernel_system::destroy()` → `property_reference::~property_reference()` → `property::cancel()` → `notify_info::complete()`. Identify the property/chunk object and killing process from source or add scoped read-only diagnostics. The successful FileFlush results do not support changing FileFlush behavior. Preserve Native Boot default, stock firmware, CenRep, TFX, guest files, and the six-service readiness barrier. PR #6 remains open and unmerged.
 
 PR #6 is still open and unmerged. B92 (test method 2) and B93 (method 3) both reached `BARRIER_READY` and launched real `menu3.exe`; neither emitted `[COMPATBOOT][TARGET_VISIBLE]`. B93's video shows the Nokia logo persisting without the Symbian Menu. Its logs record `shutdown_done` and `normal_restart_done has_device=1`; the user confirms they exited manually, without a crash. All five `FindEqInt` calls against repo `0x102858F2` returned `-1`; the Menu query for UID3 `0x101F4CD2` followed the first trapped `Leave(-5)` and the first Menu `TfxServer` miss. The matching order across methods 2 and 3 does not identify the cause. The B93 checkpoint proposed symbolizing the Leave stack and decoding opcode `0x27`; FASTBUILD #302 now adds the read-only FileFlush path/result trace for the next device capture. See [B93 device evidence](history/B93-DEVICE1.md) and [B92 device evidence](history/B92-DEVICE1.md).
 
