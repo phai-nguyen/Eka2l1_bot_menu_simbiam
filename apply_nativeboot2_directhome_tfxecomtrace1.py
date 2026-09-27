@@ -28,7 +28,20 @@ def rep_between(text, begin, end, old, new, label):
     region = text[start:finish]
     count = region.count(old)
     if count != 1:
-        fail(f"{label}: expected one bounded anchor, found {count}")
+        detail = ""
+        if label == "ECom descriptor copy trace":
+            context = [
+                line.strip()
+                for line in region.splitlines()
+                if any(token in line for token in (
+                    "message_ipc_copy",
+                    "do_ipc_manipulation",
+                    "msg->unref",
+                    "return ",
+                ))
+            ]
+            detail = "\nsource_context:\n" + "\n".join(context)
+        fail(f"{label}: expected one bounded anchor, found {count}{detail}")
     region = region.replace(old, new, 1)
     return text[:start] + region + text[finish:]
 

@@ -10,6 +10,32 @@ from unittest import mock
 import ci.fastbuild1_manifest as fb
 
 
+def directhome_tfx_svc_fixture():
+    return (
+        "// [NBOOT2][AKNSKIN_TFX_ECOM]\n"
+        "// [NBOOT2][TFX_SESSION]\n"
+        "    BRIDGE_FUNC(void, message_construct, std::int32_t msg_handle, service::message2 *msg_to_construct) {\n"
+        "    }\n"
+        "    BRIDGE_FUNC(void, message_complete, std::int32_t msg_handle, std::int32_t val) {\n"
+        "        ipc_msg_ptr msg = kern->get_msg(msg_handle);\n\n"
+        "        status->set(val, kern->is_eka1());\n"
+        "        kern->call_ipc_complete_callbacks(msg, val);\n"
+        "        msg->unref();\n"
+        "    }\n"
+        "    BRIDGE_FUNC(void, message_complete_handle, std::int32_t msg_handle, std::int32_t val) { }\n"
+        "    BRIDGE_FUNC(std::int32_t, message_ipc_copy, std::int32_t msg_handle, std::int32_t param) {\n"
+        "        const std::int32_t result = do_ipc_manipulation(kern, msg->own_thr, param_ptr_host, *info_host, start_offset);\n"
+        "        msg->unref();\n\n"
+        "        return result;\n"
+        "    }\n"
+        "    BRIDGE_FUNC(std::int32_t, message_ipc_copy_eka1, std::int32_t msg_handle, std::int32_t param) { }\n"
+        "    BRIDGE_FUNC(std::int32_t, session_create, std::int32_t a, std::int32_t b) {\n"
+        "        return epoc::error_not_found;\n"
+        "    }\n"
+        "    BRIDGE_FUNC(std::int32_t, session_create_from_handle, std::int32_t a) { }\n"
+    )
+
+
 class FastbuildManifestTests(unittest.TestCase):
     def test_parse_manifest_sections(self):
         with tempfile.TemporaryDirectory() as td:
@@ -159,29 +185,7 @@ class FastbuildManifestTests(unittest.TestCase):
         root = Path(__file__).resolve().parent
         patcher = root / "apply_nativeboot2_directhome_tfxecomtrace1.py"
         contract = root / "test_nativeboot2_directhome_tfxecomtrace1.py"
-        source = (
-            "// [NBOOT2][AKNSKIN_TFX_ECOM]\n"
-            "// [NBOOT2][TFX_SESSION]\n"
-            "    BRIDGE_FUNC(void, message_construct, std::int32_t msg_handle, service::message2 *msg_to_construct) {\n"
-            "    }\n"
-            "    BRIDGE_FUNC(void, message_complete, std::int32_t msg_handle, std::int32_t val) {\n"
-            "        ipc_msg_ptr msg = kern->get_msg(msg_handle);\n\n"
-            "        status->set(val, kern->is_eka1());\n"
-            "        kern->call_ipc_complete_callbacks(msg, val);\n"
-            "        msg->unref();\n"
-            "    }\n"
-            "    BRIDGE_FUNC(void, message_complete_handle, std::int32_t msg_handle, std::int32_t val) { }\n"
-            "    BRIDGE_FUNC(std::int32_t, message_ipc_copy, std::int32_t msg_handle, std::int32_t param) {\n"
-            "        const std::int32_t result = do_ipc_manipulation(kern, msg->own_thr, param_ptr_host, *info_host, start_offset);\n"
-            "        msg->unref();\n\n"
-            "        return result;\n"
-            "    }\n"
-            "    BRIDGE_FUNC(std::int32_t, message_ipc_copy_eka1, std::int32_t msg_handle, std::int32_t param) { }\n"
-            "    BRIDGE_FUNC(std::int32_t, session_create, std::int32_t a, std::int32_t b) {\n"
-            "        return epoc::error_not_found;\n"
-            "    }\n"
-            "    BRIDGE_FUNC(std::int32_t, session_create_from_handle, std::int32_t a) { }\n"
-        )
+        source = directhome_tfx_svc_fixture()
         with tempfile.TemporaryDirectory() as td:
             upstream = Path(td)
             svc = upstream / "src/emu/kernel/src/svc.cpp"
@@ -208,6 +212,28 @@ class FastbuildManifestTests(unittest.TestCase):
             patched = svc.read_text(encoding="utf-8")
         self.assertIn("[NBOOT2][DIRECTHOME_TFX_ECOM_COPY]", patched)
         self.assertIn("[NBOOT2][DIRECTHOME_TFX_ECOM_COMPLETE]", patched)
+
+    def test_tfx_trace_reports_copy_context_when_anchor_is_missing(self):
+        root = Path(__file__).resolve().parent
+        patcher = root / "apply_nativeboot2_directhome_tfxecomtrace1.py"
+        source = directhome_tfx_svc_fixture().replace(
+            "const std::int32_t result = do_ipc_manipulation(kern, msg->own_thr, param_ptr_host, *info_host, start_offset);",
+            "const std::int32_t result = epoc::error_none;",
+        )
+        with tempfile.TemporaryDirectory() as td:
+            upstream = Path(td)
+            svc = upstream / "src/emu/kernel/src/svc.cpp"
+            svc.parent.mkdir(parents=True)
+            svc.write_text(source, encoding="utf-8")
+            result = subprocess.run(
+                ["python3", str(patcher), str(upstream)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source_context:", result.stderr)
+        self.assertIn("return result;", result.stderr)
 
 
 if __name__ == "__main__":
