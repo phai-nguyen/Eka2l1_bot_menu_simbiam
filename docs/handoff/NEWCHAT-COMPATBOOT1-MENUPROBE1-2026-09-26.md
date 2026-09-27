@@ -7,13 +7,46 @@ Updated: 2026-09-27
 - Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 - PR: [#6 — B90 COMPATBOOT1 Menu Probe](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/pull/6)
 - Branch: `codex/compatboot1-menuprobe1`
-- Latest build-validated source commit: `c0a1056069cb709895c72ef9093e7dbb1d8ebcca`
+- Latest build-validated source commit: `c83d4b3749ba0436ecf467ee25ba087f02a04b09`
 - Worktree used: `/workspace/scratch/4ac0d495afb9/Eka2l1_bot_menu_simbiam/.worktrees/compatboot1-menuprobe1`
 - Base branch remains `nativeboot2-current` at the B89 baseline.
 
 Do not restart earlier milestone research. The current objective is COMPATBOOT1-MENUPROBE1: retain Native Boot as the default, wait for the required UI services, then launch the real firmware `menu3.exe` and report the first missing dependency or visible target marker. No firmware replacement or readiness bypass is part of this change.
 
-## Latest status — Menu3 FileFlush trace and FASTBUILD #302
+## Latest status — B94 teardown probe and FASTBUILD #313
+
+B94 added read-only diagnostics, enabled only in explicit CompatBoot mode, for
+process kill entry, property cancellation, `notify_info::complete()` status
+translation, and the matching process address-space lookup. It logs the
+requester/process, property reference, guest status address, resolved host
+pointer, and whether the cancel path itself checks requester liveness. It does
+not change completion results, signal count, firmware, Native Boot default,
+Menu3 launch, or the readiness barrier.
+
+FASTBUILD #313, run
+[36290239618](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36290239618),
+is **GREEN** on commit `c83d4b3749ba0436ecf467ee25ba087f02a04b09`.
+B28 baseline, patch application, regressions, iOS compile, binary invariants,
+unsigned IPA packaging, and artifact upload passed. Local discovery passed 41
+tests (one skipped); the B94 contract passed 7 tests. This confirms the
+diagnostic build compiles; it does not establish the B94 crash's root cause or
+confirm a visible Menu surface.
+
+Latest IPA artifact:
+
+- `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`, ID `10921448412`
+- ZIP contains `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-unsigned.ipa`
+- IPA SHA-256: `f9e2a019dd92941fc73694f9d36eee22eebce5738c2e07cba3115c894514aa72`
+- Artifact expires 2026-10-11 03:04 UTC; ZIP size 20,011,779 bytes
+- Run page: [FASTBUILD #313](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36290239618)
+
+On iPhone, open the run page in Safari while signed in to GitHub. Under
+**Artifacts**, download `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`.
+In Files, tap the ZIP to extract it, then import the unsigned `.ipa` into
+ESign Match (or the user's usual sideloading tool) to sign and install it.
+Files cannot install the unsigned IPA directly.
+
+## Previous milestone — Menu3 FileFlush trace and FASTBUILD #302
 
 B92 adds `[COMPATBOOT][CENREP_FIND_EQ_INT]` in `central_repo_client_subsession::find()`. It logs the attached repository UID, validated filter values, signed comparison value, result count, and status, gated on `compat_menu_probe_mode` and the `cen_rep_find_eq_int` opcode. It does not change the result or completion status. The FASTBUILD integration contract verifies that this patch applies to the B28 cache and that the trace remains after argument validation.
 
@@ -40,7 +73,7 @@ The iOS .ips report records `EXC_BAD_ACCESS / KERN_PROTECTION_FAILURE` at a PC r
 
 ## Next investigation
 
-Source review shows `property::cancel()` checks whether the saved requester thread remains live before `notify_info::complete()` translates the saved guest status pointer through that process's address space. Identify the requester, property reference, status address, and chunk mapping at the failing call; use scoped read-only diagnostics if source review cannot identify the stale object. The successful FileFlush results do not support changing FileFlush behavior. Preserve Native Boot default, stock firmware, CenRep, TFX, guest files, and the six-service readiness barrier. PR #6 remains open and unmerged.
+Repeat B94's install-over test with old logs cleared, using the FASTBUILD #313 IPA, and return the fresh log plus the iOS `.ips` file if it crashes. Inspect `[COMPATBOOT][PROCESS_KILL]`, `[COMPATBOOT][PROP_CANCEL]`, `[COMPATBOOT][NOTIFY_STATUS]`, and `[COMPATBOOT][NOTIFY_STATUS_MAP]` around the crash. The probe is diagnostic-only: if the app exits normally, say so and retain the log anyway. Do not change firmware or bypass readiness while collecting this evidence. PR #6 remains open and unmerged.
 
 PR #6 is still open and unmerged. B92 (test method 2) and B93 (method 3) both reached `BARRIER_READY` and launched real `menu3.exe`; neither emitted `[COMPATBOOT][TARGET_VISIBLE]`. B93's video shows the Nokia logo persisting without the Symbian Menu. Its logs record `shutdown_done` and `normal_restart_done has_device=1`; the user confirms they exited manually, without a crash. All five `FindEqInt` calls against repo `0x102858F2` returned `-1`; the Menu query for UID3 `0x101F4CD2` followed the first trapped `Leave(-5)` and the first Menu `TfxServer` miss. The matching order across methods 2 and 3 does not identify the cause. The B93 checkpoint proposed symbolizing the Leave stack and decoding opcode `0x27`; FASTBUILD #302 now adds the read-only FileFlush path/result trace for the next device capture. See [B93 device evidence](history/B93-DEVICE1.md) and [B92 device evidence](history/B92-DEVICE1.md).
 
