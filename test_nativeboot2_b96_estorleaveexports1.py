@@ -85,7 +85,7 @@ class B96EStorLeaveExportContracts(unittest.TestCase):
         source = (UPSTREAM / "src/emu/kernel/src/svc.cpp").read_text(encoding="utf-8")
         marker = "[COMPATBOOT][MENU3_LEAVE5_EXPORT]"
         self.assertEqual(source.count(marker), 1)
-        trace_start = source.index(marker)
+        trace_start = source.index("const auto compat_leave_exports")
         trace_end = source.index("thr->increase_leave_depth();", trace_start)
         trace = source[trace_start:trace_end]
         self.assertIn("compat_menu_probe_mode", source[:trace_start])
