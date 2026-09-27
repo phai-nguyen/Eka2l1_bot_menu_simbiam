@@ -235,6 +235,28 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertIn("source_context:", result.stderr)
         self.assertIn("return result;", result.stderr)
 
+    def test_tfx_trace_accepts_copy_anchor_without_blank_line(self):
+        root = Path(__file__).resolve().parent
+        patcher = root / "apply_nativeboot2_directhome_tfxecomtrace1.py"
+        source = directhome_tfx_svc_fixture().replace(
+            "msg->unref();\n\n        return result;",
+            "msg->unref();\n        return result;",
+        )
+        with tempfile.TemporaryDirectory() as td:
+            upstream = Path(td)
+            svc = upstream / "src/emu/kernel/src/svc.cpp"
+            svc.parent.mkdir(parents=True)
+            svc.write_text(source, encoding="utf-8")
+            result = subprocess.run(
+                ["python3", str(patcher), str(upstream)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            patched = svc.read_text(encoding="utf-8")
+        self.assertIn("directhome_tfx_ecom_log_copy(kern, msg, param, *info_host, result)", patched)
+
 
 if __name__ == "__main__":
     unittest.main()

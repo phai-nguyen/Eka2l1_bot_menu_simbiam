@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """DirectHome TFX ECom response tracing, with no guest IPC changes."""
 from pathlib import Path
+import re
 import sys
 
 
@@ -160,18 +161,40 @@ def apply_to_svc(source):
 
     copy_begin = "    BRIDGE_FUNC(std::int32_t, message_ipc_copy,"
     copy_end = "    BRIDGE_FUNC(std::int32_t, message_ipc_copy_eka1,"
-    copy_anchor = """        const std::int32_t result = do_ipc_manipulation(kern, msg->own_thr, param_ptr_host, *info_host, start_offset);
-        msg->unref();
-
-        return result;
-"""
-    copy_trace = """        const std::int32_t result = do_ipc_manipulation(kern, msg->own_thr, param_ptr_host, *info_host, start_offset);
-        directhome_tfx_ecom_log_copy(kern, msg, param, *info_host, result);
-        msg->unref();
-
-        return result;
-"""
-    source = rep_between(source, copy_begin, copy_end, copy_anchor, copy_trace, "ECom descriptor copy trace")
+    copy_start = source.find(copy_begin)
+    copy_finish = source.find(copy_end, copy_start + 1)
+    if copy_start < 0 or copy_finish < 0:
+        fail("ECom descriptor copy trace: function bounds not found")
+    copy_region = source[copy_start:copy_finish]
+    copy_call = re.compile(
+        r"(?m)^(?P<indent>[ \t]*)(?:const\s+)?std::int32_t\s+"
+        r"(?P<result>[A-Za-z_]\w*)\s*=\s*do_ipc_manipulation\("
+        r"kern,\s*msg->own_thr,\s*param_ptr_host,\s*\*info_host,\s*start_offset\);[ \t]*$"
+    )
+    matches = list(copy_call.finditer(copy_region))
+    if len(matches) != 1:
+        context = [
+            line.strip()
+            for line in copy_region.splitlines()
+            if any(token in line for token in (
+                "message_ipc_copy",
+                "do_ipc_manipulation",
+                "msg->unref",
+                "return ",
+            ))
+        ]
+        fail(
+            "ECom descriptor copy trace: expected one manipulation call, found "
+            f"{len(matches)}\nsource_context:\n" + "\n".join(context)
+        )
+    match = matches[0]
+    log_line = (
+        "\n" + match.group("indent")
+        + "directhome_tfx_ecom_log_copy(kern, msg, param, *info_host, "
+        + match.group("result") + ");"
+    )
+    copy_region = copy_region[:match.end()] + log_line + copy_region[match.end():]
+    source = source[:copy_start] + copy_region + source[copy_finish:]
     return source, True
 
 
