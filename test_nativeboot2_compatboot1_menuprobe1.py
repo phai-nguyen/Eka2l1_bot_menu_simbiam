@@ -162,13 +162,15 @@ class CompatBootModeContracts(unittest.TestCase):
         state = PATCH.patch_state_header(STATE_H)
         self.assertIn("bool native_phone_mode = false;", state)
         self.assertIn("bool compat_menu_probe_mode = false;", state)
+        self.assertIn("int compat_target_kind = 0;", state)
 
     def test_emulator_choice_routes_to_native_or_compat_bridge(self):
         self.assertIsNotNone(PATCH, "B90 patcher is not present")
         routed = PATCH.patch_emulator_choice(ROOT_VIEW)
         self.assertIn("start_native_phone()", routed)
-        self.assertIn("start_compat_menu_probe()", routed)
-        self.assertEqual(routed.count("start_compat_menu_probe()"), 1)
+        self.assertIn("start_compat_boot(", routed)
+        self.assertIn("compatboot_target::menu3_probe", routed)
+        self.assertIn("start_compat_menu_probe()", PATCH.patch_bridge_cpp(BRIDGE_CPP))
         self.assertIn("CompatBoot Menu Probe", routed)
 
     def test_compat_start_failure_restores_normal_frontend(self):
@@ -183,9 +185,13 @@ class CompatBootModeContracts(unittest.TestCase):
         header = PATCH.patch_bridge_header(BRIDGE_H)
         bridge = PATCH.patch_bridge_cpp(BRIDGE_CPP)
         self.assertIn("start_compat_menu_probe", header)
+        self.assertIn("start_compat_boot(compatboot_target target)", header)
         self.assertIn("g_state->compat_menu_probe_mode = g_compat_menu_probe_mode", bridge)
+        self.assertIn("g_state->compat_target_kind = g_compat_target_kind", bridge)
         self.assertIn("g_compat_menu_probe_mode = true", bridge)
+        self.assertIn("g_compat_target_kind = static_cast<int>(target);", bridge)
         self.assertGreaterEqual(bridge.count("g_compat_menu_probe_mode = false"), 3)
+        self.assertGreaterEqual(bridge.count("g_compat_target_kind = 0;"), 3)
         self.assertIn("[COMPATBOOT][ROLLBACK]", bridge)
 
     def test_localization_and_transformations_are_idempotent(self):
@@ -280,7 +286,9 @@ class CompatBootModeContracts(unittest.TestCase):
         config = PATCH.patch_config_header(CONFIG_H)
         state = PATCH.patch_state_cpp(STATE_CPP)
         self.assertIn("compat_menu_probe_mode{ false }", config)
+        self.assertIn("compat_target_kind{ 0 }", config)
         self.assertIn("conf.compat_menu_probe_mode = compat_menu_probe_mode", state)
+        self.assertIn("conf.compat_target_kind = compat_target_kind", state)
         self.assertIn("[COMPATBOOT][DEADLINE_START] after=EStart_run", state)
 
     def test_full_patcher_application_is_idempotent(self):

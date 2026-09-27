@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add an explicit, transient COMPATBOOT Menu Probe entry beside Native Boot."""
+"""Add explicit, transient COMPATBOOT Menu Probe and Direct Home choices."""
 from pathlib import Path
 import sys
 
@@ -19,21 +19,25 @@ def replace_once(source, old, new, label):
 
 
 def patch_state_header(source):
-    marker = "bool compat_menu_probe_mode = false;"
-    if marker in source:
+    target_field = "int compat_target_kind = 0;"
+    if target_field in source:
         return source
+    marker = "        bool compat_menu_probe_mode = false;\n"
+    if marker in source:
+        return source.replace(marker, marker + "        int compat_target_kind = 0;\n", 1)
     anchor = "        bool native_phone_mode = false;\n"
     return replace_once(
         source,
         anchor,
         anchor + "        // COMPATBOOT is opt-in and transient; Native Boot stays the default.\n"
-        "        bool compat_menu_probe_mode = false;\n",
+        "        bool compat_menu_probe_mode = false;\n"
+        "        int compat_target_kind = 0;\n",
         "transient CompatBoot state",
     )
 
 
 def patch_emulator_choice(source):
-    if "CompatBoot Menu Probe" in source and "start_compat_menu_probe()" in source:
+    if "CompatBoot vào Home" in source and "compatboot_target::direct_home" in source:
         return source
     start = "- (void)onEmulator {"
     end = "- (void)onShowApps { [self showAppsScreen]; }"
@@ -54,11 +58,15 @@ def patch_emulator_choice(source):
         preferredStyle:UIAlertControllerStyleActionSheet];
     [choice addAction:[UIAlertAction actionWithTitle:EKAL(@"Native Boot")
         style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
-            [self startEmulatorWithCompatProbe:NO];
+            [self startEmulatorWithCompatTarget:0];
         }]];
     [choice addAction:[UIAlertAction actionWithTitle:EKAL(@"CompatBoot Menu Probe")
         style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
-            [self startEmulatorWithCompatProbe:YES];
+            [self startEmulatorWithCompatTarget:static_cast<NSInteger>(eka2l1::ios::bridge::compatboot_target::menu3_probe)];
+        }]];
+    [choice addAction:[UIAlertAction actionWithTitle:EKAL(@"CompatBoot vào Home")
+        style:UIAlertActionStyleDefault handler:^(UIAlertAction *) {
+            [self startEmulatorWithCompatTarget:static_cast<NSInteger>(eka2l1::ios::bridge::compatboot_target::direct_home)];
         }]];
     [choice addAction:[UIAlertAction actionWithTitle:EKAL(@"Cancel")
         style:UIAlertActionStyleCancel handler:nil]];
@@ -70,7 +78,7 @@ def patch_emulator_choice(source):
     [self presentViewController:choice animated:YES completion:nil];
 }
 
-- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {
+- (void)startEmulatorWithCompatTarget:(NSInteger)compatTarget {
     if (!eka2l1::ios::bridge::has_device()) { return; }
     [self beginProgress:EKAL(@"Starting Emulator…")];
     [self climbProgressToward:0.92f];
@@ -78,9 +86,10 @@ def patch_emulator_choice(source):
     self.controlsView.userInteractionEnabled = NO;
     self.inputManager.enabled = NO;
     dispatch_async(EKANgageLifecycleQueue(), ^{
-        const bool ok = compatProbe
-            ? eka2l1::ios::bridge::start_compat_menu_probe()
-            : eka2l1::ios::bridge::start_native_phone();
+        const bool ok = compatTarget == 0
+            ? eka2l1::ios::bridge::start_native_phone()
+            : eka2l1::ios::bridge::start_compat_boot(
+                static_cast<eka2l1::ios::bridge::compatboot_target>(compatTarget));
         dispatch_async(dispatch_get_main_queue(), ^{
             [self endProgress];
             self.emuView.userInteractionEnabled = YES;
@@ -113,18 +122,20 @@ def patch_emulator_choice(source):
 
 
 def patch_bridge_header(source):
-    if "start_compat_menu_probe" in source:
+    if "bool start_compat_boot(compatboot_target target);" in source:
         return source
     anchor = "    bool start_native_phone();\n"
     return replace_once(
         source, anchor,
-        anchor + "    bool start_compat_menu_probe();\n",
+        anchor + "    enum class compatboot_target : int { menu3_probe = 1, direct_home = 2 };\n"
+        "    bool start_compat_boot(compatboot_target target);\n"
+        "    bool start_compat_menu_probe();\n",
         "CompatBoot bridge declaration",
     )
 
 
 def patch_bridge_cpp(source):
-    if "[COMPATBOOT][MODE]" in source:
+    if "g_compat_target_kind" in source and "bool start_compat_boot(" in source:
         return source
     source = replace_once(
         source,
@@ -135,29 +146,47 @@ def patch_bridge_cpp(source):
     )
     source = replace_once(
         source,
+        "        bool g_compat_menu_probe_mode = false;\n",
+        "        bool g_compat_menu_probe_mode = false;\n"
+        "        int g_compat_target_kind = 0;\n",
+        "CompatBoot target selector",
+    )
+    source = replace_once(
+        source,
         "            g_state->native_phone_mode = g_native_phone_mode;\n",
         "            g_state->native_phone_mode = g_native_phone_mode;\n"
-        "            g_state->compat_menu_probe_mode = g_compat_menu_probe_mode;\n",
+        "            g_state->compat_menu_probe_mode = g_compat_menu_probe_mode;\n"
+        "            g_state->compat_target_kind = g_compat_target_kind;\n",
         "pass CompatBoot selector into emulator state",
     )
     source = replace_once(
         source,
         "        g_native_phone_mode = true;\n",
         "        g_native_phone_mode = true;\n"
-        "        g_compat_menu_probe_mode = false;\n",
+        "        g_compat_menu_probe_mode = false;\n"
+        "        g_compat_target_kind = 0;\n",
         "Native Boot remains separate",
     )
     stop = "    void stop_native_phone() {\n"
-    compat_api = r'''    bool start_compat_menu_probe() {
+    compat_api = r'''    bool start_compat_boot(compatboot_target target) {
+        if (target != compatboot_target::menu3_probe &&
+            target != compatboot_target::direct_home) {
+            LOG_ERROR(FRONTEND_CMDLINE,
+                "[COMPATBOOT][BRIDGE_ENTER_FAIL] reason=invalid_target target={}",
+                static_cast<int>(target));
+            return false;
+        }
         std::lock_guard<std::mutex> guard(g_mutex);
         if (!g_running || !g_state || !g_has_device) {
             LOG_ERROR(FRONTEND_CMDLINE,
                 "[COMPATBOOT][BRIDGE_ENTER_FAIL] reason=no_active_device");
             return false;
         }
-        LOG_WARN(FRONTEND_CMDLINE, "[COMPATBOOT][MODE] explicit=1");
+        LOG_WARN(FRONTEND_CMDLINE, "[COMPATBOOT][MODE] explicit=1 target={}",
+            static_cast<int>(target));
         g_native_phone_mode = true;
         g_compat_menu_probe_mode = true;
+        g_compat_target_kind = static_cast<int>(target);
         shutdown_locked();
         const bool has_device = start_locked();
         const bool handoff_ok = has_device && g_state && g_state->native_boot_handoff_ok;
@@ -166,11 +195,16 @@ def patch_bridge_cpp(source):
                 "[COMPATBOOT][ROLLBACK] EStart handoff failed; restoring normal mode");
             g_native_phone_mode = false;
             g_compat_menu_probe_mode = false;
+            g_compat_target_kind = 0;
             shutdown_locked();
             start_locked();
             return false;
         }
         return true;
+    }
+
+    bool start_compat_menu_probe() {
+        return start_compat_boot(compatboot_target::menu3_probe);
     }
 
 '''
@@ -180,19 +214,23 @@ def patch_bridge_cpp(source):
     cleared = []
     for index, line in enumerate(lines):
         cleared.append(line)
-        if line == "        g_native_phone_mode = false;\n":
-            following = lines[index + 1] if index + 1 < len(lines) else ""
+        if line.strip() == "g_native_phone_mode = false;":
+            indent = line[:len(line) - len(line.lstrip())]
+            following = "".join(lines[index + 1:index + 4])
             if "g_compat_menu_probe_mode = false;" not in following:
-                cleared.append("        g_compat_menu_probe_mode = false;\n")
+                cleared.append(indent + "g_compat_menu_probe_mode = false;\n")
+            if "g_compat_target_kind = 0;" not in following:
+                cleared.append(indent + "g_compat_target_kind = 0;\n")
     return "".join(cleared)
 
 
 def patch_localization(source):
-    marker = '@"CompatBoot Menu Probe" : @"CompatBoot Menu Probe"'
+    marker = '@"CompatBoot vào Home" : @"CompatBoot vào Home"'
     if marker in source:
         return source
     anchor = '            @"Add Mode" : @"Thêm chế độ",\n'
     localized = anchor + '''            @"CompatBoot Menu Probe" : @"CompatBoot Menu Probe",
+            @"CompatBoot vào Home" : @"CompatBoot vào Home",
             @"Native Boot" : @"Native Boot",
             @"Choose startup mode" : @"Chọn chế độ khởi động",
             @"CompatBoot start failed; normal EKA2L1 mode was restored." : @"CompatBoot không khởi động được; EKA2L1 đã trở về chế độ bình thường.",
@@ -206,6 +244,7 @@ def patch_config_header(source):
     anchor = "        bool native_phone_boot{ false };\n"
     fields = anchor + '''        // COMPATBOOT1 state is transient and is not part of serialized user config.
         bool compat_menu_probe_mode{ false };
+        int compat_target_kind{ 0 };
         std::atomic<bool> compat_menu_probe_launched{ false };
         std::atomic<bool> compat_menu_probe_timed_out{ false };
         std::atomic<bool> compat_menu_probe_finished{ false };
@@ -236,6 +275,7 @@ def patch_state_cpp(source):
                               "#include <kernel/process.h>\n#include <kernel/timing.h>\n",
                               "CompatBoot startup timeout API")
     reset = '''        conf.compat_menu_probe_mode = compat_menu_probe_mode;
+        conf.compat_target_kind = compat_target_kind;
         conf.compat_menu_probe_launched = false;
         conf.compat_menu_probe_timed_out = false;
         conf.compat_menu_probe_finished = false;
