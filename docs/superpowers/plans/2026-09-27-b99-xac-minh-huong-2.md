@@ -41,11 +41,11 @@
 - Script thêm đúng một dấu log tại điểm bắt đầu phiên giả lập iOS: `[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1`.
 - Kiểm thử xác nhận dấu này chỉ xuất hiện một lần, tại điểm bắt đầu phiên; không sửa trạng thái khởi động, xử lý panic, lệnh chạy ứng dụng hay dịch vụ.
 
-- [ ] **Bước 1: Viết kiểm thử hợp đồng để thất bại trước**, kiểm tra dấu log được chèn đúng một lần tại điểm bắt đầu phiên và không đổi hành vi khởi động.
-- [ ] **Bước 2: Chạy kiểm thử mới** trên fixture hiện có; xác nhận nó thất bại vì chưa có dấu B99.
-- [ ] **Bước 3: Viết bản vá tối thiểu, có thể chạy an toàn nhiều lần**, trong `apply_nativeboot2_b99_buildfingerprint1.py`; báo lỗi nếu không tìm thấy hoặc tìm thấy nhiều điểm chèn phù hợp.
-- [ ] **Bước 4: Đăng ký cặp script áp dụng/kiểm thử** trong `ci/fastbuild1_manifest.txt`, đồng thời yêu cầu FASTBUILD kiểm tra dấu B99.
-- [ ] **Bước 5: Chạy lại kiểm thử tập trung và kiểm tra manifest**; cả kiểm thử dấu nhận diện và xác thực manifest phải đạt.
+- [x] **Bước 1: Viết kiểm thử hợp đồng để thất bại trước**, kiểm tra dấu log được chèn đúng một lần tại điểm bắt đầu phiên và không đổi hành vi khởi động.
+- [x] **Bước 2: Chạy kiểm thử mới** trên fixture hiện có; xác nhận nó thất bại vì chưa có dấu B99.
+- [x] **Bước 3: Viết bản vá tối thiểu, có thể chạy an toàn nhiều lần**, trong `apply_nativeboot2_b99_buildfingerprint1.py`; báo lỗi nếu không tìm thấy hoặc tìm thấy nhiều điểm chèn phù hợp.
+- [x] **Bước 4: Đăng ký cặp script áp dụng/kiểm thử** trong `ci/fastbuild1_manifest.txt`, đồng thời yêu cầu FASTBUILD kiểm tra dấu B99.
+- [x] **Bước 5: Chạy lại kiểm thử tập trung và kiểm tra manifest**; cả kiểm thử dấu nhận diện và xác thực manifest phải đạt.
 
 ### Task 2 — Nhiệm vụ 2: Bắt FASTBUILD xác minh dấu B99 và việc gỡ bypass
 
@@ -59,10 +59,10 @@
 - Binary phải có dấu B99; đồng thời không được có `[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]` hoặc `[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]`.
 - Kiểm thử B27 hiện có tiếp tục yêu cầu giữ xử lý panic gốc và lệnh ghi SYSSTART `prop->set_int(value)`.
 
-- [ ] **Bước 1: Thêm kiểm thử workflow để thất bại trước**, yêu cầu dấu B99 có mặt và cả hai dấu bypass vẫn vắng mặt.
-- [ ] **Bước 2: Chạy `python3 -m unittest test_fastbuild1_workflows.py -v`**; xác nhận kiểm thử mới thất bại trước khi sửa workflow.
-- [ ] **Bước 3: Sửa bước kiểm tra binary của FASTBUILD** để yêu cầu dấu B99 chính xác, đồng thời giữ nguyên các kiểm tra cấm B88/B89.
-- [ ] **Bước 4: Chạy kiểm thử workflow và B27**; chúng phải xác nhận dấu B99 có mặt, đồng thời giữ nguyên hành vi PhoneUI/SYSSTART gốc.
+- [x] **Bước 1: Thêm kiểm thử workflow để thất bại trước**, yêu cầu dấu B99 có mặt và cả hai dấu bypass vẫn vắng mặt.
+- [x] **Bước 2: Chạy `python3 -m unittest test_fastbuild1_workflows.py -v`**; xác nhận kiểm thử mới thất bại trước khi sửa workflow.
+- [x] **Bước 3: Sửa bước kiểm tra binary của FASTBUILD** để yêu cầu dấu B99 chính xác, đồng thời giữ nguyên các kiểm tra cấm B88/B89.
+- [x] **Bước 4: Chạy kiểm thử workflow và B27**; FASTBUILD #324 xác nhận dấu B99 có mặt, hai dấu bypass vắng mặt, đồng thời regressions giữ nguyên hành vi PhoneUI/SYSSTART gốc.
 
 ### Task 3 — Nhiệm vụ 3: Build, kiểm tra và thử B99 trên iPhone
 
@@ -74,9 +74,9 @@
 - Báo cáo FASTBUILD phải ghi commit, mã lần chạy, mã artifact và SHA-256 của IPA.
 - Log thiết bị hợp lệ phải có dấu B99 và hành vi không bypass đúng dự kiến. Các dấu CompatBoot phải ghi riêng kết quả chờ sáu dịch vụ và chạy Menu3 thật.
 
-- [ ] **Bước 1: Chạy kiểm tra cục bộ:** `python3 -m unittest discover -v`, `python3 ci/fastbuild1_manifest.py validate .`, `git diff --check`, cùng các kiểm thử tập trung B27/B99.
-- [ ] **Bước 2: Chạy FASTBUILD từ nhánh hướng 2**; xác nhận các cổng kiểm tra, biên dịch iOS, kiểm tra binary, đóng gói IPA chưa ký và tạo artifact đều hoàn tất.
-- [ ] **Bước 3: Ghi lại danh tính artifact** (mã lần chạy, mã artifact, SHA-256, commit) vào handoff B99 trước khi cài lên iPhone.
+- [x] **Bước 1: Chạy kiểm tra cục bộ:** `python3 -m unittest discover -p 'test_*.py'` → 69 đạt, 2 bỏ qua vì không có upstream; manifest hợp lệ; `git diff --check` đạt. Kiểm tra B27 đầy đủ được thực hiện trong FASTBUILD có upstream.
+- [x] **Bước 2: Chạy FASTBUILD từ nhánh hướng 2**; các cổng kiểm tra, biên dịch iOS, kiểm tra binary, đóng gói IPA chưa ký và tải artifact đều hoàn tất ở FASTBUILD #324.
+- [x] **Bước 3: Ghi lại danh tính artifact** (mã lần chạy `36318399524`, artifact `10931945136`, SHA-256 IPA `1fe03ed0b2716066932a9a21c75e283f87196211453f1e40914f5338b5a78f70`, commit `a82d31a2626f8bd77e8e4c83ba57069b79ff252f`) vào handoff B99 trước khi cài lên iPhone.
 - [ ] **Bước 4: Cài đúng IPA đó đè lên app hiện tại**, dùng cùng firmware RM-356; giữ riêng các tệp B98 rồi thu một bộ log mới có dấu B99.
 - [ ] **Bước 5: Phân loại lượt thử:** thiếu dấu B99 nghĩa là IPA/log không đúng hoặc đã cũ, lượt thử không hợp lệ; có dấu B99 nhưng vẫn có một trong hai dấu B88/B89 nghĩa là build không đạt hợp đồng; có dấu B99, không có bypass, và có log hàng rào/Menu3 thì lượt thử hướng 2 hợp lệ.
 - [ ] **Bước 6: Ghi lại màn hình và cách thoát app**; không xem thông báo Phone start-up failed là Home Screen thành công, cũng không suy ra app iOS bị crash chỉ từ `shutdown_done`.

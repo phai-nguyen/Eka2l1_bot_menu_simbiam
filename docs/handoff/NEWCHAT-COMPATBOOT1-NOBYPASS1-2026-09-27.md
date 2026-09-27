@@ -17,17 +17,22 @@ The historical B88/B89 patchers and their standalone contract tests remain in th
 
 ## Validation
 
-- `python3 -m unittest discover -v`: 64 passed, 2 skipped because no FASTBUILD upstream checkout was supplied.
-- `python3 ci/fastbuild1_manifest.py validate .`: passed.
-- `git diff --check`: passed.
-- FASTBUILD #321, run `36310459634`, commit `1611e3533306a604435c9b12d59f7606ecfeb879`: GREEN.
-  - B28 baseline and all manifest regressions passed, including updated B27 panic/SYSSTART assertions.
-  - iOS compile, binary invariants, unsigned IPA packaging, and artifact upload passed.
-  - Binary check confirmed B88 and B89 bypass markers are absent.
-  - IPA artifact: [download from GitHub Actions](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36310459634/artifacts/10929206594), 20,009,182-byte ZIP, available until 2026-10-11.
-  - IPA SHA-256: `acb839f04d3aa4e51ee6999877586f0fcd7033bf353f7a52936baedd3f6de021`.
-  - Audit artifact ID: `10928393854`.
-- Device installation and runtime validation: pending; this workflow produced an unsigned IPA.
+- FASTBUILD #324, run `36318399524`, commit `a82d31a2626f8bd77e8e4c83ba57069b79ff252f`: **GREEN**.
+  - B28 baseline and every manifest regression passed; B99 manifest-style test invocation passed.
+  - iOS compile and binary checks passed. The binary contains `[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1`; the explicit binary gate confirmed both B88/B89 bypass markers are absent.
+  - Unsigned IPA packaging and upload passed. Artifact [10931945136](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36318399524/artifacts/10931945136), ZIP size 20,011,253 bytes; retained until 2026-10-11 12:18 UTC.
+  - IPA SHA-256: `1fe03ed0b2716066932a9a21c75e283f87196211453f1e40914f5338b5a78f70`.
+  - Audit artifact ID: `10931770389`.
+- Local regressions: 69 passed, 2 skipped because no upstream checkout is present locally. Manifest validation and `git diff --check` passed. The FASTBUILD run exercised the cached upstream B27 contract.
+- Physical iPhone installation and runtime validation are pending. A successful build does not establish PhoneUI success or reaching the Symbian Home Screen.
+
+## B99 iPhone test
+
+- Download the IPA artifact from the link above on the iPhone (sign in to GitHub if prompted), save the ZIP in Files, and tap it once to extract it.
+- Install the extracted IPA using the same signing/sideloading method used for the previous test builds.
+- Keep the B98 logs. Install B99 over the current app, then start a new emulator session and collect fresh logs. A valid B99 log must contain the full B99 build marker above.
+- Record whether `Phone start-up failed` appears, whether the app closes by itself or is exited manually, and whether the six-service barrier and real `menu3.exe` launch markers appear. Do not count the PhoneUI error screen as Home Screen success.
+- Send the fresh log and, if available, a screen recording. This branch has not yet been validated on-device.
 
 ## Guardrails
 
