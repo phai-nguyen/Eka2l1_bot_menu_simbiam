@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -35,14 +37,26 @@ class FastbuildWorkflowContract(unittest.TestCase):
         verify_start = text.index("    - name: Verify binary invariants")
         verify_end = text.index("    - name: Package unsigned IPA", verify_start)
         verify = text[verify_start:verify_end]
+        gate = ROOT / "ci/fastbuild1_reject_phoneui_bypass_markers.sh"
+        self.assertIn('fastbuild1_reject_phoneui_bypass_markers.sh "$RUNNER_TEMP/fastbuild1.strings"', verify)
+        self.assertTrue(gate.is_file(), "binary no-bypass verifier is missing")
+        gate_text = gate.read_text(encoding="utf-8")
         for marker in (
             "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
             "[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]",
         ):
-            self.assertIn(
-                f"! grep -Fq '{marker}' \"$RUNNER_TEMP/fastbuild1.strings\"",
-                verify,
-            )
+            self.assertIn(marker, gate_text)
+
+        for content, should_pass in (
+            ("permitted runtime marker", True),
+            ("[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]", False),
+            ("[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]", False),
+        ):
+            with self.subTest(content=content), tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as strings:
+                strings.write(content)
+                strings.flush()
+                result = subprocess.run(["bash", str(gate), strings.name], text=True, capture_output=True)
+            self.assertEqual(result.returncode == 0, should_pass, result.stdout + result.stderr)
 
     def test_current_build_verifies_menu3_leave5_trace_markers(self):
         text = FAST.read_text(encoding="utf-8")

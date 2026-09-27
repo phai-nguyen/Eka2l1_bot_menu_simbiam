@@ -18,14 +18,16 @@ def fail(message: str) -> None:
 
 def patch_build_id(source: str) -> str:
     marker_count = source.count(LOG_MARKER)
-    if marker_count == 1:
-        return source
-    if marker_count > 1:
-        fail(f"B99 runtime marker appears {marker_count} times")
-
     anchor_count = source.count(ANCHOR)
     if anchor_count != 1:
         fail(f"emulator-session start anchor: expected one, found {anchor_count}")
+
+    if marker_count == 1:
+        if source.count(ANCHOR + INSERTION) != 1:
+            fail("existing B99 runtime marker is not immediately after the emulator-session start anchor")
+        return source
+    if marker_count > 1:
+        fail(f"B99 runtime marker appears {marker_count} times")
 
     patched = source.replace(ANCHOR, ANCHOR + INSERTION, 1)
     if patched.count(LOG_MARKER) != 1:

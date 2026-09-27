@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -83,6 +84,50 @@ class B99BuildFingerprintTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("anchor", result.stdout + result.stderr)
 
+    def test_existing_marker_outside_unique_session_anchor_is_rejected(self) -> None:
+        if not APPLY.is_file():
+            self.skipTest("B99 fingerprint patcher is not implemented yet")
+        invalid_sources = (
+            f'NSLog(@"{MARKER}");\n@implementation RootViewController\n',
+            f'void unrelated() {{ NSLog(@"{MARKER}"); }}\n'
+            '- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {\n}\n',
+            f'- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {{\n'
+            f'    NSLog(@"{MARKER}");\n}}\n'
+            f'- (void)startEmulatorWithCompatProbe:(BOOL)compatProbe {{\n}}\n',
+        )
+        for body in invalid_sources:
+            with self.subTest(body=body), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                source = root / "src/emu/ios/app/RootViewController.mm"
+                source.parent.mkdir(parents=True)
+                source.write_text(body, encoding="utf-8")
+                result = subprocess.run(
+                    [sys.executable, str(APPLY), str(root)],
+                    text=True,
+                    capture_output=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("anchor", result.stdout + result.stderr)
+
+    def test_manifest_style_invocation_accepts_upstream_argument(self) -> None:
+        if os.environ.get("B99_MANIFEST_INVOCATION_CHILD") == "1":
+            self.skipTest("nested manifest invocation")
+        with tempfile.TemporaryDirectory() as temp:
+            env = os.environ.copy()
+            env["B99_MANIFEST_INVOCATION_CHILD"] = "1"
+            result = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()), temp],
+                text=True,
+                capture_output=True,
+                env=env,
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("OK", result.stderr)
+
 
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) not in (1, 2):
+        raise SystemExit("usage: test_nativeboot2_b99_buildfingerprint1.py [upstream-root]")
+    # FASTBUILD passes the upstream root to every contract test. These tests
+    # use isolated fixtures, so remove that positional argument from unittest.
+    unittest.main(argv=[sys.argv[0]])
