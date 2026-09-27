@@ -6,7 +6,7 @@ B27 is diagnostic-only. It must:
 - add focused deep tracing for ewsrv/Wserv self-kill/panic paths;
 - record PC/LR/SP/CPSR/registers and stack candidates when category is
   WSERV-INTERNAL or Domino, especially reason 13;
-- preserve panic behavior except for the single, later-authorized B88 Telephone CONE 14 startup-continuation exception.
+- preserve native panic and SYSSTART state behavior; PhoneUI failures remain diagnostic-only.
 """
 from __future__ import annotations
 import sys
@@ -49,26 +49,23 @@ def main()->None:
     ):
         need(s,n,"svc.cpp")
 
-    # Preserve ordinary panic semantics. B88 is the only authorized exception:
-    # Telephone UID3 0x100058B3 / CONE / reason 14 exits cleanly for startup.
+    # PhoneUI CONE 14 remains observable, but must keep native panic semantics.
     need(s,"thr->kill(etype, common::utf8_to_ucs2(exit_category), reason);","svc.cpp")
     for n in (
-        "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
         "const bool nboot2_b71_phoneui_cone14",
         "nboot2_b71_target_uid3 == 0x100058B3U",
         "reason == 14",
         'exit_category == \"CONE\"',
     ):
         need(s,n,"svc.cpp")
-    # The thread_kill source has other kill dispatches; verify B88 by its own
-    # marker and guarded predicate rather than a file-global call ordering.
     for n in (
         "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
-        "etype = kernel::entity_exit_type::terminate;",
-        'exit_category = "None";',
-        "reason = 0;",
+        "[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]",
+        "nboot2_b89_effective",
+        "nboot2_b89_phoneui_bypass_seen",
     ):
-        need(s,n,"B88 exception")
+        if n in s:
+            fail(f"forbidden startup bypass remains in svc.cpp: {n}")
 
     gate_start=s.index("const bool nboot2_b71_phoneui_cone14")
     gate_end=s.index(";",gate_start)+1
@@ -79,6 +76,14 @@ def main()->None:
         'exit_category == "CONE"',
     ):
         need(gate,n,"B71 exact PhoneUI panic predicate")
+
+    setter_start=s.index("BRIDGE_FUNC(std::int32_t, property_find_set_int")
+    setter_end=s.index("\n    }",setter_start)
+    setter=s[setter_start:setter_end]
+    need(setter,"prop->set_int(value)","native property setter")
+    for n in ("prop->set_int(nboot2_b89_effective)","[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]"):
+        if n in setter:
+            fail(f"forbidden SYSSTART state override remains: {n}")
 
     print(f"{MARK}: PASS")
 
