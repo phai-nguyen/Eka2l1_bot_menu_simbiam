@@ -37,6 +37,52 @@ def replace_once(source, old, new, label):
         fail(f"{label}: expected one anchor, found {count}")
     return source.replace(old, new, 1)
 
+def patch_function(source, signature, transformer, label):
+    if source.count(signature) != 1:
+        fail(f"{label}: expected one function signature, found {source.count(signature)}")
+    start = source.index(signature)
+    open_brace = source.index("{", start)
+    depth = 0
+    quote = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    index = open_brace
+    while index < len(source):
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+        elif block_comment:
+            if char == "*" and next_char == "/":
+                block_comment = False
+                index += 1
+        elif quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char == "/" and next_char == "/":
+            line_comment = True
+            index += 1
+        elif char == "/" and next_char == "*":
+            block_comment = True
+            index += 1
+        elif char in ('"', "'"):
+            quote = char
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                end = index + 1
+                return source[:start] + transformer(source[start:end]) + source[end:]
+        index += 1
+    fail(f"{label}: unterminated function body")
+
 def ensure_include(source, include, label):
     if include in source:
         return source
@@ -56,6 +102,7 @@ def patch_notify_complete(source):
         return source
     source = ensure_include(source, "#include <config/config.h>", "notify_info")
     source = ensure_include(source, "#include <kernel/b94_teardown_probe.h>", "notify_info")
+    signature = "void notify_info::complete(int err_code) {"
     old = "            epoc::request_status *sts_real = sts.get(requester->owning_process());\n            if (sts_real)\n"
     new = '''            kernel::process *nboot2_b94_requester_process = requester->owning_process();
             const bool nboot2_b94_notify_trace = kern->get_config()->compat_menu_probe_mode
@@ -83,7 +130,7 @@ def patch_notify_complete(source):
             }
             if (sts_real)
 '''
-    return replace_once(source, old, new, "notify status resolution")
+    return patch_function(source, signature, lambda body: replace_once(body, old, new, "notify status resolution"), "notify_info::complete")
 
 def patch_property_cancel(source):
     marker = "[COMPATBOOT][PROP_CANCEL]"
@@ -92,6 +139,7 @@ def patch_property_cancel(source):
             fail("partial property cancel trace detected")
         return source
     source = ensure_include(source, "#include <config/config.h>", "property::cancel")
+    signature = "bool property::cancel(const epoc::notify_info &info) {"
     old = "        if (kern->is_thread_alive((*subscription_iterator)->requester)) {\n            (*subscription_iterator)->complete(epoc::error_cancel);\n        }\n"
     new = '''        auto *nboot2_b94_requester = (*subscription_iterator)->requester;
         const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
@@ -107,7 +155,7 @@ def patch_property_cancel(source):
             (*subscription_iterator)->complete(epoc::error_cancel);
         }
 '''
-    return replace_once(source, old, new, "property cancel liveness")
+    return patch_function(source, signature, lambda body: replace_once(body, old, new, "property cancel liveness"), "property::cancel")
 
 def patch_process_kill(source):
     marker = "[COMPATBOOT][PROCESS_KILL]"
@@ -116,8 +164,9 @@ def patch_process_kill(source):
             fail("partial process kill trace detected")
         return source
     source = ensure_include(source, "#include <config/config.h>", "process::kill")
-    old = "    void process::kill(const entity_exit_type ext, const std::u16string &category, const std::int32_t reason) {\n        if (exit_type != entity_exit_type::pending) {\n"
-    new = '''    void process::kill(const entity_exit_type ext, const std::u16string &category, const std::int32_t reason) {
+    signature = "void process::kill(const entity_exit_type ext, const std::u16string &category, const std::int32_t reason) {"
+    old = "\n        if (exit_type != entity_exit_type::pending) {\n"
+    new = '''
         if (get_kernel_object_owner()->get_config()->compat_menu_probe_mode) {
             const auto nboot2_b94_uids = get_uid_type();
             LOG_INFO(KERNEL,
@@ -127,7 +176,7 @@ def patch_process_kill(source):
         }
         if (exit_type != entity_exit_type::pending) {
 '''
-    return replace_once(source, old, new, "process kill entry")
+    return patch_function(source, signature, lambda body: replace_once(body, old, new, "process kill entry"), "process::kill")
 
 def patch_process_address_space(source):
     marker = "[COMPATBOOT][NOTIFY_STATUS_MAP]"
@@ -136,6 +185,7 @@ def patch_process_address_space(source):
             fail("partial address-space trace detected")
         return source
     source = ensure_include(source, "#include <kernel/b94_teardown_probe.h>", "process address-space lookup")
+    signature = "void *process::get_ptr_on_addr_space(address addr) {"
     old = "        return mem->get_control()->get_host_pointer(mm_impl_->address_space_id(), addr);\n"
     new = '''        const bool nboot2_b94_trace_status_map = notify_status_resolution_matches(this, addr);
         if (nboot2_b94_trace_status_map) {
@@ -152,7 +202,7 @@ def patch_process_address_space(source):
         }
         return nboot2_b94_host_pointer;
 '''
-    return replace_once(source, old, new, "address-space host pointer lookup")
+    return patch_function(source, signature, lambda body: replace_once(body, old, new, "address-space host pointer lookup"), "process::get_ptr_on_addr_space")
 
 def main():
     if len(sys.argv) != 2:

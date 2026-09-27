@@ -79,6 +79,19 @@ namespace eka2l1::kernel {
 
 
 class B94TeardownProbeTests(unittest.TestCase):
+    def test_notify_patch_ignores_identical_anchor_outside_target_function(self):
+        unrelated = '''
+void unrelated_notify() {
+            epoc::request_status *sts_real = sts.get(requester->owning_process());
+            if (sts_real)
+                sts_real->set(err_code, kern->is_eka1());
+        }
+'''
+        traced = PATCH.patch_notify_complete(THREAD_CPP + unrelated)
+        self.assertEqual(traced.count("sts.get("), 2)
+        self.assertIn(unrelated, traced)
+        self.assertEqual(PATCH.patch_notify_complete(traced), traced)
+
     def test_notify_trace_records_requester_and_status_translation_without_changing_completion(self):
         traced = PATCH.patch_notify_complete(THREAD_CPP)
         for needle in (
