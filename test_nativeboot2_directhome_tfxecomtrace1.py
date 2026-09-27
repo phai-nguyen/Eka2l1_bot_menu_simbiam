@@ -41,7 +41,6 @@ def main():
 
     for marker in (
         "[NBOOT2][AKNSKIN_TFX_ECOM]",
-        "[NBOOT2][TFX_ECOM_DLL]",
         "[NBOOT2][TFX_SESSION]",
         "[NBOOT2][DIRECTHOME_TFX_ECOM_COPY]",
         "[NBOOT2][DIRECTHOME_TFX_ECOM_COMPLETE]",

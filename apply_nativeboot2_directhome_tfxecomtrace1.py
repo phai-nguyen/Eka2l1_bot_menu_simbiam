@@ -43,7 +43,6 @@ def apply_to_svc(source):
 
     for marker in (
         "[NBOOT2][AKNSKIN_TFX_ECOM]",
-        "[NBOOT2][TFX_ECOM_DLL]",
         "[NBOOT2][TFX_SESSION]",
     ):
         if marker not in source:
