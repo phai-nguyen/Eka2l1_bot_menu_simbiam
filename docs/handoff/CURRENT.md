@@ -3,7 +3,7 @@
 Updated: 2026-09-27
 
 Latest handoff: [NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md](NEWCHAT-COMPATBOOT1-MENUPROBE1-2026-09-26.md)
-Latest history: [B93 device evidence](history/B93-DEVICE1.md); [B92 device evidence](history/B92-DEVICE1.md)
+Latest history: [B94 crash evidence](history/B94-CRASH1.md); [B93 device evidence](history/B93-DEVICE1.md); [B92 device evidence](history/B92-DEVICE1.md)
 
 Repository: `phai-nguyen/Eka2l1_bot_menu_simbiam`
 Base branch: `nativeboot2-current` (B89 baseline)
@@ -14,7 +14,7 @@ Target: RM-356 / Nokia 5800 firmware on EKA2L1 iOS.
 
 Current objective: keep Native Boot as the default and test explicitly selected CompatBoot, which waits for the UI services before launching the real firmware `menu3.exe`.
 
-The B92 method-2 run and B93 method-3 run both reached the readiness barrier and launched real `menu3.exe`, but neither produced `[COMPATBOOT][TARGET_VISIBLE]`. Both show five identical no-match `FindEqInt` queries against `0x102858F2`. Menu's own query occurs after the first trapped `Leave(-5)` and its first `TfxServer` miss. B93's video shows the Nokia logo, not the Symbian Menu; its logs record clean shutdown and normal restart, and the user confirms the app was exited manually without a crash. See [B93 device evidence](history/B93-DEVICE1.md).
+The B92 method-2 and B93 method-3 runs reached the readiness barrier and launched real `menu3.exe`, but neither produced `[COMPATBOOT][TARGET_VISIBLE]`. B93 remains a manual exit without crash, as previously reported. B94 was an install-over test with old logs cleared; it also launched real `menu3.exe` and then the iOS app crashed to Home without a user swipe. The `.ips` backtrace ends in a `kernel::chunk` vtable jump while `process::kill()` destroys a property notification. See [B94 crash evidence](history/B94-CRASH1.md) and [B93 device evidence](history/B93-DEVICE1.md).
 
 B92 adds a read-only `[COMPATBOOT][CENREP_FIND_EQ_INT]` trace around the real CenRep FindEqInt request/result. It records repository UID, validated filter, comparison value, result count, and status only when CompatBoot is active. It preserves the existing IPC completion values, Native Boot default, stock firmware state, and readiness checks.
 
@@ -26,4 +26,4 @@ Latest IPA artifact: [`EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`](https
 
 On iPhone, open the [FASTBUILD #302 run page](https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36279806117) in Safari while signed in to GitHub. Under **Artifacts**, download `EKA2L1-NATIVEBOOT2-CURRENT-FAST-NOJAVA-MANIC3-IPA`. In Files, tap its ZIP once to extract it. The IPA is unsigned; import it into ESign Match (or the usual sideloading tool) to sign and install. Tapping the unsigned IPA in Files will not install it.
 
-Next device test: install the FASTBUILD #302 IPA and select **CompatBoot Menu Probe**. Capture the fresh logs around the first `[COMPATBOOT][MENU3_FSFLUSH]`, including `path`, `flush_ok`, and `completion`, plus any subsequent `[COMPATBOOT][MENU3_LEAVE5]` and `[COMPATBOOT][TARGET_VISIBLE]`. Native Boot remains the default. This build only observes FileFlush; it does not infer the cause of `Leave(-5)`, change firmware/CenRep, force TFX, create guest files, fabricate services, or bypass the readiness barrier. PR #6 remains unmerged pending review and device validation.
+Next step: audit the exact B28 lifetime and teardown path from `process::kill()` through `kernel_system::destroy()`, `property_reference::~property_reference()`, `property::cancel()`, and `notify_info::complete()`. The B94 crash report does not identify which guest process initiated the kill, so add read-only caller/object-lifetime diagnostics if source review alone cannot resolve it. B94's two traced FileFlush calls both completed successfully; do not change firmware, CenRep results, TFX, guest files, server behavior, or readiness checks based on this capture. PR #6 remains open and unmerged.
