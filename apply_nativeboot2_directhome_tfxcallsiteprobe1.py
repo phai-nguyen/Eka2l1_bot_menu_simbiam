@@ -63,6 +63,14 @@ def apply_to_core(source: str) -> str:
     return source
 
 
+def _dispatch_accounting_lines(block: str):
+    return [
+        line.strip()
+        for line in block.splitlines()
+        if "num_instrs" in line or "NumInstrsToExecute" in line
+    ]
+
+
 def _has_dispatch_instruction_accounting(block: str) -> bool:
     increment = re.findall(
         r"(?m)^[ \t]*num_instrs[ \t]*\+\+[ \t]*;[ \t]*\\[ \t]*\r?$",
@@ -114,7 +122,10 @@ def apply_to_dyncom(source: str) -> str:
         )
     for i, block in enumerate(macros):
         if not _has_dispatch_instruction_accounting(block):
-            fail(f"dispatch macro {i}: unknown instruction accounting")
+            fail(
+                f"dispatch macro {i}: unknown instruction accounting; "
+                f"observed lines={_dispatch_accounting_lines(block)!r}"
+            )
     fused = None
     if fused_definitions:
         fused = re.search(r"(?ms)^#define ENTER_FUSED_BRANCH\b.*?(?=^[A-Za-z_]+\s*:\s*\{)", source)

@@ -113,6 +113,14 @@ class CallsiteProbeTests(unittest.TestCase):
         self.assertIn("directhome_tfx_callsite_observer_ = observer;", core)
         self.assertIn("if (directhome_tfx_callsite_observer_)", core)
 
+    def test_dispatch_accounting_error_reports_observed_lines(self):
+        patcher = self.patcher()
+        unsupported = DYNCOM.replace("num_instrs++;", "num_instrs += 1;", 1)
+        with self.assertRaises(SystemExit) as raised:
+            patcher.apply_to_dyncom(unsupported)
+        self.assertIn("observed lines=", str(raised.exception))
+        self.assertIn("num_instrs += 1;", str(raised.exception))
+
     def test_dispatch_accounting_allows_different_horizontal_spacing(self):
         patcher = self.patcher()
         slash = chr(92)
