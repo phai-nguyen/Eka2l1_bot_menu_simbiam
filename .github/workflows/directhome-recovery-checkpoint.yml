@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- docs/checkpoints/AUTO_LAST_COMMIT.md; then
+          if [ -z "$(git status --porcelain -- docs/checkpoints/AUTO_LAST_COMMIT.md)" ]; then
             echo "Checkpoint already current."
             exit 0
           fi
