@@ -9,8 +9,8 @@
 
 ## Last verified remote source state
 
-- Verified DirectHome branch HEAD: `eff46f2b821a0ed767d16ea36d0061095425eadf` (`docs: auto-record DirectHome recovery checkpoint`).
-- FASTBUILD #358 source commit: `1517daae41c81c521ac58b428e639fd2a8717e00`; PR merge candidate: `dbe5860594b92057cae8d0f1337ccfe4c14ca9ab`.
+- Latest source-changing commit on DirectHome: `50b293f4852112c6fce7afadc48bcbff184b7b6d`; the checkpoint recorder subsequently wrote `8d1e9df99f52b494ba3208f2a79080498d9f0fd6`.
+- FASTBUILD #359 source branch SHA: `50b293f4852112c6fce7afadc48bcbff184b7b6d`; PR merge candidate: `14ff88bfa99be8e4f36af8269bed888483ac0e9c`.
 - Verified B99 reference HEAD remains `b14804a4ccd594d837496e2f106c4b5e8a2cdb10`.
 - Runtime objective: bypass normal firmware startup far enough to reach the real Nokia 5800 Home Screen using DirectHome while preserving B99 as comparison baseline.
 
@@ -42,6 +42,12 @@
 6. Use the newest device logs/video as runtime truth.
 7. Recreate any explicitly recorded unpushed patch only after checking it is absent from current remote source.
 
+## FASTBUILD #359 result
+
+- Actions run `36498797082` completed successfully for branch SHA `50b293f4852112c6fce7afadc48bcbff184b7b6d`; preflight, regressions, and binary invariants passed.
+- The diagnostic candidate IPA SHA-256 is `b4a6fd651c59ba0e66f8befdebb1ae3e4dc746b041db74b970d9afbe2f532ff2`.
+- This is build evidence only. It does not establish that the host crash is gone, ALF continues, TfxServer appears, or Home is reachable.
+
 ## NEXT ACTION
 
-Apply and test the narrow collector unlink in `codeseg::free_attached_data()` before the attach-info links and owning entry are erased. Run the full suite and DirectHome preflight, then push a fast-forward commit to `codex/compatboot1-directhome` and verify the exact Actions SHA/result. If the build succeeds, provide the IPA and checksum as a diagnostic candidate for device testing. Keep Native Boot as default and B99 untouched; do not label a V9 or claim the crash/Home issue fixed without device evidence.
+Install and device-test the FASTBUILD #359 candidate after clearing old logs. Record whether the emulator remains open beyond the previous `06:12:02` host-crash point, capture the new iOS `.ips` if it exits, and correlate the guest ALF/TfxServer sequence. Keep Native Boot as default and B99 untouched; do not label a V9 or claim the crash is fixed or Home reached without device evidence.
