@@ -16,6 +16,7 @@ name: Build EKA2L1 NATIVEBOOT2 CURRENT FAST
       - "test_nativeboot2_*.py"
       - "ci/fastbuild1_manifest.py"
       - "ci/fastbuild1_manifest.txt"
+      - "ci/directhome_selftest.py"
       - ".github/workflows/build-ios-nativeboot2-current-fast.yml"
   pull_request:
     branches:
@@ -25,13 +26,57 @@ name: Build EKA2L1 NATIVEBOOT2 CURRENT FAST
       - "test_nativeboot2_*.py"
       - "ci/fastbuild1_manifest.py"
       - "ci/fastbuild1_manifest.txt"
+      - "ci/directhome_selftest.py"
       - ".github/workflows/build-ios-nativeboot2-current-fast.yml"
 
 permissions:
   contents: read
 
+concurrency:
+  group: nativeboot2-current-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  selftest:
+    name: DirectHome preflight self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Run DirectHome preflight gate
+      run: |
+        set -euo pipefail
+        EXPECTED_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+        python3 ci/directhome_selftest.py \
+          --repo "$GITHUB_WORKSPACE" \
+          --report DIRECTHOME-SELFTEST-REPORT.txt \
+          --expected-branch "$EXPECTED_BRANCH"
+
+    - name: Publish self-test summary
+      if: always()
+      run: |
+        if [ -f DIRECTHOME-SELFTEST-REPORT.txt ]; then
+          {
+            echo "## DirectHome preflight"
+            echo '~~~text'
+            cat DIRECTHOME-SELFTEST-REPORT.txt
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Upload self-test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-DIRECTHOME-SELFTEST-REPORT
+        path: DIRECTHOME-SELFTEST-REPORT.txt
+        if-no-files-found: warn
+        retention-days: 14
+
   build-app:
+    needs: selftest
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -295,6 +340,17 @@ jobs:
         grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
         ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
         shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt"
+        {
+          echo "EKA2L1 DIRECTHOME DEVICE-TEST CANDIDATE"
+          echo "source_sha=$GITHUB_SHA"
+          echo "head_ref=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          echo "run_id=$GITHUB_RUN_ID"
+          echo "run_url=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "selftest=PASS"
+          echo "regressions=PASS"
+          echo "binary_invariants=PASS"
+          echo "ipa_sha256=$(awk '{print $1}' "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt")"
+        } > "$GITHUB_WORKSPACE/DIRECTHOME-DEVICE-TEST-CANDIDATE.txt"
         echo "FASTBUILD_PACKAGE_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
     - name: Upload IPA
@@ -342,5 +398,6 @@ jobs:
           FASTBUILD1-BUILD-AUDIT.txt
           FASTBUILD1-SCCACHE-STATS.txt
           FASTBUILD1-IPA-SHA256.txt
+          DIRECTHOME-DEVICE-TEST-CANDIDATE.txt
         if-no-files-found: warn
         retention-days: 14
