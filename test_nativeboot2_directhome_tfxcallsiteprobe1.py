@@ -97,7 +97,8 @@ class CallsiteProbeTests(unittest.TestCase):
         result = patcher.apply_to_dyncom(DYNCOM)
         self.assertEqual(result.count("0x806EAFC6"), 1)
         self.assertEqual(result.count("0x72E00318U"), 2)
-        self.assertIn("if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E00318U))", result)
+        self.assertEqual(result.count("0x72E00E82U"), 2)
+        self.assertIn("pc != 0x72E00318U && pc != 0x72E00E82U", result)
         self.assertIn("cpu->Reg[15]", result)
         for reg in (0, 1, 13, 14):
             self.assertIn(f"cpu->Reg[{reg}]", result)
@@ -213,7 +214,10 @@ class CallsiteProbeTests(unittest.TestCase):
         result = patcher.apply_to_scheduler(SCHEDULER)
         self.assertIn("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", result)
         self.assertIn("eikcore473_return", result)
+        self.assertIn("alf_object_base_preadd", result)
         self.assertIn("[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]", result)
+        self.assertIn("[NBOOT2][DIRECTHOME_ALF_OBJECT_PREADD]", result)
+        self.assertIn("pre_add_r0=0x{:08X}", result)
         self.assertEqual(result.count("#include <config/config.h>"), 1)
         self.assertEqual(patcher.apply_to_scheduler(result), result)
         for gate in ("native_phone_boot", "compat_menu_probe_mode", "compat_target_kind == 2"):
@@ -280,6 +284,12 @@ def contract(root: Path):
             or "memory_reads=NONE" not in scheduler
             or "result_rewrite=NONE" not in scheduler):
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: unsafe/missing EikCore #473 observation")
+    if (dyncom.count("0x72E00E82U") != 2
+            or scheduler.count("[NBOOT2][DIRECTHOME_ALF_OBJECT_PREADD]") != 1
+            or "uid3 == 0x10282845U" not in scheduler
+            or "memory_reads=NONE" not in scheduler
+            or "register_writes=NONE" not in scheduler):
+        raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: unsafe/missing ALF pre-add observation")
     for gate in ("native_phone_boot", "compat_menu_probe_mode", "compat_target_kind == 2"):
         if gate not in scheduler:
             raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: missing profile gate " + gate)

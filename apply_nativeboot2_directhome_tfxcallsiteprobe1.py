@@ -36,7 +36,7 @@ def apply_to_core(source: str) -> str:
     once(source, "#include <functional>\n", "functional include")
     definition = '''    struct directhome_tfx_callsite_sample {
         std::uint32_t pc, r0, r1, r5, r6, lr, sp, cpsr;
-        bool thumb, eikcore473_return;
+        bool thumb, eikcore473_return, alf_object_base_preadd;
     };
 
 '''
@@ -134,7 +134,7 @@ def apply_to_dyncom(source: str) -> str:
     helper = '''// DirectHome callsite: inspect live flags without invoking STORE_NZCVT or changing guest state.
 static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
     const std::uint32_t pc = cpu->Reg[15] & ~1U;
-    if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E00318U)) {
+    if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E00318U && pc != 0x72E00E82U)) {
         return;
     }
     const std::uint32_t cpsr = (cpu->Cpsr & 0x0FFFFFDFU)
@@ -142,7 +142,7 @@ static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
         | (cpu->VFlag << 28) | (cpu->TFlag << 5);
     cpu->parent()->emit_directhome_tfx_callsite({
         pc, cpu->Reg[0], cpu->Reg[1], cpu->Reg[5], cpu->Reg[6], cpu->Reg[14], cpu->Reg[13], cpsr, true,
-        pc == 0x72E00318U
+        pc == 0x72E00318U, pc == 0x72E00E82U
     });
 }
 
@@ -212,6 +212,15 @@ def apply_to_scheduler(source: str) -> str:
                         LOG_WARN(KERNEL,
                             "[NBOOT2][DIRECTHOME_EIKCORE473_RETURN] profile=DirectHome module=alfappservercore.dll offset=0x318 export=EikCore#473 ws_client_handle_r6=0x{:08X} object_r5=0x{:08X} returned_r0=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} process={} uid3=0x{:08X} pid={} thread={} tid={} behavior=OBSERVE_ONLY memory_reads=NONE result_rewrite=NONE",
                             sample.r6, sample.r5, sample.r0, sample.lr, sample.sp, sample.cpsr,
+                            process->name(), uid3, process->unique_id(), crr_thread->name(), crr_thread->unique_id());
+                    }
+                    return;
+                }
+                if (sample.alf_object_base_preadd) {
+                    if (uid3 == 0x10282845U) {
+                        LOG_WARN(KERNEL,
+                            "[NBOOT2][DIRECTHOME_ALF_OBJECT_PREADD] profile=DirectHome module=alfappservercore.dll offset=0xE82 next=ADD_R0_0x80_THEN_STR_R1_R0_PLUS_8 pre_add_r0=0x{:08X} r1=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} process={} uid3=0x{:08X} pid={} thread={} tid={} behavior=OBSERVE_ONLY memory_reads=NONE register_writes=NONE",
+                            sample.r0, sample.r1, sample.lr, sample.sp, sample.cpsr,
                             process->name(), uid3, process->unique_id(), crr_thread->name(), crr_thread->unique_id());
                     }
                     return;

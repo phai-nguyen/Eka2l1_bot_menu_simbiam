@@ -16,11 +16,13 @@
 
 ## Current observed problem
 
-- FASTBUILD #355's device run stays at the Nokia splash for the full recording; Home is not visible or confirmed interactive, and TfxServer remains missing.
-- The new marker at `alfappservercore.dll+0x31E` captured `r0=0`, but decoding showed that PC is the following call, not the return from EikCore #473. Immediately afterward ALF faults at `+0xE84` with `r0=0x80` and terminates with KERN-EXEC 3.
-- The video/log show no spontaneous host shutdown during the roughly six-minute run; teardown begins at the end when the emulator menu is opened. The guest is still not at Home.
-- FASTBUILD #356 moves the observer to the corrected return site `alfappservercore.dll+0x318`. Actions #356 passed for source SHA `1be807528c9ec556adf5e2e5dd55541652828487`, and the binary contains the corrected marker/offset. This build has not yet been device-tested.
-- Probe remains register-only for Alfred UID3 `0x10282845`; it does not read guest memory or change guest state/results.
+- FASTBUILD #356 was device-tested from source SHA `1be807528c9ec556adf5e2e5dd55541652828487`. The video reaches and remains on the PhoneUI text `Phone start-up failed. Contact the retailer.`; Home is not shown or confirmed interactive.
+- At `05:39:20.545`, the `ailaunch` thread was renamed `Home screen`. Its first observed `TfxServer` session request failed with `KErrNotFound` at `05:39:20.598`.
+- At `05:39:20.605`, EikCore #473 returned `r0=0` at `alfappservercore.dll+0x318`. In the same timestamp, ALF faulted at `+0xE84`, with `r0=0x80` and an attempted write to `0x88`, then terminated with KERN-EXEC 3 at `05:39:20.608`.
+- The code window identifies `+0xE82` as `ADD r0, #0x80` immediately before the failing store at `+0xE84`. The existing fault record therefore shows the derived `r0=0x80`, but not the base value before that add.
+- `Telephone` panicked with `CONE 14` (`NoResourceFileForId`) at `05:39:24.796`; the resource probe saw `0x1099B02D` but could not verify its owner. The host stayed alive until the user exited the emulator at the end of the recording.
+- Remote DirectHome HEAD is `a09662528e5e1058d96fde23a36b863a058653de`; Actions #357 for that docs-only commit succeeded. B99 remains at `b14804a4ccd594d837496e2f106c4b5e8a2cdb10`.
+- A diagnostic-only observer at ALF UID3 `0x10282845`, PC `alfappservercore.dll+0xE82`, now records registers before the add. It does not read guest memory or alter registers/results. Source tests and DirectHome preflight pass; this change has not yet been built or device-tested.
 - The earlier B28 dispatch question is already covered by functional patches newer than the checkpoint's original `d1344259…` source state; do not reconstruct it.
 
 ## Safety / branch constraints
@@ -43,4 +45,4 @@
 
 ## NEXT ACTION
 
-Run the FASTBUILD #356 IPA on device, then compare `[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]` at `+0x318` against the later ALF fault. Record whether the host remains alive and whether TfxServer is still missing. Keep B99 untouched; do not claim Home reached without screen and interaction evidence.
+Build the tested `+0xE82` observer on the DirectHome branch, verify the exact SHA, Actions result and IPA checksum, then test that diagnostic FASTBUILD on device. Correlate pre-add `r0` with the existing `+0xE84` fault and `TfxServer` failure. This is a diagnostic build, not a release or a claim of a fix. Keep B99 untouched; do not claim Home reached without screen and interaction evidence.
