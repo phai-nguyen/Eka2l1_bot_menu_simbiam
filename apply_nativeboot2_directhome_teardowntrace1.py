@@ -207,11 +207,15 @@ def patch_property_reference_destructor(source):
                 && nboot2_directhome_config->compat_menu_probe_mode
                 && nboot2_directhome_config->compat_target_kind == 2;
             if (nboot2_directhome_trace) {
+                const auto nboot2_directhome_guest_status = static_cast<std::uint32_t>(nof_.sts.ptr_address());
+                const bool nboot2_directhome_requester_known = nboot2_directhome_guest_status != 0;
+                const void *nboot2_directhome_requester = nboot2_directhome_requester_known
+                    ? static_cast<const void *>(nof_.requester) : nullptr;
                 LOG_INFO(KERNEL,
-                    "[COMPATBOOT][DIRECTHOME_TEARDOWN] phase=property_reference_destructor seq={} object_ptr={} property_ptr={} requester_ptr={} guest_status=0x{:08X}",
+                    "[COMPATBOOT][DIRECTHOME_TEARDOWN] phase=property_reference_destructor seq={} object_ptr={} property_ptr={} requester_ptr={} requester_known={} guest_status=0x{:08X}",
                     kernel::next_directhome_teardown_trace_seq(), static_cast<const void *>(this),
-                    static_cast<const void *>(prop_), static_cast<const void *>(nof_.requester),
-                    static_cast<std::uint32_t>(nof_.sts.ptr_address()));
+                    static_cast<const void *>(prop_), nboot2_directhome_requester,
+                    nboot2_directhome_requester_known ? 1 : 0, nboot2_directhome_guest_status);
             }
             cancel();
         }'''

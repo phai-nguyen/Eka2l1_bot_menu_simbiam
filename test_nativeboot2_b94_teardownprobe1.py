@@ -129,6 +129,11 @@ void unrelated_notify() {
         self.assertIn("if (nboot2_b94_requester_alive)", traced)
         self.assertEqual(PATCH.patch_property_cancel(traced), traced)
 
+    def test_property_cancel_trace_never_dereferences_requester_for_name(self):
+        traced = PATCH.patch_property_cancel(PROPERTY_CPP)
+        self.assertIn("requester_ptr", traced)
+        self.assertNotIn("nboot2_b94_requester->name()", traced)
+
     def test_property_cancel_without_liveness_guard_only_logs_unknown_state(self):
         no_guard = PROPERTY_CPP.replace(
             "        if (kern->is_thread_alive((*subscription_iterator)->requester)) {\n"

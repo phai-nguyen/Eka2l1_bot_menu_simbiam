@@ -154,10 +154,9 @@ def patch_property_cancel(source):
             trace = f'''{indent}auto *nboot2_b94_requester = (*subscription_iterator)->requester;
 {indent}if (kern->get_config()->compat_menu_probe_mode) {{
 {indent}    LOG_INFO(KERNEL,
-{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester={{}} requester_alive=-1 request_status=0x{{:08X}}",
+{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester_alive=-1 request_status=0x{{:08X}}",
 {indent}        static_cast<const void *>(&info), static_cast<const void *>(this),
-{indent}        static_cast<const void *>(nboot2_b94_requester),
-{indent}        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"), info.sts.ptr_address());
+{indent}        static_cast<const void *>(nboot2_b94_requester), info.sts.ptr_address());
 {indent}}}
 {indent}{complete_line}'''
             return body[:match.start()] + trace + body[match.end():]
@@ -188,10 +187,9 @@ def patch_property_cancel(source):
 {indent}const bool nboot2_b94_requester_alive = kern->is_thread_alive(nboot2_b94_requester);
 {indent}if (kern->get_config()->compat_menu_probe_mode) {{
 {indent}    LOG_INFO(KERNEL,
-{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester={{}} requester_alive={{}} request_status=0x{{:08X}}",
+{indent}        "[COMPATBOOT][PROP_CANCEL] phase=before_complete property_ref_ptr={{}} property_ptr={{}} requester_ptr={{}} requester_alive={{}} request_status=0x{{:08X}}",
 {indent}        static_cast<const void *>(&info), static_cast<const void *>(this),
 {indent}        static_cast<const void *>(nboot2_b94_requester),
-{indent}        nboot2_b94_requester ? nboot2_b94_requester->name() : std::string("<none>"),
 {indent}        nboot2_b94_requester_alive ? 1 : 0, info.sts.ptr_address());
 {indent}}}
 {indent}if (nboot2_b94_requester_alive) {{'''

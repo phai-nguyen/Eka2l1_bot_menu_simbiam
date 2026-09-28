@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent
+UPSTREAM_ROOT = Path(sys.argv[1]).resolve() if __name__ == "__main__" and len(sys.argv) == 2 else None
 PATCHER_PATH = ROOT / "apply_nativeboot2_directhome_teardowntrace1.py"
 if PATCHER_PATH.is_file():
     SPEC = importlib.util.spec_from_file_location("directhome_teardown_trace", PATCHER_PATH)
@@ -151,6 +152,26 @@ class DirectHomeTeardownTraceTests(unittest.TestCase):
         self.assertEqual(traced.count("cancel();"), 1)
         self.assertEqual(PATCH.patch_property_reference_destructor(traced), traced)
 
+    def test_property_destructor_only_reads_requester_for_initialized_status(self):
+        traced = PATCH.patch_property_reference_destructor(PROPERTY_CPP)
+        self.assertIn("nof_.sts.ptr_address()", traced)
+        self.assertIn(
+            "const bool nboot2_directhome_requester_known = nboot2_directhome_guest_status != 0",
+            traced,
+        )
+        trace_gate = traced.index("if (nboot2_directhome_trace)")
+        status_read = traced.index(
+            "const auto nboot2_directhome_guest_status = static_cast<std::uint32_t>(nof_.sts.ptr_address())"
+        )
+        requester_read = traced.index("nof_.requester")
+        self.assertLess(trace_gate, status_read)
+        self.assertLess(status_read, requester_read)
+        self.assertRegex(
+            traced,
+            r"nboot2_directhome_requester_known\s+\?\s+static_cast<const void \*>\(nof_\.requester\) : nullptr",
+        )
+        self.assertIn("requester_known={}", traced)
+
     def test_trace_patch_preserves_original_teardown_semantics(self):
         kill = PATCH.patch_process_kill(PROCESS_CPP)
         destroy = PATCH.patch_kernel_destroy(KERNEL_CPP)
@@ -187,6 +208,45 @@ class DirectHomeTeardownTraceTests(unittest.TestCase):
             }
             self.assertEqual(after_first, after_second)
             self.assertTrue((root / "src/emu/kernel/include/kernel/directhome_teardown_trace.h").is_file())
+
+    def test_supplied_upstream_root_is_checked_after_manifest_patch(self):
+        if UPSTREAM_ROOT is None:
+            return
+        self.assertTrue(UPSTREAM_ROOT.is_dir(), f"missing upstream root: {UPSTREAM_ROOT}")
+        paths = {
+            "process": UPSTREAM_ROOT / "src/emu/kernel/src/process.cpp",
+            "kernel": UPSTREAM_ROOT / "src/emu/kernel/src/kernel.cpp",
+            "property": UPSTREAM_ROOT / "src/emu/kernel/src/property.cpp",
+            "thread": UPSTREAM_ROOT / "src/emu/kernel/src/thread.cpp",
+            "header": UPSTREAM_ROOT / "src/emu/kernel/include/kernel/directhome_teardown_trace.h",
+        }
+        for path in paths.values():
+            self.assertTrue(path.is_file(), f"missing patched upstream file: {path}")
+        process = paths["process"].read_text(encoding="utf-8")
+        kernel = paths["kernel"].read_text(encoding="utf-8")
+        prop = paths["property"].read_text(encoding="utf-8")
+        thread = paths["thread"].read_text(encoding="utf-8")
+        header = paths["header"].read_text(encoding="utf-8")
+        self.assertEqual(process.count("phase=process_kill_entry"), 1)
+        self.assertEqual(process.count("phase=process_kill_decision"), 2)
+        self.assertEqual(kernel.count("phase=kernel_destroy"), 1)
+        self.assertEqual(prop.count("phase=property_reference_destructor"), 1)
+        self.assertNotIn("nboot2_b94_requester->name()", prop)
+        self.assertRegex(
+            prop,
+            r"nboot2_directhome_requester_known\s+\?\s+static_cast<const void \*>\(nof_\.requester\) : nullptr",
+        )
+        for source in (process, kernel, prop):
+            self.assertIn("compat_target_kind == 2", source)
+        self.assertIn("std::atomic<std::uint64_t> sequence", header)
+        self.assertIn("sts_real->set(err_code, kern->is_eka1());", thread)
+        self.assertIn("sts = 0;", thread)
+        self.assertIn("requester->signal_request();", thread)
+        self.assertEqual(prop.count("(*subscription_iterator)->complete(epoc::error_cancel);"), 1)
+        self.assertIn("subscription_queue.erase(subscription_iterator);", prop)
+        self.assertEqual(PATCH.patch_process_kill(process), process)
+        self.assertEqual(PATCH.patch_kernel_destroy(kernel), kernel)
+        self.assertEqual(PATCH.patch_property_reference_destructor(prop), prop)
 
 
 if __name__ == "__main__":
