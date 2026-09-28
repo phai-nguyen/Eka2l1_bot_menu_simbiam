@@ -96,8 +96,8 @@ class CallsiteProbeTests(unittest.TestCase):
         patcher = self.patcher()
         result = patcher.apply_to_dyncom(DYNCOM)
         self.assertEqual(result.count("0x806EAFC6"), 1)
-        self.assertEqual(result.count("0x72E0031EU"), 2)
-        self.assertIn("if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E0031EU))", result)
+        self.assertEqual(result.count("0x72E00318U"), 2)
+        self.assertIn("if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E00318U))", result)
         self.assertIn("cpu->Reg[15]", result)
         for reg in (0, 1, 13, 14):
             self.assertIn(f"cpu->Reg[{reg}]", result)
@@ -267,7 +267,7 @@ def contract(root: Path):
     if (fused_definitions not in (0, 1)
             or dyncom.count("DIRECTHOME_TFX_OBSERVE(cpu);") != 2 + fused_definitions
             or dyncom.count("0x806EAFC6U") != 1
-            or dyncom.count("0x72E0031EU") != 2):
+            or dyncom.count("0x72E00318U") != 2):
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: wrong dispatch/PC")
     for block in dyncom.split("#define GOTO_NEXT_INST")[1:]:
         if block.index("DIRECTHOME_TFX_OBSERVE(cpu);") > block.index("num_instrs++"):
@@ -276,6 +276,7 @@ def contract(root: Path):
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: missing/duplicate scheduler log")
     if (scheduler.count("[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]") != 1
             or "uid3 == 0x10282845U" not in scheduler
+            or "offset=0x318" not in scheduler
             or "memory_reads=NONE" not in scheduler
             or "result_rewrite=NONE" not in scheduler):
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: unsafe/missing EikCore #473 observation")
