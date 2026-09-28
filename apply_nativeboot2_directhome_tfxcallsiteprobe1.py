@@ -64,26 +64,31 @@ def apply_to_core(source: str) -> str:
 
 
 def apply_to_dyncom(source: str) -> str:
+    fused_definitions = source.count("#define ENTER_FUSED_BRANCH")
     if DYNCOM_MARK in source:
-        if source.count("static inline void " + DYNCOM_MARK) != 1 or source.count("DIRECTHOME_TFX_OBSERVE(cpu);") != 3:
+        if fused_definitions not in (0, 1):
+            fail(f"unsupported ENTER_FUSED_BRANCH definitions={fused_definitions}")
+        if (source.count("static inline void " + DYNCOM_MARK) != 1
+                or source.count("DIRECTHOME_TFX_OBSERVE(cpu);") != 2 + fused_definitions):
             fail("Dyncom has partial or duplicate observer")
         return source
     once(source, "unsigned InterpreterMainLoop(ARMul_State *cpu, std::uint32_t &num_instrs) {\n", "interpreter entry")
     once(source, "#include <cpu/arm_interface.h>\n", "core interface include")
     macros = re.findall(r"(?ms)^#define GOTO_NEXT_INST\b.*?(?=^#(?:else|endif)\b)", source)
-    fused_definitions = source.count("#define ENTER_FUSED_BRANCH")
-    if len(macros) != 2 or fused_definitions != 1:
+    if len(macros) != 2 or fused_definitions not in (0, 1):
         fail(
             "dispatch shape mismatch: "
             f"GOTO_NEXT_INST definitions={len(macros)} (expected 2); "
-            f"ENTER_FUSED_BRANCH definitions={fused_definitions} (expected 1)"
+            f"ENTER_FUSED_BRANCH definitions={fused_definitions} (expected 0 or 1)"
         )
     for i, block in enumerate(macros):
         if block.count("    num_instrs++;                              \\\n") != 1 or block.count("    if (num_instrs >= cpu->NumInstrsToExecute) \\\n") != 1:
             fail(f"dispatch macro {i}: unknown instruction accounting")
-    fused = re.search(r"(?ms)^#define ENTER_FUSED_BRANCH\b.*?(?=^[A-Za-z_]+\s*:\s*\{)", source)
-    if not fused or fused.group().count("    num_instrs++") != 1 or "goto END;" not in fused.group():
-        fail("fused branch: unknown instruction accounting")
+    fused = None
+    if fused_definitions:
+        fused = re.search(r"(?ms)^#define ENTER_FUSED_BRANCH\b.*?(?=^[A-Za-z_]+\s*:\s*\{)", source)
+        if not fused or fused.group().count("    num_instrs++") != 1 or "goto END;" not in fused.group():
+            fail("fused branch: unknown instruction accounting")
     helper = '''// DirectHome callsite: inspect live flags without invoking STORE_NZCVT or changing guest state.
 static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
     if (!cpu->TFlag || (cpu->Reg[15] & ~1U) != 0x806EAFC6U) {
@@ -106,11 +111,11 @@ static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
             "    num_instrs++;                              \\\n",
             "    DIRECTHOME_TFX_OBSERVE(cpu);              \\\n    num_instrs++;                              \\\n", 1)
         source = source.replace(block, modified, 1)
-    block = fused.group()
-    source = source.replace(block, block.replace(
-        "    num_instrs++", "    DIRECTHOME_TFX_OBSERVE(cpu);                 \\\n    num_instrs++", 1), 1)
+    if fused:
+        block = fused.group()
+        source = source.replace(block, block.replace(
+            "    num_instrs++", "    DIRECTHOME_TFX_OBSERVE(cpu);                 \\\n    num_instrs++", 1), 1)
     return source
-
 
 def validate_scheduler(source: str) -> None:
     for anchor in (

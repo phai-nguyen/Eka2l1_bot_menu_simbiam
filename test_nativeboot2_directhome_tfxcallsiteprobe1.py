@@ -115,11 +115,22 @@ class CallsiteProbeTests(unittest.TestCase):
 
     def test_dispatch_shape_error_reports_observed_definition_counts(self):
         patcher = self.patcher()
-        malformed = DYNCOM.replace("#define ENTER_FUSED_BRANCH", "#define OTHER_FUSED_BRANCH")
+        malformed = DYNCOM + "\n#define GOTO_NEXT_INST \\\n    num_instrs++\n#endif\n"
         with self.assertRaises(SystemExit) as raised:
             patcher.apply_to_dyncom(malformed)
-        self.assertIn("GOTO_NEXT_INST definitions=2", str(raised.exception))
-        self.assertIn("ENTER_FUSED_BRANCH definitions=0", str(raised.exception))
+        self.assertIn("GOTO_NEXT_INST definitions=3", str(raised.exception))
+        self.assertIn("ENTER_FUSED_BRANCH definitions=1", str(raised.exception))
+
+    def test_apply_to_dyncom_supports_baseline_without_fused_branch(self):
+        patcher = self.patcher()
+        start = DYNCOM.index("#define ENTER_FUSED_BRANCH")
+        end = DYNCOM.index("CMP_INST : {", start)
+        baseline = DYNCOM[:start] + DYNCOM[end:]
+        result = patcher.apply_to_dyncom(baseline)
+        self.assertEqual(result.count("DIRECTHOME_TFX_OBSERVE(cpu);"), 2)
+        self.assertEqual(result.count("num_instrs++"), 2)
+        for branch in result.split("#define GOTO_NEXT_INST")[1:]:
+            self.assertLess(branch.index("DIRECTHOME_TFX_OBSERVE(cpu);"), branch.index("num_instrs++"))
 
     def test_missing_duplicate_anchor_is_atomic_and_idempotent(self):
         patcher = self.patcher()
@@ -133,7 +144,7 @@ class CallsiteProbeTests(unittest.TestCase):
 
         for bad_name, bad_value in (
             ("src/emu/cpu/include/cpu/arm_interface.h", CORE.replace("    class core {", "    class wrong {")),
-            ("src/emu/cpu/src/dyncom/arm_dyncom_interpreter.cpp", DYNCOM.replace("#define ENTER_FUSED_BRANCH", "#define OTHER_FUSED_BRANCH")),
+            ("src/emu/cpu/src/dyncom/arm_dyncom_interpreter.cpp", DYNCOM + "\n#define ENTER_FUSED_BRANCH \\\n    num_instrs++\n"),
             ("src/emu/kernel/src/scheduler.cpp", SCHEDULER + SCHEDULER),
         ):
             with self.subTest(bad_name=bad_name), tempfile.TemporaryDirectory() as td:
@@ -204,7 +215,10 @@ def contract(root: Path):
     scheduler = paths["src/emu/kernel/src/scheduler.cpp"].read_text(encoding="utf-8")
     if core.count("struct directhome_tfx_callsite_sample") != 1 or core.count("set_directhome_tfx_callsite_observer(") != 1:
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: missing/duplicate core interface")
-    if dyncom.count("DIRECTHOME_TFX_OBSERVE(cpu);") != 3 or dyncom.count("0x806EAFC6U") != 1:
+    fused_definitions = dyncom.count("#define ENTER_FUSED_BRANCH")
+    if (fused_definitions not in (0, 1)
+            or dyncom.count("DIRECTHOME_TFX_OBSERVE(cpu);") != 2 + fused_definitions
+            or dyncom.count("0x806EAFC6U") != 1):
         raise SystemExit("DIRECTHOME-TFXCALLSITEPROBE1-TEST: wrong dispatch/PC")
     for block in dyncom.split("#define GOTO_NEXT_INST")[1:]:
         if block.index("DIRECTHOME_TFX_OBSERVE(cpu);") > block.index("num_instrs++"):

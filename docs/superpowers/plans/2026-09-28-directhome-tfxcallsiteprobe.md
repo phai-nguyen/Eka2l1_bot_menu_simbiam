@@ -17,13 +17,13 @@
 - Firmware RM-356 v60.0.003, `ailaunch.exe` thật và barrier sáu dịch vụ giữ nguyên; TFX-off đã revert không được khôi phục.
 - Không tạo server giả, đổi CenRep/IPC, completion, `KErrNotFound`, thanh ghi/PC, thứ tự lệnh guest hay panic.
 - Mục tiêu chính xác `Cone.dll` base `0x806E8E68` + `0x215E` = PC Thumb đã chuẩn hóa `0x806EAFC6`; base thay đổi phải dừng xác minh.
-- Không có local upstream tree: test fixture trước; FASTBUILD phải xác nhận anchor của cây B28 cache thực và dừng nếu lệch.
+- Không có local upstream tree: test fixture trước; FASTBUILD xác nhận cây B28 cache thực. Runner đã cho thấy 2 `GOTO_NEXT_INST`, 0 `ENTER_FUSED_BRANCH`; chấp nhận fused 0 hoặc 1 lần, fail-closed ngoài hai dạng này.
 - Chỉ kết luận đã vào Home khi giao diện Symbian thật hiển thị và tương tác được trên thiết bị.
 
 ## Review Focus
 
 - PC Thumb có bit 0, lân cận `0x806EAFC4/0x806EAFC8` hoặc ARM state: chỉ chính xác PC Thumb đích mới log (Task 1).
-- B28 cache khác source upstream đã khảo sát: patcher lỗi trước mọi ghi tệp, không thử anchor gần đúng (Task 1).
+- B28 cache có 2 dispatch macro nhưng thiếu fused macro ở source khảo sát mới hơn: test riêng hai dạng 2/0 và 2/1; mọi số lượng khác vẫn fail-closed (Task 1).
 - CPU chạy lúc không có `crr_thread` hoặc process đã mất: log `context=missing`, không gán nhầm thread cũ (Task 2).
 - Config chuyển sang DirectHome sau khi scheduler đã được tạo, hoặc chuyển ra khỏi nó: callback gắn/gỡ ở context switch, không giữ profile cũ khi tái khởi động (Task 2).
 - TFX server có hoặc không có, hoặc process/thread trống: log ba pha đúng ID/ngữ cảnh, đường `KErrNotFound`/server gốc không đổi (Task 3).
@@ -46,7 +46,7 @@
 
 **Interfaces:** Produce `arm::directhome_tfx_callsite_sample { std::uint32_t pc,r0,r1,lr,sp,cpsr; bool thumb; }` and `arm::core::set_directhome_tfx_callsite_observer(std::function<void(const directhome_tfx_callsite_sample &)>)`; a null observer is a no-op. Add one protected/public dispatch helper on `arm::core` for Dyncom according to actual class visibility. Patcher exposes `apply_to_core(source: str) -> str`, `apply_to_dyncom(source: str) -> str` and prevalidates all three target files before any disk write.
 
-- [ ] **Step 1: Viết test RED** `test_only_thumb_exact_pc_before_dispatch`: fixture Dyncom có `GOTO_NEXT_INST`, `Reg[15/0/1/14/13]` và CPSR/TFlag; assert `pc == 0x806EAFC6 && thumb`, sample dùng đúng các thanh ghi, hook nằm trước instruction dispatch; không có write tới Reg/PC hay thay `GOTO_NEXT_INST`. Test neighbor/ARM state không hit.
+- [ ] **Step 1: Viết test RED** `test_only_thumb_exact_pc_before_dispatch`: fixture Dyncom có hai `GOTO_NEXT_INST` và một `ENTER_FUSED_BRANCH`; thêm test riêng cho baseline chỉ có hai dispatch macro. Assert `pc == 0x806EAFC6 && thumb`, sample đúng thanh ghi, hook trước dispatch, không sửa Reg/PC/control flow.
 - [ ] **Step 2: Viết test RED** `test_missing_duplicate_anchor_is_atomic_and_idempotent`: thiếu/trùng một anchor trong từng file, thiếu scheduler hay file không đúng revision đều raise `SystemExit`, nội dung mọi tệp giữ nguyên; apply hai lần cho output giống nhau, trạng thái partial marker bị từ chối.
 - [ ] **Step 3: Chạy** `python3 -m unittest test_nativeboot2_directhome_tfxcallsiteprobe1.py -v`; mong đợi FAIL vì patcher/interface chưa có.
 - [ ] **Step 4: Đối chiếu cây upstream B28 nếu có** `rg -n 'GOTO_NEXT_INST|class core|switch_context' <upstream>/src/emu/{cpu,kernel}` và xác định duy nhất vị trí hook *trước* dispatch, interface/visibility, destructor và include C++ thực tế. Nếu không có cây local, chỉ dùng fixture và để FASTBUILD fail-closed xác thực; không mở rộng anchor dựa trên phỏng đoán.

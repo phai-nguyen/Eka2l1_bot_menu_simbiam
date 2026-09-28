@@ -22,7 +22,8 @@ Thu thập bằng chứng runtime ngay trước lệnh tại `Cone.dll+0x215E`: 
 Nguồn upstream chính thức được khảo sát tại commit `0d1831aa8444fea52958e6f98be4dc4f8463540c`:
 
 - [`arm_utils.cpp`](https://github.com/EKA2L1/EKA2L1/blob/0d1831aa8444fea52958e6f98be4dc4f8463540c/src/emu/cpu/src/arm_utils.cpp) chọn Dyncom mặc định cho iOS.
-- [`arm_dyncom_interpreter.cpp`](https://github.com/EKA2L1/EKA2L1/blob/0d1831aa8444fea52958e6f98be4dc4f8463540c/src/emu/cpu/src/dyncom/arm_dyncom_interpreter.cpp) dispatch lệnh guest qua `GOTO_NEXT_INST`; tại điểm này interpreter có `Reg[15]`, `Reg[0]` và `Reg[1]` trước khi chạy lệnh tiếp theo.
+- [`arm_dyncom_interpreter.cpp`](https://github.com/EKA2L1/EKA2L1/blob/0d1831aa8444fea52958e6f98be4dc4f8463540c/src/emu/cpu/src/dyncom/arm_dyncom_interpreter.cpp) dispatch lệnh guest qua hai nhánh định nghĩa `GOTO_NEXT_INST`; tại điểm này interpreter có `Reg[15]`, `Reg[0]` và `Reg[1]` trước khi chạy lệnh tiếp theo.
+- Baseline B28 trong cache FASTBUILD đã được kiểm tra qua runner: có 2 `GOTO_NEXT_INST`, không có `ENTER_FUSED_BRANCH`. Source upstream khảo sát ở commit `0d1831a` có thêm nhánh fused; patcher bắt buộc đúng hai dispatch, chấp nhận fused 0 hoặc 1 lần và fail-closed với mọi hình dạng khác.
 - [`arm_interface.h`](https://github.com/EKA2L1/EKA2L1/blob/0d1831aa8444fea52958e6f98be4dc4f8463540c/src/emu/cpu/include/cpu/arm_interface.h) không mang định danh process/thread trong trạng thái core.
 - [`scheduler.cpp`](https://github.com/EKA2L1/EKA2L1/blob/0d1831aa8444fea52958e6f98be4dc4f8463540c/src/emu/kernel/src/scheduler.cpp) nắm `crr_thread` và process sở hữu khi chuyển context, rồi nạp context vào core.
 
@@ -63,7 +64,7 @@ Callback rỗng là no-op. Thiếu `crr_thread` hoặc process không được l
 
 ## Rủi ro và giới hạn
 
-- FASTBUILD dùng upstream tree được khôi phục từ cache B28, trong khi source GitHub đã khảo sát ở commit khác. Patcher phải kiểm tra source thật trong cây cache tại lúc apply; nếu khác cấu trúc thì dừng thay vì sửa theo anchor gần giống.
+- FASTBUILD dùng upstream tree được khôi phục từ cache B28. Run #339 xác nhận baseline có 2 `GOTO_NEXT_INST` và 0 `ENTER_FUSED_BRANCH`; source khảo sát ở commit upstream mới hơn có 1 nhánh fused. Patcher đặt hook ở hai dispatch bắt buộc, thêm hook fused khi hiện diện đúng một lần, và vẫn fail-closed nếu số lượng/luồng accounting không khớp.
 - PC cố định phụ thuộc base Cone của firmware v60.0.003. Firmware không đổi trong thử nghiệm; nếu địa chỉ runtime khác, cập nhật target chỉ sau khi có bằng chứng log.
 - Callback thêm một nhánh PC-check trong Dyncom và một callback tùy chọn ở core. Build này chỉ nhằm chẩn đoán; không suy rộng kết quả hiệu năng hoặc khả năng boot.
 - Bằng chứng cùng PID/TID cho thấy hai sự kiện thuộc cùng thread, nhưng không tự nó chứng minh lệnh callsite là nguyên nhân duy nhất của lần `CreateSession`; cần đọc trình tự log cùng `r0/r1` và kết quả request.
