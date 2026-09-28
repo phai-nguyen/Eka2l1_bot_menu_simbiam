@@ -16,10 +16,11 @@
 
 ## Current observed problem
 
-- V9 starts `alfredserver.exe` after the six-service gate but remains at the Nokia splash; Home has not been observed or verified interactive, and TfxServer remains absent.
-- The V9 log shows `alfappservercore.dll` faulting at offset `0xE84` after EikCore export #473 returns `0x80`; the caller then treats that value as an object pointer and attempts a write at `0x88`.
-- FASTBUILD #355's observer fired at `alfappservercore.dll+0x31E`, but instruction decoding shows that is the following call, not EikCore #473's return point. It captured `r0=0`; the later fault still had `r0=0x80`.
-- Correct the observation site to `alfappservercore.dll+0x318`, the instruction immediately after the #473 call, then rebuild. Keep the probe limited to ARM registers for Alfred UID3 `0x10282845`; do not read guest memory or change guest state/results.
+- FASTBUILD #355's device run stays at the Nokia splash for the full recording; Home is not visible or confirmed interactive, and TfxServer remains missing.
+- The new marker at `alfappservercore.dll+0x31E` captured `r0=0`, but decoding showed that PC is the following call, not the return from EikCore #473. Immediately afterward ALF faults at `+0xE84` with `r0=0x80` and terminates with KERN-EXEC 3.
+- The video/log show no spontaneous host shutdown during the roughly six-minute run; teardown begins at the end when the emulator menu is opened. The guest is still not at Home.
+- FASTBUILD #356 moves the observer to the corrected return site `alfappservercore.dll+0x318`. Actions #356 passed for source SHA `1be807528c9ec556adf5e2e5dd55541652828487`, and the binary contains the corrected marker/offset. This build has not yet been device-tested.
+- Probe remains register-only for Alfred UID3 `0x10282845`; it does not read guest memory or change guest state/results.
 - The earlier B28 dispatch question is already covered by functional patches newer than the checkpoint's original `d1344259…` source state; do not reconstruct it.
 
 ## Safety / branch constraints
@@ -42,4 +43,4 @@
 
 ## NEXT ACTION
 
-Build and inspect the corrected EikCore #473 return-site diagnostic at `alfappservercore.dll+0x318`. Confirm the binary marker, verify the source SHA and Actions result, then use the next device log to compare the actual #473 return in `r0` against the later `0x80` fault. Keep B99 untouched; do not claim Home reached without screen and interaction evidence.
+Run the FASTBUILD #356 IPA on device, then compare `[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]` at `+0x318` against the later ALF fault. Record whether the host remains alive and whether TfxServer is still missing. Keep B99 untouched; do not claim Home reached without screen and interaction evidence.
