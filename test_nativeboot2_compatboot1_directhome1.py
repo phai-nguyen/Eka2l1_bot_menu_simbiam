@@ -67,13 +67,19 @@ class DirectHomeSelectionContracts(unittest.TestCase):
         self.assertIn("g_compat_target_kind = 0;", bridge[bridge.index("bool start_native_phone()") :])
         self.assertIn("g_compat_target_kind = 0;", bridge[bridge.index("void stop_native_phone()") :])
 
-    def test_service_barrier_selects_one_real_target_and_logs_both_launch_failures(self):
+    def test_service_barrier_starts_directhome_alfred_then_selects_one_real_target(self):
         svc = PATCH.patch_svc(baseline.SVC_CPP)
 
         self.assertIn("cfg->compat_target_kind == 2", svc)
+        self.assertIn('u"Z:\\\\sys\\\\bin\\\\alfredserver.exe"', svc)
         self.assertIn('u"Z:\\\\sys\\\\bin\\\\ailaunch.exe"', svc)
         self.assertIn('u"Z:\\\\sys\\\\bin\\\\menu3.exe"', svc)
-        self.assertEqual(svc.count("spawn_new_process("), 1)
+        self.assertEqual(svc.count("spawn_new_process("), 2)
+        self.assertEqual(svc.count("spawn_new_process(alfred_path"), 1)
+        self.assertEqual(svc.count("spawn_new_process(target_path"), 1)
+        self.assertIn("[COMPATBOOT][ALFRED_START]", svc)
+        self.assertIn("alfred_process->run()", svc)
+        self.assertIn("continue_to=ailaunch", svc)
         self.assertIn("target={} path={} result=CREATE_FAILED", svc)
         self.assertIn("target={} path={} result=RUN_FAILED", svc)
         self.assertIn("target={} path={} result=RUNNING", svc)
@@ -87,7 +93,7 @@ class DirectHomeSelectionContracts(unittest.TestCase):
         self.assertIn("cfg->compat_target_kind == 0 || cfg->compat_menu_probe_finished", svc)
         missing = svc.index("if (!missing.empty())")
         ready = svc.index('[COMPATBOOT][BARRIER_READY]')
-        spawn = svc.index("spawn_new_process(")
+        spawn = svc.index("spawn_new_process(target_path")
 
         self.assertLess(missing, ready)
         self.assertLess(ready, spawn)

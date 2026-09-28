@@ -176,6 +176,7 @@ jobs:
         grep -Fq '[NBOOT2][DIRECTHOME_TFX_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_ATTACH]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_LOOKUP]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][ALFRED_START]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_LEAVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_RESOLVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][ALF_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"

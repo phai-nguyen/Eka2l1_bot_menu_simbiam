@@ -282,6 +282,24 @@ class CompatBootModeContracts(unittest.TestCase):
         self.assertIn('u"Z:\\\\sys\\\\bin\\\\menu3.exe"', svc)
         self.assertIn("target->run()", svc)
 
+    def test_directhome_attempts_stock_alfredserver_before_ailaunch(self):
+        self.assertTrue(hasattr(PATCH, "patch_svc"), "service barrier patch is absent")
+        svc = PATCH.patch_svc(SVC_CPP)
+        barrier = svc.index("[COMPATBOOT][BARRIER_READY]")
+        marker = svc.index("[COMPATBOOT][ALFRED_START]")
+        alfred_path = svc.index('u"Z:\\\\sys\\\\bin\\\\alfredserver.exe"')
+        alfred_spawn = svc.index("spawn_new_process(alfred_path")
+        alfred_run = svc.index("alfred_process->run()")
+        home_spawn = svc.index("spawn_new_process(target_path")
+        self.assertLess(barrier, alfred_path)
+        self.assertLess(alfred_path, alfred_spawn)
+        self.assertLess(alfred_spawn, alfred_run)
+        self.assertLess(alfred_run, home_spawn)
+        self.assertIn("if (direct_home)", svc[barrier:home_spawn])
+        self.assertIn('"ailaunch.exe"', svc)
+        self.assertIn("continue_to=ailaunch", svc)
+        self.assertNotIn('create_and_add<service::server>("TfxServer"', svc)
+
     def test_config_and_deadline_state_are_transient_and_profile_scoped(self):
         self.assertTrue(hasattr(PATCH, "patch_config_header"), "transient barrier state patch is absent")
         self.assertTrue(hasattr(PATCH, "patch_state_cpp"), "deadline initialization patch is absent")

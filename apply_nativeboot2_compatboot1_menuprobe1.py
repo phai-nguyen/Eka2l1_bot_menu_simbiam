@@ -519,6 +519,23 @@ def patch_svc(source):
         kern->get_ntimer()->unschedule_event(cfg->compat_menu_probe_timeout_event, 0);
         LOG_WARN(KERNEL, "[COMPATBOOT][BARRIER_READY] services=FileServer,FBS,WindowServer,CenRep,AppArc,AknCapServer");
         const bool direct_home = cfg->compat_target_kind == 2;
+        if (direct_home) {
+            const std::u16string alfred_path = u"Z:\\sys\\bin\\alfredserver.exe";
+            process_ptr alfred_process = kern->spawn_new_process(alfred_path, u"");
+            if (!alfred_process) {
+                LOG_WARN(KERNEL,
+                    "[COMPATBOOT][ALFRED_START] path={} result=CREATE_FAILED continue_to=ailaunch behavior=REAL_FIRMWARE_PROCESS",
+                    common::ucs2_to_utf8(alfred_path));
+            } else {
+                const auto alfred_uids = alfred_process->get_uid_type();
+                const std::uint32_t alfred_uid3 = static_cast<std::uint32_t>(std::get<2>(alfred_uids));
+                const bool alfred_started = alfred_process->run();
+                LOG_WARN(KERNEL,
+                    "[COMPATBOOT][ALFRED_START] path={} result={} process={} uid3=0x{:08X} expected_uid3=0x10282845 continue_to=ailaunch behavior=REAL_FIRMWARE_PROCESS",
+                    common::ucs2_to_utf8(alfred_path), alfred_started ? "RUNNING" : "RUN_FAILED",
+                    alfred_process->name(), alfred_uid3);
+            }
+        }
         const std::u16string target_path = direct_home
             ? u"Z:\\sys\\bin\\ailaunch.exe"
             : u"Z:\\sys\\bin\\menu3.exe";
