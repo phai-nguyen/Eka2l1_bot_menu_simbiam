@@ -61,7 +61,7 @@ def directhome_tfx_cenrep_fixture():
         "        }\n"
         "    }\n"
         "}\n"
-        "    void central_repo_client_subsession::set_value(service::ipc_context *ctx) { }\n"
+        "    void central_repo_client_subsession::append_new_key_to_found_eq_list() { }\n"
     )
 
 

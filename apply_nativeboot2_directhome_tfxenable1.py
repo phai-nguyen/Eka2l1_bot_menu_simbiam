@@ -36,7 +36,7 @@ def apply_to_repo(source):
         fail("missing B47 AknSkinSrv CenRep baseline")
 
     get_begin = "    void central_repo_client_subsession::get_value(service::ipc_context *ctx) {"
-    get_end = "    void central_repo_client_subsession::set_value(service::ipc_context *ctx) {"
+    get_end = "    void central_repo_client_subsession::append_new_key_to_found_eq_list"
     anchor = "            ctx->write_data_to_descriptor_argument<std::uint32_t>(1, result_int);\n"
     replacement = '''            const bool b47_directhome_tfx_override =
                 b47_tfx_state

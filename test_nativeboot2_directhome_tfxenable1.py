@@ -27,7 +27,7 @@ def main():
     source = repo.read_text(encoding="utf-8")
 
     start = source.find("    void central_repo_client_subsession::get_value(service::ipc_context *ctx) {")
-    end = source.find("    void central_repo_client_subsession::set_value(service::ipc_context *ctx) {", start + 1)
+    end = source.find("    void central_repo_client_subsession::append_new_key_to_found_eq_list", start + 1)
     if start < 0 or end < 0:
         fail("cannot isolate central repository GetInt handler")
     handler = source[start:end]
