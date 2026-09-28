@@ -6,6 +6,7 @@ import sys
 
 MARK = "NATIVEBOOT2-DIRECTHOME-TFXENABLE1-TEST"
 OVERRIDE_MARKER = "[NBOOT2][DIRECTHOME_TFX_ENABLE_OVERRIDE]"
+SCOPE_MARKER = "[NBOOT2][DIRECTHOME_TFX_SCOPE]"
 
 
 def fail(message):
@@ -35,6 +36,8 @@ def main():
     need(handler, "[NBOOT2][AKNSKIN_TFX_STATE]", "B47 observation preservation")
     if handler.count(OVERRIDE_MARKER) != 1:
         fail("expected exactly one DirectHome override log")
+    if handler.count(SCOPE_MARKER) != 1:
+        fail("expected one DirectHome scope diagnostic for every TFX state read")
 
     for needle in (
         "ctx->sys->get_config()->native_phone_boot",
@@ -43,7 +46,16 @@ def main():
         "attach_repo->uid == static_cast<std::uint32_t>(0x102818E8)",
         "the_key.value() == static_cast<std::uint32_t>(0x00000009)",
         "b47_tfx_state",
-        "ctx->sys->get_config()->compat_target_kind == 2",
+        "const auto *b47_config = ctx->sys->get_config();",
+        "b47_config->native_phone_boot",
+        "b47_config->compat_menu_probe_mode",
+        "b47_config->compat_target_uid3 == static_cast<std::uint32_t>(0x102750F0)",
+        "const int b47_target_kind = b47_config->compat_target_kind;",
+        "const bool b47_directhome_tfx_scope =",
+        "b47_tfx_state && b47_directhome_tfx_scope",
+        "scope_match={}",
+        "target_kind={}",
+        "target_uid3=0x{:08X}",
         "result_int == static_cast<std::uint32_t>(0x7FFFFFFF)",
         "const std::uint32_t guest_result_int = b47_directhome_tfx_override ? 0U : result_int;",
         "write_data_to_descriptor_argument<std::uint32_t>(1, guest_result_int)",

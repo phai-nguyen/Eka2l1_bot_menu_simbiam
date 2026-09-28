@@ -38,15 +38,30 @@ def apply_to_repo(source):
     get_begin = "    void central_repo_client_subsession::get_value(service::ipc_context *ctx) {"
     get_end = "    void central_repo_client_subsession::append_new_key_to_found_eq_list"
     anchor = "            ctx->write_data_to_descriptor_argument<std::uint32_t>(1, result_int);\n"
-    replacement = '''            const bool b47_directhome_tfx_override =
-                b47_tfx_state
-                && ctx->sys->get_config()->compat_target_kind == 2
+    replacement = '''            const auto *b47_config = ctx->sys->get_config();
+            const int b47_target_kind = b47_config->compat_target_kind;
+            const std::uint32_t b47_target_uid3 = b47_config->compat_target_uid3;
+            const bool b47_directhome_tfx_scope =
+                b47_config->native_phone_boot
+                && b47_config->compat_menu_probe_mode
+                && b47_config->compat_target_uid3 == static_cast<std::uint32_t>(0x102750F0);
+            const bool b47_directhome_tfx_override =
+                b47_tfx_state && b47_directhome_tfx_scope
                 && result_int == static_cast<std::uint32_t>(0x7FFFFFFF);
+            if (b47_tfx_state) {
+                LOG_WARN(SERVICE_CENREP,
+                    "[NBOOT2][DIRECTHOME_TFX_SCOPE] scope_match={} target_kind={} target_uid3=0x{:08X} native_phone_boot={} compat_mode={} stock_value=0x{:08X} override={} behavior=GUEST_RESPONSE_ONLY",
+                    b47_directhome_tfx_scope ? 1 : 0, b47_target_kind, b47_target_uid3,
+                    b47_config->native_phone_boot ? 1 : 0,
+                    b47_config->compat_menu_probe_mode ? 1 : 0, result_int,
+                    b47_directhome_tfx_override ? 1 : 0);
+            }
             const std::uint32_t guest_result_int = b47_directhome_tfx_override ? 0U : result_int;
             if (b47_directhome_tfx_override) {
                 LOG_WARN(SERVICE_CENREP,
-                    "[NBOOT2][DIRECTHOME_TFX_ENABLE_OVERRIDE] scope=direct_home process={} repo=0x102818E8 key=0x00000009 stock_value=0x{:08X} guest_value=0x{:08X} enabled=1 behavior=GUEST_RESPONSE_ONLY",
-                    b47_process_name, result_int, guest_result_int);
+                    "[NBOOT2][DIRECTHOME_TFX_ENABLE_OVERRIDE] scope=direct_home process={} target_kind={} target_uid3=0x{:08X} repo=0x102818E8 key=0x00000009 stock_value=0x{:08X} guest_value=0x{:08X} enabled=1 behavior=GUEST_RESPONSE_ONLY",
+                    b47_process_name, b47_target_kind, b47_target_uid3,
+                    result_int, guest_result_int);
             }
             ctx->write_data_to_descriptor_argument<std::uint32_t>(1, guest_result_int);
 '''
