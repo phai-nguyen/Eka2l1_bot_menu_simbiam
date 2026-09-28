@@ -4,12 +4,12 @@ This file is generated automatically by GitHub Actions. It records the source pu
 
 - Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 - Branch: codex/compatboot1-directhome
-- Triggering source SHA: 303d51a2698a708bbdbaf995d8d85e7676cf2605
-- Commit subject: ci: harden recovery checkpoint markdown output
+- Triggering source SHA: d637ccaa049e6b6f1bc4b2ad84b9b556c50c56ac
+- Commit subject: fix: support B28 DirectHome Dyncom dispatch shape
 - Commit author: phai-nguyen <142614224+phai-nguyen@users.noreply.github.com>
-- Commit date: 2026-09-28T18:59:30+07:00
-- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36418975956
-- Recorded at UTC: 2026-09-28T11:59:37Z
+- Commit date: 2026-09-28T19:15:51+07:00
+- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36420722974
+- Recorded at UTC: 2026-09-28T12:16:00Z
 
 ## Recovery rule
 
