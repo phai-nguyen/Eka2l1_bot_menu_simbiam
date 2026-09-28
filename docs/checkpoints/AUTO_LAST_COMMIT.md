@@ -4,12 +4,12 @@ This file is generated automatically by GitHub Actions. It records the source pu
 
 - Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 - Branch: codex/compatboot1-directhome
-- Triggering source SHA: 2c410030e8105931d36262b17f2eaf5f8714ea10
-- Commit subject: feat: trace DirectHome TfxSrvPlugin loading
+- Triggering source SHA: 986202a791a5c9be76afba419efec4ed197a1f49
+- Commit subject: feat: start stock Alfred host before DirectHome
 - Commit author: phai-nguyen <142614224+phai-nguyen@users.noreply.github.com>
-- Commit date: 2026-09-28T20:36:01+07:00
-- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36429773597
-- Recorded at UTC: 2026-09-28T13:36:18Z
+- Commit date: 2026-09-28T21:08:10+07:00
+- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36433697750
+- Recorded at UTC: 2026-09-28T14:08:22Z
 
 ## Recovery rule
 
