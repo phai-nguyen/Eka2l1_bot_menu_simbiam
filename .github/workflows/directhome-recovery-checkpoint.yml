@@ -52,11 +52,11 @@ jobs:
 
           ## Recovery rule
 
-          Start from `docs/checkpoints/LAST_STATE.md`, then compare its recorded source state with the triggering SHA above and the actual current branch HEAD. Check GitHub Actions and device logs separately before claiming build/runtime success.
+          Start from docs/checkpoints/LAST_STATE.md, then compare its recorded source state with the triggering SHA above and the actual current branch HEAD. Check GitHub Actions and device logs separately before claiming build/runtime success.
 
           ## Protected comparison branch
 
-          Do not modify or merge `codex/compatboot1-menuprobe2-nobypass` as part of recovery.
+          Do not modify or merge codex/compatboot1-menuprobe2-nobypass as part of recovery.
           EOF
 
       - name: Commit recovery checkpoint
