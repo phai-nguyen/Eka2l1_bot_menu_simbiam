@@ -158,6 +158,7 @@ static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
 
 def validate_scheduler(source: str) -> None:
     for anchor in (
+        "#include <common/log.h>\n",
         "thread_scheduler::~thread_scheduler() {",
         "void thread_scheduler::switch_context(kernel::thread *oldt, kernel::thread *newt) {",
         "run_core->load_context(crr_thread->ctx);",
@@ -171,7 +172,17 @@ def apply_to_scheduler(source: str) -> str:
     if SCHEDULER_MARK in source:
         if source.count(SCHEDULER_MARK) != 2 or source.count("set_directhome_tfx_callsite_observer({});") != 2:
             fail("scheduler has partial or duplicate observer")
+        if source.count("#include <config/config.h>") != 1:
+            fail("scheduler has missing or duplicate config definition include")
         return source
+    config_include = "#include <config/config.h>\n"
+    include_count = source.count(config_include)
+    if include_count > 1:
+        fail("scheduler has duplicate config definition include")
+    if include_count == 0:
+        include_anchor = "#include <common/log.h>\n"
+        once(source, include_anchor, "scheduler config include")
+        source = source.replace(include_anchor, include_anchor + config_include, 1)
     destructor = "    thread_scheduler::~thread_scheduler() {\n        stop_idling();\n"
     switch = "    void thread_scheduler::switch_context(kernel::thread *oldt, kernel::thread *newt) {\n        if (oldt) {\n"
     once(source, destructor, "scheduler destructor")

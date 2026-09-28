@@ -52,7 +52,10 @@ CMP_INST : {
 }
 """
 
-SCHEDULER = """    thread_scheduler::~thread_scheduler() {
+SCHEDULER = """#include <common/log.h>
+#include <functional>
+#include <kernel/kernel.h>
+    thread_scheduler::~thread_scheduler() {
         stop_idling();
     }
     void thread_scheduler::stop_idling() { }
@@ -208,6 +211,8 @@ class CallsiteProbeTests(unittest.TestCase):
         self.assertTrue(hasattr(patcher, "apply_to_scheduler"), "scheduler observer absent")
         result = patcher.apply_to_scheduler(SCHEDULER)
         self.assertIn("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", result)
+        self.assertEqual(result.count("#include <config/config.h>"), 1)
+        self.assertEqual(patcher.apply_to_scheduler(result), result)
         for gate in ("native_phone_boot", "compat_menu_probe_mode", "compat_target_kind == 2"):
             self.assertIn(gate, result)
         self.assertIn("[this](const arm::directhome_tfx_callsite_sample &sample)", result)
