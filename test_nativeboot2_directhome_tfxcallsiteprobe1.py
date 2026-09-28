@@ -121,6 +121,18 @@ class CallsiteProbeTests(unittest.TestCase):
         self.assertIn("observed lines=", str(raised.exception))
         self.assertIn("num_instrs += 1;", str(raised.exception))
 
+    def test_dispatch_accounting_accepts_relaxed_atomic_instruction_limit(self):
+        patcher = self.patcher()
+        atomic_dispatch = DYNCOM.replace(
+            "cpu->NumInstrsToExecute)",
+            "cpu->NumInstrsToExecute.load(std::memory_order_relaxed))",
+            2,
+        )
+        self.assertEqual(atomic_dispatch.count("NumInstrsToExecute.load(std::memory_order_relaxed)"), 2)
+        result = patcher.apply_to_dyncom(atomic_dispatch)
+        self.assertEqual(result.count("DIRECTHOME_TFX_OBSERVE(cpu);"), 3)
+        self.assertEqual(result.count("num_instrs++"), atomic_dispatch.count("num_instrs++"))
+
     def test_dispatch_accounting_allows_different_horizontal_spacing(self):
         patcher = self.patcher()
         slash = chr(92)

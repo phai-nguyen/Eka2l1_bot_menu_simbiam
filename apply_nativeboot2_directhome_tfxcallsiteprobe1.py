@@ -77,7 +77,7 @@ def _has_dispatch_instruction_accounting(block: str) -> bool:
         block,
     )
     limit = re.findall(
-        r"(?m)^[ \t]*if[ \t]*\([ \t]*num_instrs[ \t]*>=[ \t]*cpu->NumInstrsToExecute[ \t]*\)[ \t]*\\[ \t]*\r?$",
+        r"(?m)^[ \t]*if[ \t]*\([ \t]*num_instrs[ \t]*>=[ \t]*cpu->NumInstrsToExecute(?:[ \t]*\.[ \t]*load[ \t]*\([ \t]*std::memory_order_relaxed[ \t]*\))?[ \t]*\)[ \t]*\\[ \t]*\r?$",
         block,
     )
     return len(increment) == 1 and len(limit) == 1
