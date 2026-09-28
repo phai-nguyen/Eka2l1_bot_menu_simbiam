@@ -62,8 +62,18 @@ def main():
         fail("GetInt bypasses the guarded guest response value")
     if handler.count("write_data_to_descriptor_argument<std::uint32_t>(1, guest_result_int)") != 1:
         fail("expected exactly one GetInt descriptor response through the scoped value")
-    if "ctx->complete(epoc::error_argument);" not in handler:
-        fail("the original type error path was removed")
+    type_error_start = handler.find(
+        "if (entry->data.etype != central_repo_entry_type::integer) {"
+    )
+    type_error_return = handler.find("return;", type_error_start + 1)
+    if type_error_start < 0 or type_error_return < 0:
+        fail("cannot isolate the original non-integer entry branch")
+    type_error_branch = handler[type_error_start:type_error_return]
+    if (
+        "ctx->complete(epoc::error_argument);" not in type_error_branch
+        and "complete_central_repo_ipc(ctx, epoc::error_argument);" not in type_error_branch
+    ):
+        fail("the non-integer entry branch lost its KErrArgument completion")
 
     if (Path(sys.argv[1]).resolve() / "src/emu/j2me").exists():
         fail("NOJAVA invariant violated")

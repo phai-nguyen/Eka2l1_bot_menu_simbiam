@@ -49,7 +49,7 @@ def directhome_tfx_cenrep_fixture():
         "    switch (ctx->msg->function) {\n"
         "        case cen_rep_get_int: {\n"
         "            if (entry->data.etype != central_repo_entry_type::integer) {\n"
-        "                ctx->complete(epoc::error_argument);\n"
+        "                complete_central_repo_ipc(ctx, epoc::error_argument);\n"
         "                return;\n"
         "            }\n"
         "            const std::uint32_t result_int = static_cast<std::uint32_t>(entry->data.intd);\n"
