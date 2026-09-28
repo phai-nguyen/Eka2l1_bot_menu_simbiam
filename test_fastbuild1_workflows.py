@@ -25,7 +25,7 @@ class FastbuildWorkflowContract(unittest.TestCase):
     def test_current_build_verifies_directhome_tfx_probe_markers(self):
         text = FAST.read_text(encoding="utf-8")
         verify = text.split("    - name: Verify binary invariants", 1)[1].split("    - name: Package unsigned IPA", 1)[0]
-        for marker in ("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", "[NBOOT2][DIRECTHOME_TFX_SESSION]"):
+        for marker in ("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", "[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]", "[NBOOT2][DIRECTHOME_TFX_SESSION]"):
             self.assertIn(f"grep -Fq '{marker}'", verify)
         self.assertIn("build=COMPATBOOT1_DIRECTHOME1", verify)
         self.assertIn("build=B99", verify)
@@ -128,7 +128,7 @@ class FastbuildWorkflowContract(unittest.TestCase):
     def test_total_timing_covers_checkout_and_ipa_upload(self):
         text = FAST.read_text(encoding="utf-8")
         start = text.index("- name: Mark FASTBUILD start")
-        checkout = text.index("- name: Checkout project")
+        checkout = text.index("- name: Checkout project", start)
         upload_ipa = text.index("- name: Upload IPA")
         write_audit = text.index("- name: Write FASTBUILD audit")
         self.assertLess(start, checkout)

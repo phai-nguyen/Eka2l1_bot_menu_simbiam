@@ -35,8 +35,8 @@ def apply_to_core(source: str) -> str:
     once(source, "        virtual ~core() {}\n", "core destructor")
     once(source, "#include <functional>\n", "functional include")
     definition = '''    struct directhome_tfx_callsite_sample {
-        std::uint32_t pc, r0, r1, lr, sp, cpsr;
-        bool thumb;
+        std::uint32_t pc, r0, r1, r5, r6, lr, sp, cpsr;
+        bool thumb, eikcore473_return;
     };
 
 '''
@@ -133,14 +133,16 @@ def apply_to_dyncom(source: str) -> str:
             fail("fused branch: unknown instruction accounting")
     helper = '''// DirectHome callsite: inspect live flags without invoking STORE_NZCVT or changing guest state.
 static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
-    if (!cpu->TFlag || (cpu->Reg[15] & ~1U) != 0x806EAFC6U) {
+    const std::uint32_t pc = cpu->Reg[15] & ~1U;
+    if (!cpu->TFlag || (pc != 0x806EAFC6U && pc != 0x72E0031EU)) {
         return;
     }
     const std::uint32_t cpsr = (cpu->Cpsr & 0x0FFFFFDFU)
         | (cpu->NFlag << 31) | (cpu->ZFlag << 30) | (cpu->CFlag << 29)
         | (cpu->VFlag << 28) | (cpu->TFlag << 5);
     cpu->parent()->emit_directhome_tfx_callsite({
-        cpu->Reg[15] & ~1U, cpu->Reg[0], cpu->Reg[1], cpu->Reg[14], cpu->Reg[13], cpsr, true
+        pc, cpu->Reg[0], cpu->Reg[1], cpu->Reg[5], cpu->Reg[6], cpu->Reg[14], cpu->Reg[13], cpsr, true,
+        pc == 0x72E0031EU
     });
 }
 
@@ -205,6 +207,15 @@ def apply_to_scheduler(source: str) -> str:
                 }
                 kernel::process *process = crr_thread->owning_process();
                 const std::uint32_t uid3 = static_cast<std::uint32_t>(std::get<2>(process->get_uid_type()));
+                if (sample.eikcore473_return) {
+                    if (uid3 == 0x10282845U) {
+                        LOG_WARN(KERNEL,
+                            "[NBOOT2][DIRECTHOME_EIKCORE473_RETURN] profile=DirectHome module=alfappservercore.dll offset=0x31E export=EikCore#473 ws_client_handle_r6=0x{:08X} object_r5=0x{:08X} returned_r0=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} process={} uid3=0x{:08X} pid={} thread={} tid={} behavior=OBSERVE_ONLY memory_reads=NONE result_rewrite=NONE",
+                            sample.r6, sample.r5, sample.r0, sample.lr, sample.sp, sample.cpsr,
+                            process->name(), uid3, process->unique_id(), crr_thread->name(), crr_thread->unique_id());
+                    }
+                    return;
+                }
                 LOG_WARN(KERNEL,
                     "[NBOOT2][DIRECTHOME_TFX_CALLSITE] profile=DirectHome context=present core={} pc=0x{:08X} module=Cone.dll offset=0x215E r0=0x{:08X} r1=0x{:08X} lr=0x{:08X} sp=0x{:08X} cpsr=0x{:08X} thumb={} process={} uid3=0x{:08X} pid={} thread={} tid={} behavior=OBSERVE_ONLY",
                     run_core->core_number(), sample.pc, sample.r0, sample.r1, sample.lr,

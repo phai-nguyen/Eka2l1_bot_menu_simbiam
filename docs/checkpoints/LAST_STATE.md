@@ -16,10 +16,10 @@
 
 ## Current observed problem
 
-- TFX-off/DirectHome testing still does **not** reach the Home Screen.
-- Current investigation is centered on the real RM-356 TfxServer / transition-effects call path and its interaction with DirectHome.
-- Latest diagnostic state reports the observed TFX dispatch shape.
-- A compatibility fix for the FASTBUILD B28 dispatch case was being investigated for a shape with **2 `GOTO_NEXT_INST` and 0 fused branches**. Treat this as **not present on remote unless a later commit proves otherwise**.
+- V9 starts `alfredserver.exe` after the six-service gate but remains at the Nokia splash; Home has not been observed or verified interactive, and TfxServer remains absent.
+- The V9 log shows `alfappservercore.dll` faulting at offset `0xE84` after EikCore export #473 returns `0x80`; the caller then treats that value as an object pointer and attempts a write at `0x88`.
+- The next diagnostic records the ARM register state at the known return site `alfappservercore.dll+0x31E`, for Alfred UID3 `0x10282845` only. It does not read guest memory or change guest state/results.
+- The earlier B28 dispatch question is already covered by functional patches newer than the checkpoint's original `d1344259…` source state; do not reconstruct it.
 
 ## Safety / branch constraints
 
@@ -41,4 +41,4 @@
 
 ## NEXT ACTION
 
-Resume from the TfxServer/DirectHome investigation. First compare current remote HEAD against `d134425946c62da677553d9ff21c9626a6c97f82`; if no newer functional patch exists, reconstruct/validate the pending FASTBUILD B28 dispatch compatibility fix, then build/test on `codex/compatboot1-directhome`. Keep B99 untouched.
+Build and inspect the EikCore #473 return-site diagnostic on the DirectHome branch. Confirm the binary contains `[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]`, verify the running Git SHA and Actions result, then use the next device log to identify the exact state of ALF's object pointer at the return boundary. Keep B99 untouched; do not claim Home reached without screen and interaction evidence.
