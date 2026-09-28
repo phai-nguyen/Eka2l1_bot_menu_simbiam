@@ -31,6 +31,12 @@ class FastbuildWorkflowContract(unittest.TestCase):
         self.assertIn("build=B99", verify)
         self.assertIn("fastbuild1_reject_phoneui_bypass_markers.sh", verify)
 
+    def test_current_build_verifies_directhome_tfx_dll_probe_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify = text.split("    - name: Verify binary invariants", 1)[1].split("    - name: Package unsigned IPA", 1)[0]
+        self.assertIn("grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_ATTACH]'", verify)
+        self.assertIn("grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_LOOKUP]'", verify)
+
     def test_current_build_requires_directhome_identity_and_rejects_b99_marker(self):
         text = FAST.read_text(encoding="utf-8")
         verify_start = text.index("    - name: Verify binary invariants")

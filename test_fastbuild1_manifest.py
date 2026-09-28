@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 import ci.fastbuild1_manifest as fb
+import apply_nativeboot2_directhome_tfxdllprobe1 as dh_tfx_dll_probe
 
 
 def directhome_tfx_svc_fixture():
@@ -65,7 +66,54 @@ def directhome_tfx_cenrep_fixture():
     )
 
 
+def directhome_tfx_dll_fixture():
+    return (
+        "// [NBOOT2][DIRECTHOME_TFX_SESSION]\n"
+        "    BRIDGE_FUNC(std::int32_t, library_attach, kernel::handle h, eka2l1::ptr<std::int32_t> num_eps, eka2l1::ptr<std::uint32_t> ep_list) {\n"
+        "        library_ptr lib = kern->get<kernel::library>(h);\n"
+        "        if (!lib) { return epoc::error_bad_handle; }\n"
+        "        process_ptr pr = kern->crr_process();\n"
+        "        std::vector<uint32_t> entries = lib->attach(kern->crr_process());\n"
+        "        const std::uint32_t num_to_copy = common::min<std::uint32_t>(*num_eps.get(pr), static_cast<std::uint32_t>(entries.size()));\n"
+        "        *num_eps.get(pr) = num_to_copy;\n"
+        "        address *entry_points = ep_list.cast<address>().get(pr);\n"
+        "        std::memcpy(entry_points, entries.data(), num_to_copy * sizeof(address));\n"
+        "        return epoc::error_none;\n"
+        "    }\n"
+        "    BRIDGE_FUNC(std::int32_t, library_lookup, kernel::handle h, std::uint32_t ord_index) {\n"
+        "        library_ptr lib = kern->get<kernel::library>(h);\n"
+        "        if (!lib) { return 0; }\n"
+        "        std::optional<uint32_t> func_addr = lib->get_ordinal_address(kern->crr_process(),\n"
+        "            ord_index);\n"
+        "        if (!func_addr) { return 0; }\n"
+        "        return *func_addr;\n"
+        "    }\n"
+        "    BRIDGE_FUNC(std::int32_t, library_attached, kernel::handle h) { return epoc::error_none; }\n"
+    )
+
+
 class FastbuildManifestTests(unittest.TestCase):
+    def test_directhome_tfx_dll_probe_records_attach_and_ordinal_without_changing_results(self):
+        source = directhome_tfx_dll_fixture()
+        patched = dh_tfx_dll_probe.apply_to_svc(source)
+        self.assertIn("[NBOOT2][DIRECTHOME_TFX_DLL_ATTACH]", patched)
+        self.assertIn("[NBOOT2][DIRECTHOME_TFX_DLL_LOOKUP]", patched)
+        self.assertIn("compat_target_kind != 2", patched)
+        self.assertIn("process_uid3 == 0x10207114", patched)
+        self.assertIn("library_uid3 == 0x10282DBA", patched)
+        self.assertEqual(patched.count("lib->attach(kern->crr_process())"), 1)
+        self.assertEqual(patched.count("lib->get_ordinal_address(kern->crr_process(),\n            ord_index)"), 1)
+        self.assertIn("entries_available={}", patched)
+        self.assertIn("ordinal={} success={} address=0x{:08X}", patched)
+        self.assertIn("return *func_addr;", patched)
+        self.assertIn("behavior=OBSERVE_ONLY", patched)
+
+    def test_directhome_tfx_dll_probe_is_idempotent_and_fails_closed_on_missing_anchor(self):
+        patched = dh_tfx_dll_probe.apply_to_svc(directhome_tfx_dll_fixture())
+        self.assertEqual(dh_tfx_dll_probe.apply_to_svc(patched), patched)
+        with self.assertRaisesRegex(SystemExit, "library_lookup"):
+            dh_tfx_dll_probe.apply_to_svc(patched.replace("return *func_addr;", "return 0;"))
+
     def test_parse_manifest_sections(self):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "m.txt"
@@ -127,77 +175,78 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertNotIn("apply_nativeboot2_b89_fatalstatebypass1.py", applied)
         self.assertIn("apply_nativeboot2_compatboot1_menuprobe1.py", applied)
         self.assertEqual(
-            post[-3],
+            post[-4],
             (
                 "apply_nativeboot2_directhome_tfxecomtrace1.py",
                 "test_nativeboot2_directhome_tfxecomtrace1.py",
             ),
         )
         self.assertEqual(
-            post[-2:],
+            post[-3:],
             [
                 ("apply_nativeboot2_directhome_tfxcallsiteprobe1.py", "test_nativeboot2_directhome_tfxcallsiteprobe1.py"),
                 ("apply_nativeboot2_directhome_tfxsessiontrace1.py", "test_nativeboot2_directhome_tfxsessiontrace1.py"),
+                ("apply_nativeboot2_directhome_tfxdllprobe1.py", "test_nativeboot2_directhome_tfxdllprobe1.py"),
             ],
         )
         self.assertEqual(
-            post[-4],
+            post[-5],
             (
                 "apply_nativeboot2_directhome_tfxenable1.py",
                 "test_nativeboot2_directhome_tfxenable1.py",
             ),
         )
         self.assertEqual(
-            post[-5],
+            post[-6],
             (
                 "apply_nativeboot2_compatboot1_directhomefingerprint1.py",
                 "test_nativeboot2_compatboot1_directhomefingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-6],
+            post[-7],
             (
                 "apply_nativeboot2_b99_buildfingerprint1.py",
                 "test_nativeboot2_b99_buildfingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-7],
+            post[-8],
             (
                 "apply_nativeboot2_b96_estorleaveexports1.py",
                 "test_nativeboot2_b96_estorleaveexports1.py",
             ),
         )
         self.assertEqual(
-            post[-8],
+            post[-9],
             (
                 "apply_nativeboot2_directhome_teardowntrace1.py",
                 "test_nativeboot2_directhome_teardowntrace1.py",
             ),
         )
         self.assertEqual(
-            post[-9],
+            post[-10],
             (
                 "apply_nativeboot2_b94_teardownprobe1.py",
                 "test_nativeboot2_b94_teardownprobe1.py",
             ),
         )
         self.assertEqual(
-            post[-10],
+            post[-11],
             (
                 "apply_nativeboot2_b92_cenrepfindeqdiag1.py",
                 "test_nativeboot2_b92_cenrepfindeqdiag1.py",
             ),
         )
         self.assertEqual(
-            post[-11],
+            post[-12],
             (
                 "apply_nativeboot2_b91_ipcteardown1.py",
                 "test_nativeboot2_b91_ipcteardown1.py",
             ),
         )
         self.assertEqual(
-            post[-12],
+            post[-13],
             (
                 "apply_nativeboot2_compatboot1_menuprobe1.py",
                 "test_nativeboot2_compatboot1_menuprobe1.py",
