@@ -22,6 +22,15 @@ def git_blob_sha(path: Path) -> str:
 
 
 class FastbuildWorkflowContract(unittest.TestCase):
+    def test_current_build_verifies_directhome_tfx_probe_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify = text.split("    - name: Verify binary invariants", 1)[1].split("    - name: Package unsigned IPA", 1)[0]
+        for marker in ("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", "[NBOOT2][DIRECTHOME_TFX_SESSION]"):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+        self.assertIn("build=COMPATBOOT1_DIRECTHOME1", verify)
+        self.assertIn("build=B99", verify)
+        self.assertIn("fastbuild1_reject_phoneui_bypass_markers.sh", verify)
+
     def test_current_build_requires_directhome_identity_and_rejects_b99_marker(self):
         text = FAST.read_text(encoding="utf-8")
         verify_start = text.index("    - name: Verify binary invariants")

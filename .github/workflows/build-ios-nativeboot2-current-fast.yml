@@ -172,6 +172,8 @@ jobs:
         grep -Fq '[NBOOT2][WSERV_MESSAGEWIN_EXIT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][SA_HWRM_ABI]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_CALLSITE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_LEAVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_RESOLVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][ALF_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
