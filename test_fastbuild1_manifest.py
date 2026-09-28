@@ -36,6 +36,35 @@ def directhome_tfx_svc_fixture():
     )
 
 
+def directhome_tfx_cenrep_fixture():
+    return (
+        '#include "config/config.h"\n'
+        "    void central_repo_client_subsession::get_value(service::ipc_context *ctx) {\n"
+        "    const std::string b47_process_name = b47_pr ? b47_pr->name() : std::string(\"<null>\");\n"
+        "    const bool b47_tfx_state = ctx->sys->get_config()->native_phone_boot\n"
+        "        && b47_aknskin_process && ctx->msg->function == cen_rep_get_int\n"
+        "        && attach_repo && attach_repo->uid == static_cast<std::uint32_t>(0x102818E8)\n"
+        "        && the_key.value() == static_cast<std::uint32_t>(0x00000009);\n"
+        '    LOG_WARN(SERVICE_CENREP, "[NBOOT2][AKNSKIN_TFX_STATE] behavior=OBSERVE_ONLY");\n'
+        "    switch (ctx->msg->function) {\n"
+        "        case cen_rep_get_int: {\n"
+        "            if (entry->data.etype != central_repo_entry_type::integer) {\n"
+        "                ctx->complete(epoc::error_argument);\n"
+        "                return;\n"
+        "            }\n"
+        "            const std::uint32_t result_int = static_cast<std::uint32_t>(entry->data.intd);\n"
+        "            if (b47_tfx_state) {\n"
+        '                LOG_WARN(SERVICE_CENREP, "[NBOOT2][AKNSKIN_TFX_STATE] value=0x{:08X} behavior=OBSERVE_ONLY", result_int);\n'
+        "            }\n"
+        "            ctx->write_data_to_descriptor_argument<std::uint32_t>(1, result_int);\n"
+        "            break;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+        "    void central_repo_client_subsession::set_value(service::ipc_context *ctx) { }\n"
+    )
+
+
 class FastbuildManifestTests(unittest.TestCase):
     def test_parse_manifest_sections(self):
         with tempfile.TemporaryDirectory() as td:
@@ -107,47 +136,54 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertEqual(
             post[-2],
             (
+                "apply_nativeboot2_directhome_tfxenable1.py",
+                "test_nativeboot2_directhome_tfxenable1.py",
+            ),
+        )
+        self.assertEqual(
+            post[-3],
+            (
                 "apply_nativeboot2_compatboot1_directhomefingerprint1.py",
                 "test_nativeboot2_compatboot1_directhomefingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-3],
+            post[-4],
             (
                 "apply_nativeboot2_b99_buildfingerprint1.py",
                 "test_nativeboot2_b99_buildfingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-4],
+            post[-5],
             (
                 "apply_nativeboot2_b96_estorleaveexports1.py",
                 "test_nativeboot2_b96_estorleaveexports1.py",
             ),
         )
         self.assertEqual(
-            post[-5],
+            post[-6],
             (
                 "apply_nativeboot2_b94_teardownprobe1.py",
                 "test_nativeboot2_b94_teardownprobe1.py",
             ),
         )
         self.assertEqual(
-            post[-6],
+            post[-7],
             (
                 "apply_nativeboot2_b92_cenrepfindeqdiag1.py",
                 "test_nativeboot2_b92_cenrepfindeqdiag1.py",
             ),
         )
         self.assertEqual(
-            post[-7],
+            post[-8],
             (
                 "apply_nativeboot2_b91_ipcteardown1.py",
                 "test_nativeboot2_b91_ipcteardown1.py",
             ),
         )
         self.assertEqual(
-            post[-8],
+            post[-9],
             (
                 "apply_nativeboot2_compatboot1_menuprobe1.py",
                 "test_nativeboot2_compatboot1_menuprobe1.py",
@@ -256,6 +292,45 @@ class FastbuildManifestTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             patched = svc.read_text(encoding="utf-8")
         self.assertIn("directhome_tfx_ecom_log_copy(kern, msg, param, *info_host, result)", patched)
+
+    def test_directhome_tfx_override_changes_only_scoped_cenrep_response(self):
+        root = Path(__file__).resolve().parent
+        patcher = root / "apply_nativeboot2_directhome_tfxenable1.py"
+        contract = root / "test_nativeboot2_directhome_tfxenable1.py"
+        with tempfile.TemporaryDirectory() as td:
+            upstream = Path(td)
+            repo = upstream / "src/emu/services/src/centralrepo/repo.cpp"
+            repo.parent.mkdir(parents=True)
+            repo.write_text(directhome_tfx_cenrep_fixture(), encoding="utf-8")
+            result = subprocess.run(
+                ["python3", str(patcher), str(upstream)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            repeated = subprocess.run(
+                ["python3", str(patcher), str(upstream)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+            self.assertIn("already applied", repeated.stdout)
+            contract_result = subprocess.run(
+                ["python3", str(contract), str(upstream)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                contract_result.returncode,
+                0,
+                contract_result.stdout + contract_result.stderr,
+            )
+            patched = repo.read_text(encoding="utf-8")
+        self.assertIn("guest_result_int", patched)
+        self.assertIn("DIRECTHOME_TFX_ENABLE_OVERRIDE", patched)
 
 
 if __name__ == "__main__":
