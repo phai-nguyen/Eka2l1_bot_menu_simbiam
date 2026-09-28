@@ -30,11 +30,13 @@ REQUIRED_ORDER = (
     "apply_nativeboot2_directhome_tfxsessiontrace1.py",
     "apply_nativeboot2_directhome_tfxdllprobe1.py",
     "apply_nativeboot2_directhome_propertycancelguard1.py",
+    "apply_nativeboot2_directhome_codesegcollectorunlink1.py",
 )
 FIXTURE_TESTS = (
     "test_nativeboot2_b99_buildfingerprint1.py",
     "test_nativeboot2_compatboot1_directhomefingerprint1.py",
     "test_nativeboot2_directhome_propertycancelguard1.py",
+    "test_nativeboot2_directhome_codesegcollectorunlink1.py",
 )
 
 
@@ -137,7 +139,7 @@ def main() -> None:
             gate.check(False, f"active milestone: {required}")
     if len(positions) == len(REQUIRED_ORDER):
         gate.check(positions == sorted(positions) and len(set(positions)) == len(positions),
-                   "B99 -> DirectHome -> TFX -> cancel-guard ordering preserved")
+                   "B99 -> DirectHome -> TFX -> teardown-guard ordering preserved")
 
     active_text = "\n".join(
         (root / name).read_text(encoding="utf-8", errors="replace")
