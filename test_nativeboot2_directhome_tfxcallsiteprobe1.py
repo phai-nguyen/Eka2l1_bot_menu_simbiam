@@ -113,6 +113,14 @@ class CallsiteProbeTests(unittest.TestCase):
         self.assertIn("directhome_tfx_callsite_observer_ = observer;", core)
         self.assertIn("if (directhome_tfx_callsite_observer_)", core)
 
+    def test_dispatch_shape_error_reports_observed_definition_counts(self):
+        patcher = self.patcher()
+        malformed = DYNCOM.replace("#define ENTER_FUSED_BRANCH", "#define OTHER_FUSED_BRANCH")
+        with self.assertRaises(SystemExit) as raised:
+            patcher.apply_to_dyncom(malformed)
+        self.assertIn("GOTO_NEXT_INST definitions=2", str(raised.exception))
+        self.assertIn("ENTER_FUSED_BRANCH definitions=0", str(raised.exception))
+
     def test_missing_duplicate_anchor_is_atomic_and_idempotent(self):
         patcher = self.patcher()
         with tempfile.TemporaryDirectory() as td:

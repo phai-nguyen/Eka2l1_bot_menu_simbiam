@@ -71,8 +71,13 @@ def apply_to_dyncom(source: str) -> str:
     once(source, "unsigned InterpreterMainLoop(ARMul_State *cpu, std::uint32_t &num_instrs) {\n", "interpreter entry")
     once(source, "#include <cpu/arm_interface.h>\n", "core interface include")
     macros = re.findall(r"(?ms)^#define GOTO_NEXT_INST\b.*?(?=^#(?:else|endif)\b)", source)
-    if len(macros) != 2 or source.count("#define ENTER_FUSED_BRANCH") != 1:
-        fail("expected two dispatch macros and one fused branch")
+    fused_definitions = source.count("#define ENTER_FUSED_BRANCH")
+    if len(macros) != 2 or fused_definitions != 1:
+        fail(
+            "dispatch shape mismatch: "
+            f"GOTO_NEXT_INST definitions={len(macros)} (expected 2); "
+            f"ENTER_FUSED_BRANCH definitions={fused_definitions} (expected 1)"
+        )
     for i, block in enumerate(macros):
         if block.count("    num_instrs++;                              \\\n") != 1 or block.count("    if (num_instrs >= cpu->NumInstrsToExecute) \\\n") != 1:
             fail(f"dispatch macro {i}: unknown instruction accounting")
