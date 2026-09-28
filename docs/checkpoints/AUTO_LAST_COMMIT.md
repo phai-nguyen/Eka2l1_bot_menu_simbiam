@@ -4,12 +4,12 @@ This file is generated automatically by GitHub Actions. It records the source pu
 
 - Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 - Branch: codex/compatboot1-directhome
-- Triggering source SHA: 1be807528c9ec556adf5e2e5dd55541652828487
-- Commit subject: diag: sample EikCore 473 return PC
+- Triggering source SHA: 1517daae41c81c521ac58b428e639fd2a8717e00
+- Commit subject: diag: observe ALF object base before offset add
 - Commit author: phai-nguyen <142614224+phai-nguyen@users.noreply.github.com>
-- Commit date: 2026-09-29T05:23:55+07:00
-- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36492146306
-- Recorded at UTC: 2026-09-28T22:24:07Z
+- Commit date: 2026-09-29T05:58:08+07:00
+- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36495432926
+- Recorded at UTC: 2026-09-28T22:58:16Z
 
 ## Recovery rule
 
