@@ -4,12 +4,12 @@ This file is generated automatically by GitHub Actions. It records the source pu
 
 - Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 - Branch: codex/compatboot1-directhome
-- Triggering source SHA: 43529d29508229b630268bba84c54d49df4bbe29
-- Commit subject: test: report B28 Tfx dispatch accounting shape
+- Triggering source SHA: c630fe7a646145174a6db2cac36b1724bf340229
+- Commit subject: fix: recognize relaxed atomic Dyncom limit
 - Commit author: phai-nguyen <142614224+phai-nguyen@users.noreply.github.com>
-- Commit date: 2026-09-28T19:26:31+07:00
-- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36421859420
-- Recorded at UTC: 2026-09-28T12:26:42Z
+- Commit date: 2026-09-28T19:28:58+07:00
+- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36422116717
+- Recorded at UTC: 2026-09-28T12:29:09Z
 
 ## Recovery rule
 
