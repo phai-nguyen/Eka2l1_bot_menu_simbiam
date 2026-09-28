@@ -96,7 +96,13 @@ def patch_property_cancel(source):
 {indent}    && nboot2_directhome_cancel_config->compat_target_kind == 2;
 {indent}if (nboot2_directhome_mode) {{
 {indent}    auto *nboot2_directhome_requester = (*subscription_iterator)->requester;
-{indent}    const bool nboot2_directhome_registered = kern->is_thread_alive(nboot2_directhome_requester);
+{indent}    bool nboot2_directhome_registered = false;
+{indent}    for (const auto &nboot2_directhome_candidate : kern->get_thread_list()) {{
+{indent}        if (nboot2_directhome_candidate.get() == reinterpret_cast<kernel::kernel_obj *>(nboot2_directhome_requester)) {{
+{indent}            nboot2_directhome_registered = true;
+{indent}            break;
+{indent}        }}
+{indent}    }}
 {indent}    auto *nboot2_directhome_process = nboot2_directhome_registered
 {indent}        ? nboot2_directhome_requester->owning_process() : nullptr;
 {indent}    const int nboot2_directhome_requester_exit_state = nboot2_directhome_registered

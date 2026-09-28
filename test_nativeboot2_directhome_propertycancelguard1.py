@@ -39,7 +39,8 @@ class DirectHomePropertyCancelGuardTests(unittest.TestCase):
             "native_phone_boot",
             "compat_menu_probe_mode",
             "compat_target_kind == 2",
-            "kern->is_thread_alive(nboot2_directhome_requester)",
+            "kern->get_thread_list()",
+            "nboot2_directhome_candidate.get() == reinterpret_cast<kernel::kernel_obj *>(nboot2_directhome_requester)",
             "nboot2_directhome_requester->get_exit_type() == kernel::entity_exit_type::pending",
             "nboot2_directhome_process->get_exit_type() == kernel::entity_exit_type::pending",
             "decision={}",
@@ -49,7 +50,7 @@ class DirectHomePropertyCancelGuardTests(unittest.TestCase):
         self.assertEqual(patched.count("(*subscription_iterator)->complete(epoc::error_cancel);"), 2)
         self.assertEqual(patched.count("subscription_queue.erase(subscription_iterator);"), 1)
         self.assertLess(
-            patched.index("kern->is_thread_alive(nboot2_directhome_requester)"),
+            patched.index("kern->get_thread_list()"),
             patched.index("nboot2_directhome_requester->get_exit_type()"),
         )
         self.assertEqual(PATCH.patch_property_cancel(patched), patched)
@@ -64,7 +65,7 @@ class DirectHomePropertyCancelGuardTests(unittest.TestCase):
 
     def test_directhome_never_dereferences_requester_when_registry_says_dead(self):
         patched = PATCH.patch_property_cancel(PROPERTY_CPP)
-        registered = patched.index("const bool nboot2_directhome_registered = kern->is_thread_alive")
+        registered = patched.index("kern->get_thread_list()")
         requester_exit = patched.index("nboot2_directhome_requester->get_exit_type()")
         self.assertLess(registered, requester_exit)
         self.assertIn(
@@ -111,7 +112,8 @@ def verify_upstream(root):
         "native_phone_boot",
         "compat_menu_probe_mode",
         "compat_target_kind == 2",
-        "kern->is_thread_alive(nboot2_directhome_requester)",
+        "kern->get_thread_list()",
+        "nboot2_directhome_candidate.get() == reinterpret_cast<kernel::kernel_obj *>(nboot2_directhome_requester)",
         "kernel::entity_exit_type::pending",
         "decision={}",
     ):
