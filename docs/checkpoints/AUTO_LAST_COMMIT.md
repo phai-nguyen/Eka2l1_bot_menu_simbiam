@@ -4,12 +4,12 @@ This file is generated automatically by GitHub Actions. It records the source pu
 
 - Repository: phai-nguyen/Eka2l1_bot_menu_simbiam
 - Branch: codex/compatboot1-directhome
-- Triggering source SHA: 1dc9ffaefe7031a32d3ce0d13755a17e905e994e
-- Commit subject: ci: add DirectHome preflight self-test
+- Triggering source SHA: eec37fbeeac3b716860e5e295b00e2a5690b98f0
+- Commit subject: ci: gate DirectHome FASTBUILD with self-test
 - Commit author: phai-nguyen <142614224+phai-nguyen@users.noreply.github.com>
-- Commit date: 2026-09-28T22:52:55+07:00
-- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36446936027
-- Recorded at UTC: 2026-09-28T15:53:02Z
+- Commit date: 2026-09-28T22:53:20+07:00
+- Workflow run: https://github.com/phai-nguyen/Eka2l1_bot_menu_simbiam/actions/runs/36446991238
+- Recorded at UTC: 2026-09-28T15:53:30Z
 
 ## Recovery rule
 
