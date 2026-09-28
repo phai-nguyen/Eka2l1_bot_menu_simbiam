@@ -113,6 +113,26 @@ class CallsiteProbeTests(unittest.TestCase):
         self.assertIn("directhome_tfx_callsite_observer_ = observer;", core)
         self.assertIn("if (directhome_tfx_callsite_observer_)", core)
 
+    def test_dispatch_accounting_allows_different_horizontal_spacing(self):
+        patcher = self.patcher()
+        slash = chr(92)
+        lines = []
+        for line in DYNCOM.splitlines(keepends=True):
+            if "num_instrs++;" in line:
+                ending = "\r\n" if line.endswith("\r\n") else "\n"
+                body = line[:-len(ending)] if ending else line
+                pos = body.rfind(slash)
+                body = body[:pos].rstrip() + " " + slash
+                line = body + ending
+            lines.append(line)
+        baseline = "".join(lines)
+        self.assertNotEqual(baseline, DYNCOM)
+        result = patcher.apply_to_dyncom(baseline)
+        self.assertEqual(result.count("DIRECTHOME_TFX_OBSERVE(cpu);"), 3)
+        self.assertEqual(result.count("num_instrs++"), baseline.count("num_instrs++"))
+        for branch in result.split("#define GOTO_NEXT_INST")[1:]:
+            self.assertLess(branch.index("DIRECTHOME_TFX_OBSERVE(cpu);"), branch.index("num_instrs++"))
+
     def test_dispatch_shape_error_reports_observed_definition_counts(self):
         patcher = self.patcher()
         malformed = DYNCOM + "\n#define GOTO_NEXT_INST \\\n    num_instrs++\n#endif\n"

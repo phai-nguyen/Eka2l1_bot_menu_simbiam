@@ -63,6 +63,37 @@ def apply_to_core(source: str) -> str:
     return source
 
 
+def _has_dispatch_instruction_accounting(block: str) -> bool:
+    increment = re.findall(
+        r"(?m)^[ \t]*num_instrs[ \t]*\+\+[ \t]*;[ \t]*\\[ \t]*\r?$",
+        block,
+    )
+    limit = re.findall(
+        r"(?m)^[ \t]*if[ \t]*\([ \t]*num_instrs[ \t]*>=[ \t]*cpu->NumInstrsToExecute[ \t]*\)[ \t]*\\[ \t]*\r?$",
+        block,
+    )
+    return len(increment) == 1 and len(limit) == 1
+
+
+def _insert_dispatch_observer(block: str, label: str) -> str:
+    pattern = re.compile(
+        r"(?m)^([ \t]*)num_instrs[ \t]*\+\+[ \t]*;[ \t]*\\[ \t]*\r?$"
+    )
+    matches = list(pattern.finditer(block))
+    if len(matches) != 1:
+        fail(f"{label}: expected one instruction increment, found {len(matches)}")
+    match = matches[0]
+    newline = "\r\n" if "\r\n" in block else "\n"
+    return (
+        block[:match.start()]
+        + match.group(1)
+        + "DIRECTHOME_TFX_OBSERVE(cpu); "
+        + chr(92)
+        + newline
+        + block[match.start():]
+    )
+
+
 def apply_to_dyncom(source: str) -> str:
     fused_definitions = source.count("#define ENTER_FUSED_BRANCH")
     if DYNCOM_MARK in source:
@@ -82,7 +113,7 @@ def apply_to_dyncom(source: str) -> str:
             f"ENTER_FUSED_BRANCH definitions={fused_definitions} (expected 0 or 1)"
         )
     for i, block in enumerate(macros):
-        if block.count("    num_instrs++;                              \\\n") != 1 or block.count("    if (num_instrs >= cpu->NumInstrsToExecute) \\\n") != 1:
+        if not _has_dispatch_instruction_accounting(block):
             fail(f"dispatch macro {i}: unknown instruction accounting")
     fused = None
     if fused_definitions:
@@ -107,10 +138,7 @@ static inline void observe_directhome_tfx_callsite(ARMul_State *cpu) {
 '''
     source = source.replace("unsigned InterpreterMainLoop(ARMul_State *cpu, std::uint32_t &num_instrs) {\n", helper + "unsigned InterpreterMainLoop(ARMul_State *cpu, std::uint32_t &num_instrs) {\n", 1)
     for block in macros:
-        modified = block.replace(
-            "    num_instrs++;                              \\\n",
-            "    DIRECTHOME_TFX_OBSERVE(cpu);              \\\n    num_instrs++;                              \\\n", 1)
-        source = source.replace(block, modified, 1)
+        source = source.replace(block, _insert_dispatch_observer(block, "dispatch macro"), 1)
     if fused:
         block = fused.group()
         source = source.replace(block, block.replace(
