@@ -1,0 +1,77 @@
+name: DirectHome Recovery Checkpoint
+
+"on":
+  push:
+    branches:
+      - codex/compatboot1-directhome
+    paths-ignore:
+      - "docs/checkpoints/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: directhome-recovery-checkpoint
+  cancel-in-progress: false
+
+jobs:
+  checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DirectHome
+        uses: actions/checkout@v4
+        with:
+          ref: codex/compatboot1-directhome
+          fetch-depth: 2
+
+      - name: Write automatic recovery state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/checkpoints
+
+          SOURCE_SHA="${GITHUB_SHA}"
+          SOURCE_SUBJECT="$(git show -s --format=%s "$SOURCE_SHA" 2>/dev/null || true)"
+          SOURCE_AUTHOR="$(git show -s --format='%an <%ae>' "$SOURCE_SHA" 2>/dev/null || true)"
+          SOURCE_DATE="$(git show -s --format=%cI "$SOURCE_SHA" 2>/dev/null || true)"
+
+          cat > docs/checkpoints/AUTO_LAST_COMMIT.md <<EOF
+          # AUTO_LAST_COMMIT — DirectHome black-box recorder
+
+          This file is generated automatically by GitHub Actions. It records the source push that triggered the checkpoint workflow; it does **not** prove that an IPA build or device test passed.
+
+          - Repository: ${GITHUB_REPOSITORY}
+          - Branch: codex/compatboot1-directhome
+          - Triggering source SHA: ${SOURCE_SHA}
+          - Commit subject: ${SOURCE_SUBJECT}
+          - Commit author: ${SOURCE_AUTHOR}
+          - Commit date: ${SOURCE_DATE}
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Recorded at UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          ## Recovery rule
+
+          Start from docs/checkpoints/LAST_STATE.md, then compare its recorded source state with the triggering SHA above and the actual current branch HEAD. Check GitHub Actions and device logs separately before claiming build/runtime success.
+
+          ## Protected comparison branch
+
+          Do not modify or merge codex/compatboot1-menuprobe2-nobypass as part of recovery.
+          EOF
+
+      - name: Commit recovery checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- docs/checkpoints/AUTO_LAST_COMMIT.md)" ]; then
+            echo "Checkpoint already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/checkpoints/AUTO_LAST_COMMIT.md
+          git commit -m "docs: auto-record DirectHome recovery checkpoint [skip ci]"
+
+          git pull --rebase origin codex/compatboot1-directhome
+          git push origin HEAD:codex/compatboot1-directhome

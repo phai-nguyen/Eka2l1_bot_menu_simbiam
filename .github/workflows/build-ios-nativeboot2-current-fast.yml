@@ -16,13 +16,67 @@ name: Build EKA2L1 NATIVEBOOT2 CURRENT FAST
       - "test_nativeboot2_*.py"
       - "ci/fastbuild1_manifest.py"
       - "ci/fastbuild1_manifest.txt"
+      - "ci/directhome_selftest.py"
+      - ".github/workflows/build-ios-nativeboot2-current-fast.yml"
+  pull_request:
+    branches:
+      - nativeboot2-current
+    paths:
+      - "apply_nativeboot2_*.py"
+      - "test_nativeboot2_*.py"
+      - "ci/fastbuild1_manifest.py"
+      - "ci/fastbuild1_manifest.txt"
+      - "ci/directhome_selftest.py"
       - ".github/workflows/build-ios-nativeboot2-current-fast.yml"
 
 permissions:
   contents: read
 
+concurrency:
+  group: nativeboot2-current-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  selftest:
+    name: DirectHome preflight self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Run DirectHome preflight gate
+      run: |
+        set -euo pipefail
+        EXPECTED_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+        python3 ci/directhome_selftest.py \
+          --repo "$GITHUB_WORKSPACE" \
+          --report DIRECTHOME-SELFTEST-REPORT.txt \
+          --expected-branch "$EXPECTED_BRANCH"
+
+    - name: Publish self-test summary
+      if: always()
+      run: |
+        if [ -f DIRECTHOME-SELFTEST-REPORT.txt ]; then
+          {
+            echo "## DirectHome preflight"
+            echo '~~~text'
+            cat DIRECTHOME-SELFTEST-REPORT.txt
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Upload self-test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-DIRECTHOME-SELFTEST-REPORT
+        path: DIRECTHOME-SELFTEST-REPORT.txt
+        if-no-files-found: warn
+        retention-days: 14
+
   build-app:
+    needs: selftest
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -128,6 +182,11 @@ jobs:
         BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
         test -x "$BIN"
         strings "$BIN" > "$RUNNER_TEMP/fastbuild1.strings"
+        if grep -Fq '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1' "$RUNNER_TEMP/fastbuild1.strings"; then
+          echo "unexpected B99 identity marker in Direct Home binary" >&2
+          exit 1
+        fi
+        test "$(grep -Fc '[NBOOT2][BUILD_ID] build=COMPATBOOT1_DIRECTHOME1 track=H2_COMPATBOOT1_DIRECTHOME1' "$RUNNER_TEMP/fastbuild1.strings")" -eq 1
         grep -Fq '[NBOOT2][WSERV_LIBRARY_TYPE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][LDR_ROOT_RESOLVED]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][LDR_ROOT_EXHAUSTED]' "$RUNNER_TEMP/fastbuild1.strings"
@@ -158,6 +217,13 @@ jobs:
         grep -Fq '[NBOOT2][WSERV_MESSAGEWIN_EXIT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][SA_HWRM_ABI]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_CALLSITE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_ALF_OBJECT_PREADD]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_ATTACH]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_LOOKUP]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][ALFRED_START]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_LEAVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][TFX_RESOLVE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][ALF_SESSION]' "$RUNNER_TEMP/fastbuild1.strings"
@@ -218,12 +284,12 @@ jobs:
         grep -Fq '[NBOOT2][PHONEUI_TARGET_FINGERPRINT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][CENREP_IPC_ENTRY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][CENREP_IPC_COMPLETE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][CENREP_FIND_EQ_INT]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_SOURCE]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_WINDOW]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_SUMMARY]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_RESID_CANDIDATE_DUMP_B87]' "$RUNNER_TEMP/fastbuild1.strings"
-        grep -Fq '[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]' "$RUNNER_TEMP/fastbuild1.strings"
-        grep -Fq '[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]' "$RUNNER_TEMP/fastbuild1.strings"
+        bash ci/fastbuild1_reject_phoneui_bypass_markers.sh "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'target_decode=BLX_IMM10L_BITS_10_1' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_VENEER_DEST]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][PHONEUI_VENEER_DEST_FP]' "$RUNNER_TEMP/fastbuild1.strings"
@@ -236,6 +302,21 @@ jobs:
         grep -Fq '[NBOOT2][FBS_SHARED_HEAP_HANDOFF]' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq '[NBOOT2][IOS_EXIT_UI] phase=library_show_done' "$RUNNER_TEMP/fastbuild1.strings"
         grep -Fq 'NATIVEBOOT2 EMUHUB1' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MODE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][DEADLINE_START]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][BARRIER_WAIT]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][BARRIER_READY]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][BARRIER_TIMEOUT]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][TARGET_LAUNCH]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MISSING_SERVER]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][FIRST_FAILURE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][TARGET_VISIBLE]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_LEAVE5]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_LEAVE5_FRAME]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_LEAVE5_STACK]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_LEAVE5_EXPORT]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_LEAVE5_CODE16]' "$RUNNER_TEMP/fastbuild1.strings"
+        grep -Fq '[COMPATBOOT][MENU3_FSFLUSH]' "$RUNNER_TEMP/fastbuild1.strings"
         ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$RUNNER_TEMP/fastbuild1.strings"
         test ! -e "$UPSTREAM/src/emu/j2me"
         echo "B51_DIFFCHECK_BEGIN"
@@ -261,6 +342,17 @@ jobs:
         grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
         ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/fastbuild1-ipa-list.txt"
         shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt"
+        {
+          echo "EKA2L1 DIRECTHOME DEVICE-TEST CANDIDATE"
+          echo "source_sha=$GITHUB_SHA"
+          echo "head_ref=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          echo "run_id=$GITHUB_RUN_ID"
+          echo "run_url=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "selftest=PASS"
+          echo "regressions=PASS"
+          echo "binary_invariants=PASS"
+          echo "ipa_sha256=$(awk '{print $1}' "$GITHUB_WORKSPACE/FASTBUILD1-IPA-SHA256.txt")"
+        } > "$GITHUB_WORKSPACE/DIRECTHOME-DEVICE-TEST-CANDIDATE.txt"
         echo "FASTBUILD_PACKAGE_DONE_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
 
     - name: Upload IPA
@@ -308,5 +400,6 @@ jobs:
           FASTBUILD1-BUILD-AUDIT.txt
           FASTBUILD1-SCCACHE-STATS.txt
           FASTBUILD1-IPA-SHA256.txt
+          DIRECTHOME-DEVICE-TEST-CANDIDATE.txt
         if-no-files-found: warn
         retention-days: 14
