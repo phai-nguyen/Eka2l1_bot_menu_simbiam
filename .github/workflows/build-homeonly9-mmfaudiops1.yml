@@ -1,0 +1,180 @@
+name: Build HOMEONLY9 MMF Audio P&S
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly9-mmfaudiops1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore HOMEONLY8 cache
+      id: home8
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly8-applist-nonnative1-macos15-v1
+
+    - name: Require HOMEONLY8 baseline
+      run: |
+        set -euo pipefail
+        test "${{ steps.home8.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        AUDIO="$UPSTREAM/src/emu/services/src/audio/mmf/audio.cpp"
+        APP="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        INI="$UPSTREAM/src/emu/common/src/ini.cpp"
+
+        test -x "$BIN"
+        test -f "$AUDIO"
+        test -f "$APP"
+        test -f "$INI"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        grep -Fq 'struct ini_token {' "$INI"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$APP"
+        ! grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$AUDIO"
+
+        strings "$BIN" > "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home8.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home8.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home8.strings"
+
+        git -C "$UPSTREAM" rev-parse HEAD | tee HOMEONLY9-UPSTREAM-HEAD.txt
+
+    - name: Fetch HOMEONLY9 source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly9-mmfaudiops1           https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home9-src"
+        git -C "$GITHUB_WORKSPACE/home9-src" rev-parse HEAD | tee HOMEONLY9-SOURCE-HEAD.txt
+
+    - name: Apply MMF audio P&S compatibility fix
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home9-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 -m py_compile           "$SRC/apply_homeonly9_mmfaudiops1.py"           "$SRC/test_homeonly9_mmfaudiops1.py"
+
+        python3 "$SRC/apply_homeonly9_mmfaudiops1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly9_mmfaudiops1.py" "$UPSTREAM"
+
+        AUDIO="$UPSTREAM/src/emu/services/src/audio/mmf/audio.cpp"
+        grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$AUDIO"
+        grep -Fq 'audio_policy_category = 0x101F457F' "$AUDIO"
+        grep -Fq 'audio_state_playing_key = 0x00000002' "$AUDIO"
+        grep -Fq 'process_id_list_size = 88' "$AUDIO"
+
+        # Preserve previous root fixes and forbidden CenRep ABI change.
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]'           "$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        grep -Fq 'struct ini_token {' "$UPSTREAM/src/emu/common/src/ini.cpp"
+        ! grep -R -Fq '52 -> 26' "$UPSTREAM/src/emu/services/src/centralrepo"
+        ! grep -R -Fq '52/2' "$UPSTREAM/src/emu/services/src/centralrepo"
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY9-source.diff
+
+    - name: Incremental build HOMEONLY9
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/home9.strings"
+
+        grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$RUNNER_TEMP/home9.strings"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$RUNNER_TEMP/home9.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home9.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home9.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home9.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home9.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home9.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home9.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home9.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY9 BUILD AUDIT'
+          echo 'baseline=HOMEONLY8_APPLIST_NONNATIVE1'
+          echo 'device_root_cause=HOME_RARRAY_APPEND_READS_PAST_STACK_FROM_UNDEFINED_MMF_AUDIO_POLICY_PACKAGE'
+          echo 'fix=HLE_MMF_AUDIO_EMPTY_PLAYING_CLIENTS_PACKAGE'
+          echo 'mmf_audio_ps_category=0x101F457F'
+          echo 'mmf_audio_ps_key=2'
+          echo 'mmf_audio_ps_package_bytes=88'
+          echo 'mmf_audio_ps_initial_process_count=0'
+          echo 'home_menu_hardcode=NO'
+          echo 'input_pipeline=UNCHANGED'
+          echo 'window_focus=UNCHANGED'
+          echo 'cenrep_get_52_to_26=UNCHANGED_FORBIDDEN'
+          echo 'aiscutplugin=UNCHANGED'
+          echo 'panic_suppression=NO'
+          echo 'nativeboot=ABSENT'
+          echo 'compatboot=ABSENT'
+          echo 'java_j2me=REMOVED'
+        } > HOMEONLY9-BUILD-AUDIT.txt
+
+    - name: Save HOMEONLY9 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly9-mmfaudiops1-macos15-v1
+
+    - name: Package HOMEONLY9 IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY9-MMFAUDIOPS1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-home9"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        ! /usr/bin/unzip -l "$IPA" | grep -Eiq '\.jar([[:space:]]|$)'
+        shasum -a 256 "$IPA" | tee HOMEONLY9-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY9 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY9-MMFAUDIOPS1-IPA
+        path: upstream/EKA2L1-HOMEONLY9-MMFAUDIOPS1-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY9 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY9-MMFAUDIOPS1-AUDIT
+        path: |
+          HOMEONLY9-UPSTREAM-HEAD.txt
+          HOMEONLY9-SOURCE-HEAD.txt
+          HOMEONLY9-source.diff
+          HOMEONLY9-BUILD-AUDIT.txt
+          HOMEONLY9-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
