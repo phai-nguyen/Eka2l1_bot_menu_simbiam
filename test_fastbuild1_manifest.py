@@ -175,7 +175,7 @@ class FastbuildManifestTests(unittest.TestCase):
         self.assertNotIn("apply_nativeboot2_b89_fatalstatebypass1.py", applied)
         self.assertIn("apply_nativeboot2_compatboot1_menuprobe1.py", applied)
         self.assertEqual(
-            post[-6:],
+            post[-7:],
             [
                 ("apply_nativeboot2_directhome_tfxecomtrace1.py", "test_nativeboot2_directhome_tfxecomtrace1.py"),
                 ("apply_nativeboot2_directhome_tfxcallsiteprobe1.py", "test_nativeboot2_directhome_tfxcallsiteprobe1.py"),
@@ -183,59 +183,60 @@ class FastbuildManifestTests(unittest.TestCase):
                 ("apply_nativeboot2_directhome_tfxdllprobe1.py", "test_nativeboot2_directhome_tfxdllprobe1.py"),
                 ("apply_nativeboot2_directhome_propertycancelguard1.py", "test_nativeboot2_directhome_propertycancelguard1.py"),
                 ("apply_nativeboot2_directhome_codesegcollectorunlink1.py", "test_nativeboot2_directhome_codesegcollectorunlink1.py"),
+                ("apply_nativeboot2_directhome_halpagesizeguard1.py", "test_nativeboot2_directhome_halpagesizeguard1.py"),
             ],
         )
         self.assertEqual(
-            post[-8],
+            post[-9],
             (
                 "apply_nativeboot2_compatboot1_directhomefingerprint1.py",
                 "test_nativeboot2_compatboot1_directhomefingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-9],
+            post[-10],
             (
                 "apply_nativeboot2_b99_buildfingerprint1.py",
                 "test_nativeboot2_b99_buildfingerprint1.py",
             ),
         )
         self.assertEqual(
-            post[-10],
+            post[-11],
             (
                 "apply_nativeboot2_b96_estorleaveexports1.py",
                 "test_nativeboot2_b96_estorleaveexports1.py",
             ),
         )
         self.assertEqual(
-            post[-11],
+            post[-12],
             (
                 "apply_nativeboot2_directhome_teardowntrace1.py",
                 "test_nativeboot2_directhome_teardowntrace1.py",
             ),
         )
         self.assertEqual(
-            post[-12],
+            post[-13],
             (
                 "apply_nativeboot2_b94_teardownprobe1.py",
                 "test_nativeboot2_b94_teardownprobe1.py",
             ),
         )
         self.assertEqual(
-            post[-13],
+            post[-14],
             (
                 "apply_nativeboot2_b92_cenrepfindeqdiag1.py",
                 "test_nativeboot2_b92_cenrepfindeqdiag1.py",
             ),
         )
         self.assertEqual(
-            post[-14],
+            post[-15],
             (
                 "apply_nativeboot2_b91_ipcteardown1.py",
                 "test_nativeboot2_b91_ipcteardown1.py",
             ),
         )
         self.assertEqual(
-            post[-15],
+            post[-16],
             (
                 "apply_nativeboot2_compatboot1_menuprobe1.py",
                 "test_nativeboot2_compatboot1_menuprobe1.py",

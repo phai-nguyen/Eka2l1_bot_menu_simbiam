@@ -31,12 +31,14 @@ REQUIRED_ORDER = (
     "apply_nativeboot2_directhome_tfxdllprobe1.py",
     "apply_nativeboot2_directhome_propertycancelguard1.py",
     "apply_nativeboot2_directhome_codesegcollectorunlink1.py",
+    "apply_nativeboot2_directhome_halpagesizeguard1.py",
 )
 FIXTURE_TESTS = (
     "test_nativeboot2_b99_buildfingerprint1.py",
     "test_nativeboot2_compatboot1_directhomefingerprint1.py",
     "test_nativeboot2_directhome_propertycancelguard1.py",
     "test_nativeboot2_directhome_codesegcollectorunlink1.py",
+    "test_nativeboot2_directhome_halpagesizeguard1.py",
 )
 
 
