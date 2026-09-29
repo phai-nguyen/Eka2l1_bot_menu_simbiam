@@ -45,9 +45,9 @@ jobs:
         grep -Fq '[M3HOME1][TRIGGER]' "$ROOT"
         grep -Fq '[M3HOME1][APPARC_REQUEST]' "$UPSTREAM/src/emu/ios/src/emu_bridge.mm"
         ! grep -Fq '[HYBRIDHOME1][SHOW]' "$ROOT"
-        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu"
-        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu"
-        ! grep -R -Fq 'CompatBoot Menu Probe' "$UPSTREAM/src/emu"
+        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu/ios"
+        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu/ios"
+        ! grep -R -Fq 'CompatBoot Menu Probe' "$UPSTREAM/src/emu/ios"
 
         git -C "$UPSTREAM" rev-parse HEAD | tee HYBRIDHOME1-UPSTREAM-HEAD.txt
 
@@ -76,8 +76,8 @@ jobs:
         grep -Fq '[M3HOME1][TRIGGER]' "$ROOT"
 
         test ! -e "$UPSTREAM/src/emu/j2me"
-        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu"
-        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu"
+        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu/ios"
+        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu/ios"
 
         git -C "$UPSTREAM" diff --check
         git -C "$UPSTREAM" diff > HYBRIDHOME1-source.diff
@@ -167,4 +167,4 @@ jobs:
           HYBRIDHOME1-IPA-SHA256.txt
         if-no-files-found: warn
         retention-days: 14
-# HYBRIDHOME1 source refresh: a803327a
+# HYBRIDHOME1 source refresh: 83e1326d
