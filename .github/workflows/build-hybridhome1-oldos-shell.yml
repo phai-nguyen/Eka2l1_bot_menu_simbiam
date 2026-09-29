@@ -21,17 +21,17 @@ jobs:
     - name: Checkout build host
       uses: actions/checkout@v4
 
-    - name: Restore validated HOMEONLY2 / MENUUI36 cache
-      id: home2
+    - name: Restore latest validated HOMEONLY9 backend cache
+      id: backend
       uses: actions/cache/restore@v4
       with:
         path: upstream
-        key: eka2l1-homeonly2-clean-menuui36-nojava-manic3-macos15-v1
+        key: eka2l1-homeonly9-mmfaudiops1-macos15-v1
 
     - name: Require clean hybrid baseline
       run: |
         set -euo pipefail
-        test "${{ steps.home2.outputs.cache-hit }}" = "true"
+        test "${{ steps.backend.outputs.cache-hit }}" = "true"
 
         UPSTREAM="$GITHUB_WORKSPACE/upstream"
         BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
@@ -111,7 +111,7 @@ jobs:
         {
           echo 'HYBRIDHOME1 BUILD AUDIT'
           echo 'architecture=OLDOS_STYLE_HOST_SHELL_PLUS_REAL_SYMBIAN_BACKEND'
-          echo 'baseline=HOMEONLY2_MENUUI36_NOJAVA_MANIC3'
+          echo 'baseline=HOMEONLY9_BACKEND_ON_MENUUI36_NOJAVA_MANIC3'
           echo 'menu3_uid=0x101F4CD2'
           echo 'real_home_uid_0x102750F0=NOT_REQUIRED'
           echo 'hybrid_presentation=UIKIT_HOST_OVERLAY'
