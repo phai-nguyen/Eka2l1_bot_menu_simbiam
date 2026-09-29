@@ -28,8 +28,16 @@ jobs:
         path: upstream
         key: eka2l1-homeonly1-menuui14-fix2-macos15-v1
 
-    - name: Replay clean pre-NativeBoot MENUUI14 FIX2 baseline
+    - name: Restore clean MENUUI14 FIX2 baseline
+      id: cleancache
       if: steps.homecache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui14-fix2-clean-macos15-v1
+
+    - name: Replay clean pre-NativeBoot MENUUI14 FIX2 baseline
+      if: steps.homecache.outputs.cache-hit != 'true' && steps.cleancache.outputs.cache-hit != 'true'
       run: |
         set -euo pipefail
         SOURCE_COMMIT="df0ff57277f433c394720857b5391559024dc661"
@@ -87,6 +95,13 @@ jobs:
         strings "$BIN" > "$RUNNER_TEMP/homeonly-menuui14.strings"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI14 INPUT_GET:' "$RUNNER_TEMP/homeonly-menuui14.strings"
         grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI13 FS_DIRUID1:' "$RUNNER_TEMP/homeonly-menuui14.strings"
+
+    - name: Save clean MENUUI14 FIX2 baseline cache
+      if: steps.homecache.outputs.cache-hit != 'true' && steps.cleancache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-menuui14-fix2-clean-macos15-v1
 
     - name: Fetch HOMEONLY1 source
       if: steps.homecache.outputs.cache-hit != 'true'
