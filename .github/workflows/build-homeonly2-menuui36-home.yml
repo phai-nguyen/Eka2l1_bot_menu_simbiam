@@ -20,17 +20,17 @@ jobs:
     - name: Checkout build host
       uses: actions/checkout@v4
 
-    - name: Restore current B28 build container
-      id: b28
+    - name: Restore current B19 build container
+      id: b19
       uses: actions/cache/restore@v4
       with:
         path: upstream
-        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
 
-    - name: Require B28 container
+    - name: Require B19 container
       run: |
         set -euo pipefail
-        test "${{ steps.b28.outputs.cache-hit }}" = "true"
+        test "${{ steps.b19.outputs.cache-hit }}" = "true"
         test -d "$GITHUB_WORKSPACE/upstream/.git"
         test -x "$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
 
@@ -54,7 +54,7 @@ jobs:
 
         echo "upstream_head=$(git -C "$UPSTREAM" rev-parse HEAD)" | tee HOMEONLY2-BASELINE.txt
 
-        # B28 is a working-tree continuation of MENUUI36. Return tracked source
+        # B19 is a working-tree continuation of MENUUI36. Return tracked source
         # to its immutable Git HEAD, then recreate the exact device-validated
         # MENUUI36 working tree from its archived cumulative source diff.
         git -C "$UPSTREAM" reset --hard HEAD
