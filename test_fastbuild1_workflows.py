@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import hashlib
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+FAST = ROOT / ".github/workflows/build-ios-nativeboot2-current-fast.yml"
+SEED = ROOT / ".github/workflows/seed-ios-nativeboot2-fastbuild1-bootstrap.yml"
+B28 = ROOT / ".github/workflows/build-ios-nativeboot2-b28-wservlibtype1-nojava-manic3.yml"
+B28_GIT_BLOB = "44d1c8aaa7ff5f0ff97271396b8bf771ad125b54"
+BOOTSTRAP_KEY = "eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1"
+
+
+def git_blob_sha(path: Path) -> str:
+    data = path.read_bytes()
+    header = f"blob {len(data)}\0".encode()
+    return hashlib.sha1(header + data).hexdigest()
+
+
+class FastbuildWorkflowContract(unittest.TestCase):
+    def test_current_build_verifies_directhome_tfx_probe_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify = text.split("    - name: Verify binary invariants", 1)[1].split("    - name: Package unsigned IPA", 1)[0]
+        for marker in ("[NBOOT2][DIRECTHOME_TFX_CALLSITE]", "[NBOOT2][DIRECTHOME_EIKCORE473_RETURN]", "[NBOOT2][DIRECTHOME_ALF_OBJECT_PREADD]", "[NBOOT2][DIRECTHOME_TFX_SESSION]"):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+        self.assertIn("build=COMPATBOOT1_DIRECTHOME1", verify)
+        self.assertIn("build=B99", verify)
+        self.assertIn("fastbuild1_reject_phoneui_bypass_markers.sh", verify)
+
+    def test_current_build_verifies_directhome_tfx_dll_probe_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify = text.split("    - name: Verify binary invariants", 1)[1].split("    - name: Package unsigned IPA", 1)[0]
+        self.assertIn("grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_ATTACH]'", verify)
+        self.assertIn("grep -Fq '[NBOOT2][DIRECTHOME_TFX_DLL_LOOKUP]'", verify)
+        self.assertIn("grep -Fq '[COMPATBOOT][ALFRED_START]'", verify)
+
+    def test_current_build_requires_directhome_identity_and_rejects_b99_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        self.assertIn(
+            "grep -Fc '[NBOOT2][BUILD_ID] build=COMPATBOOT1_DIRECTHOME1 track=H2_COMPATBOOT1_DIRECTHOME1'",
+            verify,
+        )
+        self.assertIn(
+            "if grep -Fq '[NBOOT2][BUILD_ID] build=B99 track=H2_COMPATBOOT1_NOBYPASS1'",
+            verify,
+        )
+
+    def test_current_build_rejects_phoneui_startup_bypass_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        gate = ROOT / "ci/fastbuild1_reject_phoneui_bypass_markers.sh"
+        self.assertIn('fastbuild1_reject_phoneui_bypass_markers.sh "$RUNNER_TEMP/fastbuild1.strings"', verify)
+        self.assertTrue(gate.is_file(), "binary no-bypass verifier is missing")
+        gate_text = gate.read_text(encoding="utf-8")
+        for marker in (
+            "[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]",
+            "[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]",
+        ):
+            self.assertIn(marker, gate_text)
+
+        for content, should_pass in (
+            ("permitted runtime marker", True),
+            ("[NBOOT2][PHONEUI_CONE14_CONTINUE_B88]", False),
+            ("[NBOOT2][PHONEUI_FAILSTATE_BYPASS_B89]", False),
+        ):
+            with self.subTest(content=content), tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as strings:
+                strings.write(content)
+                strings.flush()
+                result = subprocess.run(["bash", str(gate), strings.name], text=True, capture_output=True)
+            self.assertEqual(result.returncode == 0, should_pass, result.stdout + result.stderr)
+
+    def test_current_build_verifies_menu3_leave5_trace_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[COMPATBOOT][MENU3_LEAVE5]",
+            "[COMPATBOOT][MENU3_LEAVE5_FRAME]",
+            "[COMPATBOOT][MENU3_LEAVE5_STACK]",
+            "[COMPATBOOT][MENU3_FSFLUSH]",
+        ):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+
+    def test_b28_workflow_is_untouched(self):
+        self.assertEqual(git_blob_sha(B28), B28_GIT_BLOB)
+
+    def test_fast_workflow_scope_and_cache(self):
+        text = FAST.read_text(encoding="utf-8")
+        self.assertIn("nativeboot2-current", text)
+        self.assertIn(BOOTSTRAP_KEY, text)
+        self.assertIn("eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1", text)
+        self.assertNotIn("actions/cache/save", text)
+
+    def test_sccache_is_optional_acceleration(self):
+        text = FAST.read_text(encoding="utf-8")
+        self.assertIn("mozilla-actions/sccache-action@v0.0.11", text)
+        self.assertIn('SCCACHE_GHA_ENABLED: "true"', text)
+        self.assertIn('SCCACHE_IGNORE_SERVER_IO_ERROR: "1"', text)
+        self.assertIn('SCCACHE_BASEDIRS=$UPSTREAM', text)
+        self.assertIn("-DCMAKE_C_COMPILER_LAUNCHER=sccache", text)
+        self.assertIn("-DCMAKE_CXX_COMPILER_LAUNCHER=sccache", text)
+        self.assertIn("sccache --show-stats", text)
+
+    def test_b28_contract_runs_before_post_bootstrap_apply(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify = text.index('python3 test_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"')
+        apply_current = text.index('fastbuild1_manifest.py apply "$GITHUB_WORKSPACE" "$UPSTREAM"')
+        self.assertLess(verify, apply_current)
+
+    def test_probe_is_transient_and_never_uploads_ipa(self):
+        text = FAST.read_text(encoding="utf-8")
+        self.assertIn("probe_svc_change", text)
+        self.assertIn("#define NBOOT2_FASTBUILD1_PROBE 1", text)
+        self.assertIn('static_assert(NBOOT2_FASTBUILD1_PROBE == 1, "FASTBUILD1_PROBE_V2");', text)
+        self.assertIn("if: inputs.probe_svc_change != true", text)
+        self.assertIn("FASTBUILD1_PROBE=1", text)
+
+    def test_total_timing_covers_checkout_and_ipa_upload(self):
+        text = FAST.read_text(encoding="utf-8")
+        start = text.index("- name: Mark FASTBUILD start")
+        checkout = text.index("- name: Checkout project", start)
+        upload_ipa = text.index("- name: Upload IPA")
+        write_audit = text.index("- name: Write FASTBUILD audit")
+        self.assertLess(start, checkout)
+        self.assertLess(upload_ipa, write_audit)
+
+    def test_timing_and_packaging_invariants_are_present(self):
+        text = FAST.read_text(encoding="utf-8")
+        for marker in (
+            "bootstrap_restore_seconds=",
+            "patch_regression_seconds=",
+            "cmake_build_seconds=",
+            "package_seconds=",
+            "total_seconds=",
+            "--parallel 4",
+            "Payload/EKA2L1.app",
+            "_CodeSignature",
+            "embedded.mobileprovision",
+            "shasum -a 256",
+        ):
+            self.assertIn(marker, text)
+
+    def test_current_build_verifies_b84_probe_markers(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        for marker in (
+            "[NBOOT2][CENREP_IPC_ENTRY]",
+            "[NBOOT2][CENREP_IPC_COMPLETE]",
+            "[NBOOT2][PHONEUI_RESID_SOURCE]",
+            "[NBOOT2][PHONEUI_RESID_WINDOW]",
+            "[NBOOT2][PHONEUI_RESID_SUMMARY]",
+        ):
+            self.assertIn(f"grep -Fq '{marker}'", verify)
+
+    def test_current_build_verifies_b92_compatboot_cenrep_marker(self):
+        text = FAST.read_text(encoding="utf-8")
+        verify_start = text.index("    - name: Verify binary invariants")
+        verify_end = text.index("    - name: Package unsigned IPA", verify_start)
+        verify = text[verify_start:verify_end]
+        self.assertIn("grep -Fq '[COMPATBOOT][CENREP_FIND_EQ_INT]'", verify)
+
+
+    def test_workflows_have_no_malformed_github_expressions(self):
+        for path in (FAST, SEED):
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("${ {", text, str(path))
+
+    def test_seed_workflow_is_manual_only_and_saves_exact_bootstrap(self):
+        text = SEED.read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", text)
+        self.assertNotIn("push:", text)
+        self.assertIn(BOOTSTRAP_KEY, text)
+        self.assertIn("actions/cache/save@v4", text)
+        self.assertIn("test_nativeboot2_b28_wservlibtype1.py", text)
+        self.assertNotIn("lookup-only: true", text)
+        self.assertIn("xcodebuild -version", text)
+        self.assertIn("clang --version", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

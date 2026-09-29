@@ -1,0 +1,229 @@
+name: Build EKA2L1 NATIVEBOOT2 B21 FBSFONTALIAS1 NOJAVA MANIC3 IPA
+# B21 targets the legacy font matcher restored by the B19 cache
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b21-fbsfontalias1
+    paths:
+      - apply_nativeboot2_b20_cenresetall1.py
+      - test_nativeboot2_b20_cenresetall1.py
+      - apply_nativeboot2_b21_fbsfontalias1.py
+      - test_nativeboot2_b21_fbsfontalias1.py
+      - .github/workflows/build-ios-nativeboot2-b21-fbsfontalias1-nojava-manic3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B21 cache
+      id: b21_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b21-fbsfontalias1-nojava-manic3-macos15-v1
+
+    - name: Restore B19 baseline from default branch
+      id: b19_cache
+      if: steps.b21_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Apply B20 + B21 and rebuild
+      if: steps.b21_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-nativeboot2-b21-fbsfontalias1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        B20_PATCHER="$GITHUB_WORKSPACE/apply_nativeboot2_b20_cenresetall1.py"
+        B20_TESTER="$GITHUB_WORKSPACE/test_nativeboot2_b20_cenresetall1.py"
+        B21_PATCHER="$GITHUB_WORKSPACE/apply_nativeboot2_b21_fbsfontalias1.py"
+        B21_TESTER="$GITHUB_WORKSPACE/test_nativeboot2_b21_fbsfontalias1.py"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        FBSCPP="$UPSTREAM/src/emu/services/src/fbs/fbs.cpp"
+        FBSH="$UPSTREAM/src/emu/services/include/services/fbs/fbs.h"
+        STORECPP="$UPSTREAM/src/emu/services/src/fbs/impls/font_store.cpp"
+        STOREH="$UPSTREAM/src/emu/services/include/services/fbs/font_store.h"
+        REPOCPP="$UPSTREAM/src/emu/services/src/centralrepo/repo.cpp"
+        SA="$UPSTREAM/src/emu/services/src/sms/sa/sa.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        FS="$UPSTREAM/src/emu/services/src/fs/fs.cpp"
+        LOADER="$UPSTREAM/src/emu/services/src/loader/loader.cpp"
+        HAL="$UPSTREAM/src/emu/system/src/hal.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+        STATE="$UPSTREAM/src/emu/ios/src/state.cpp"
+
+        python3 -m py_compile "$B20_PATCHER" "$B20_TESTER" "$B21_PATCHER" "$B21_TESTER"
+
+        # Recreate the exact B20 device-tested baseline, then apply B21.
+        python3 "$B20_PATCHER" "$UPSTREAM"
+        python3 "$B20_TESTER" "$UPSTREAM"
+
+        python3 "$B21_PATCHER" "$UPSTREAM"
+
+        # GREEN: the B21 contract that failed on B20 must pass now.
+        python3 "$B21_TESTER" "$UPSTREAM"
+        python3 "$B20_TESTER" "$UPSTREAM"
+
+        grep -Fq 'case fbs_font_name_alias:' "$FBSCPP"
+        grep -Fq 'set_font_name_alias(ctx);' "$FBSCPP"
+        grep -Fq '[NBOOT2][FBS_FONT_ALIAS]' "$FBSCPP"
+        grep -Fq 'persistent_font_store.set_font_name_alias' "$FBSCPP"
+        grep -Fq 'void set_font_name_alias(service::ipc_context *ctx);' "$FBSH"
+        grep -Fq 'font_name_aliases_' "$STOREH"
+        grep -Fq 'resolve_font_name_alias' "$STOREH"
+        grep -Fq 'font_store::set_font_name_alias' "$STORECPP"
+        grep -Fq 'font_store::resolve_font_name_alias' "$STORECPP"
+        grep -Fq 'resolve_font_name_alias(requested_name)' "$STORECPP"
+        grep -Fq 'aliased_name' "$STORECPP"
+
+        grep -Fq '[NBOOT2][CEN_RESET_ALL_DONE]' "$REPOCPP"
+        grep -Fq '[NBOOT2][SA_LANG_ABI]' "$SA"
+        grep -Fq '[NBOOT2][SA_RTC_VALID]' "$SA"
+        grep -Fq '[NBOOT2][SA_HIDDEN_RESET]' "$SA"
+        grep -Fq '[NBOOT2][SA_STARTUP_MODE]' "$SA"
+        grep -Fq '[NBOOT2][SA_OP1_PENDING]' "$SA"
+        grep -Fq '[NBOOT2][DM_INIT_SET_INT]' "$SVC"
+        grep -Fq '[NBOOT2][RM356_CREATOR_SECURITY]' "$SVC"
+        grep -Fq '[NBOOT2][RM356_FS_FORMAT_OPEN]' "$FS"
+        grep -Fq '[NBOOT2][RM356_LOADER_FSY]' "$LOADER"
+        grep -Fq '[NBOOT2][RM356_STARTUP_REASON]' "$HAL"
+        grep -Fq '[NBOOT2][ESTART_RUN]' "$STATE"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+
+        STRINGS_OUT="$RUNNER_TEMP/nativeboot2-b21-fbsfontalias1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_FONT_ALIAS]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][CEN_RESET_ALL]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][SA_LANG_ABI]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][SA_RTC_VALID]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][SA_HIDDEN_RESET]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][SA_STARTUP_MODE]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][SA_OP1_PENDING]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][DM_INIT_SET_INT]' "$STRINGS_OUT"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'NATIVEBOOT2 B21 FBSFONTALIAS1 BUILD AUDIT'
+          echo 'base_cache=NATIVEBOOT2_B19_SALANGABI1'
+          echo 'recreated_baseline=B20_CENRESETALL1'
+          echo 'blocker=FBS_0x1E_akncapserver_timeout'
+          echo 'opcode=0x1E_EFbsMessFontNameAlias'
+          echo 'ipc_abi=slot0_alias_desc_slot1_alias_len_slot2_font_desc_slot3_font_len'
+          echo 'alias_compare=CASE_INSENSITIVE'
+          echo 'set_update=SUPPORTED'
+          echo 'delete_empty_target=SUPPORTED'
+          echo 'lookup_order=REQUESTED_NAME_THEN_ALIAS'
+          echo 'valid_completion=KErrNone'
+          echo 'malformed_completion=KErrBadDescriptor'
+          echo 'synthetic_ack=NO'
+          echo 'other_fbs_opcodes=UNCHANGED'
+          echo 'b20_cenresetall1=PRESERVED'
+          echo 'b19_salangabi1=PRESERVED'
+          echo 'b18_sartc1=PRESERVED'
+          echo 'b17_sahiddenreset1=PRESERVED'
+          echo 'b16_samode1=PRESERVED'
+          echo 'b15_saasync1=PRESERVED'
+          echo 'b14_saresponse1=PRESERVED'
+          echo 'b11_dminit1=PRESERVED'
+          echo 'boot_owner=firmware_SYSSTART'
+          echo 'host_sysstart=DISABLED'
+          echo 'host_menu=DISABLED'
+          echo 'frontend=EMUHUB1_PRESERVED'
+          echo 'NOJAVA=PRESERVED'
+          echo 'MANIC3=PRESERVED'
+          echo 'TDD_RED_RUN=35552020612'
+        } > "$GITHUB_WORKSPACE/NATIVEBOOT2-B21-FBSFONTALIAS1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/NATIVEBOOT2-B21-FBSFONTALIAS1-source.diff"
+
+    - name: Verify restored B21 cache
+      if: steps.b21_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        grep -Fq '[NBOOT2][FBS_FONT_ALIAS]' "$UPSTREAM/src/emu/services/src/fbs/fbs.cpp"
+        grep -Fq '[NBOOT2][CEN_RESET_ALL_DONE]' "$UPSTREAM/src/emu/services/src/centralrepo/repo.cpp"
+        grep -Fq '[NBOOT2][SA_LANG_ABI]' "$UPSTREAM/src/emu/services/src/sms/sa/sa.cpp"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'NATIVEBOOT2 B21 FBSFONTALIAS1 cache_hit=true' > "$GITHUB_WORKSPACE/NATIVEBOOT2-B21-FBSFONTALIAS1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/NATIVEBOOT2-B21-FBSFONTALIAS1-source.diff"
+
+    - name: Save B21 cache
+      if: steps.b21_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b21-fbsfontalias1-nojava-manic3-macos15-v1
+
+    - name: Package unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT2-B21-FBSFONTALIAS1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-nativeboot2-b21"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/nativeboot2-b21-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/nativeboot2-b21-ipa-list.txt"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/nativeboot2-b21-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/NATIVEBOOT2-B21-FBSFONTALIAS1-IPA-SHA256.txt"
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B21-FBSFONTALIAS1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-B21-FBSFONTALIAS1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B21-FBSFONTALIAS1-NOJAVA-MANIC3-AUDIT
+        path: |
+          NATIVEBOOT2-B21-FBSFONTALIAS1-BUILD-AUDIT.txt
+          NATIVEBOOT2-B21-FBSFONTALIAS1-source.diff
+          NATIVEBOOT2-B21-FBSFONTALIAS1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B21-FBSFONTALIAS1-diagnostic-log
+        path: eka2l1-nativeboot2-b21-fbsfontalias1.log
+        if-no-files-found: warn
+        retention-days: 14
