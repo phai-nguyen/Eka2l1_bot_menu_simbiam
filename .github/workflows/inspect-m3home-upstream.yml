@@ -1,0 +1,69 @@
+name: Inspect M3HOME1 upstream API
+
+"on":
+  push:
+    branches:
+      - codex/m3home-api-inspect
+    paths:
+      - ".github/workflows/inspect-m3home-upstream.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore stable B28 bootstrap
+      id: fast_bootstrap
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-fastbuild1-bootstrap-b28-nojava-manic3-macos15-v1
+
+    - name: Restore B19 fallback
+      id: b19_cache
+      if: steps.fast_bootstrap.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Prepare current source
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        if [ "${{ steps.fast_bootstrap.outputs.cache-hit }}" != "true" ]; then
+          test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+          python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b25_fbssharedheap1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b26_ioslibraryexit1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b27_wservpanic13trace1.py "$UPSTREAM"
+          python3 apply_nativeboot2_b28_wservlibtype1.py "$UPSTREAM"
+        fi
+        python3 ci/fastbuild1_manifest.py validate "$GITHUB_WORKSPACE"
+        python3 ci/fastbuild1_manifest.py apply "$GITHUB_WORKSPACE" "$UPSTREAM"
+
+    - name: Inspect launch surfaces
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        echo '=== emu_bridge.h ==='
+        cat "$UPSTREAM/src/emu/ios/include/ios/emu_bridge.h"
+        echo '=== emu_bridge.mm relevant context ==='
+        grep -n -B8 -A18 -E 'launch|game|app|g_state|symsys|winserv|applist' "$UPSTREAM/src/emu/ios/src/emu_bridge.mm" | head -n 800 || true
+        echo '=== RootViewController relevant context ==='
+        grep -n -B8 -A18 -E 'bridge::|currentGameUid|GameMenu|phoneRunning|CompatBoot|launch' "$UPSTREAM/src/emu/ios/app/RootViewController.mm" | head -n 1000 || true
+        echo '=== state.h ==='
+        cat "$UPSTREAM/src/emu/ios/include/ios/state.h"
+        echo '=== AppList launch declarations ==='
+        grep -n -B5 -A20 -E 'launch_app|get_registration|get_app_list_server_name' "$UPSTREAM/src/emu/services/include/services/applist/applist.h" || true
