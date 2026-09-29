@@ -1,0 +1,169 @@
+name: Build HOMEONLY7 CenRep Quoted Token Fix
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly7-cenrepquoted1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore HOMEONLY5 cache
+      id: home5
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly5-user11stack-macos15-v1
+
+    - name: Require HOMEONLY5 baseline and old tokenizer
+      run: |
+        set -euo pipefail
+        test "${{ steps.home5.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        INI="$UPSTREAM/src/emu/common/src/ini.cpp"
+
+        test -x "$BIN"
+        test -f "$INI"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        strings "$BIN" > "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home5.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home5.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home5.strings"
+
+        # Authority gate: HOMEONLY5 really carries the old tokenizer which
+        # splits '=' after extracting a quoted token.
+        grep -Fq 'std::deque<std::string> waits;' "$INI"
+        grep -Fq "std::size_t equal_pos = trim1.find('=');" "$INI"
+        ! grep -Fq 'struct ini_token {' "$INI"
+
+        git -C "$UPSTREAM" rev-parse HEAD | tee HOMEONLY7-UPSTREAM-HEAD.txt
+
+    - name: Fetch HOMEONLY7 source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly7-cenrepquoted1 \
+          https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home7-src"
+        git -C "$GITHUB_WORKSPACE/home7-src" rev-parse HEAD | tee HOMEONLY7-SOURCE-HEAD.txt
+
+    - name: Apply quoted-tokenizer root fix
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home7-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 -m py_compile \
+          "$SRC/apply_homeonly7_cenrepquoted1.py" \
+          "$SRC/test_homeonly7_cenrepquoted1.py"
+
+        python3 "$SRC/apply_homeonly7_cenrepquoted1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly7_cenrepquoted1.py" "$UPSTREAM"
+
+        INI="$UPSTREAM/src/emu/common/src/ini.cpp"
+        grep -Fq 'struct ini_token {' "$INI"
+        grep -Fq 'return { trim1, true };' "$INI"
+        grep -Fq 'if (ns.text.empty() && !ns.quoted)' "$INI"
+
+        # Do not touch the already-correct CenRep TDes16 byte ABI.
+        ! grep -R -Fq '52 -> 26' "$UPSTREAM/src/emu/services/src/centralrepo"
+        ! grep -R -Fq '52/2' "$UPSTREAM/src/emu/services/src/centralrepo"
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY7-source.diff
+
+    - name: Incremental build HOMEONLY7
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/home7.strings"
+
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home7.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home7.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home7.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY7 BUILD AUDIT'
+          echo 'baseline=HOMEONLY5'
+          echo 'root_cause=COMMON_INI_SPLITS_EQUALS_INSIDE_QUOTED_CENREP_STRING'
+          echo 'fix=UPSTREAM_QUOTED_TOKENIZER_BACKPORT'
+          echo 'rm356_10275102_key_1038_expected_utf16_bytes=102'
+          echo 'old_truncated_utf16_bytes=52'
+          echo 'cenrep_get_52_to_26=UNCHANGED_FORBIDDEN'
+          echo 'cenrep_ipc_abi=UNCHANGED'
+          echo 'aiscutplugin=UNCHANGED'
+          echo 'panic_suppression=NO'
+          echo 'input_focus_scheduler=UNCHANGED'
+          echo 'nativeboot=ABSENT'
+          echo 'compatboot=ABSENT'
+          echo 'java_j2me=REMOVED'
+        } > HOMEONLY7-BUILD-AUDIT.txt
+
+    - name: Save HOMEONLY7 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly7-cenrepquoted1-macos15-v1
+
+    - name: Package HOMEONLY7 IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY7-CENREPQUOTED1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-home7"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        ! /usr/bin/unzip -l "$IPA" | grep -Eiq '\.jar([[:space:]]|$)'
+        shasum -a 256 "$IPA" | tee HOMEONLY7-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY7 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY7-CENREPQUOTED1-IPA
+        path: upstream/EKA2L1-HOMEONLY7-CENREPQUOTED1-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY7 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY7-CENREPQUOTED1-AUDIT
+        path: |
+          HOMEONLY7-UPSTREAM-HEAD.txt
+          HOMEONLY7-SOURCE-HEAD.txt
+          HOMEONLY7-source.diff
+          HOMEONLY7-BUILD-AUDIT.txt
+          HOMEONLY7-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
