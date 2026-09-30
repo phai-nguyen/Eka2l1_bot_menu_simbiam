@@ -1,0 +1,173 @@
+name: Build HOMEONLY8 AppList Non-Native Registration
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly8-applist-nonnative1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore HOMEONLY7 cache
+      id: home7
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly7-cenrepquoted1-macos15-v1
+
+    - name: Require HOMEONLY7 baseline
+      run: |
+        set -euo pipefail
+        test "${{ steps.home7.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        INI="$UPSTREAM/src/emu/common/src/ini.cpp"
+        APP="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+
+        test -x "$BIN"
+        test -f "$INI"
+        test -f "$APP"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        grep -Fq 'struct ini_token {' "$INI"
+        grep -Fq 'return { trim1, true };' "$INI"
+        grep -Fq 'if (ns.text.empty() && !ns.quoted)' "$INI"
+
+        strings "$BIN" > "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home7.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home7.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home7.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home7.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home7.strings"
+
+        # Authority: opcode exists in the protocol enum but is still unhandled.
+        grep -Fq 'applist_request_register_non_native_app_type'           "$UPSTREAM/src/emu/services/include/services/applist/op.h"
+        ! grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$APP"
+
+        git -C "$UPSTREAM" rev-parse HEAD | tee HOMEONLY8-UPSTREAM-HEAD.txt
+
+    - name: Fetch HOMEONLY8 source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly8-applist-nonnative1           https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home8-src"
+        git -C "$GITHUB_WORKSPACE/home8-src" rev-parse HEAD | tee HOMEONLY8-SOURCE-HEAD.txt
+
+    - name: Apply AppList non-native registration fix
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home8-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 -m py_compile           "$SRC/apply_homeonly8_applistnonnative1.py"           "$SRC/test_homeonly8_applistnonnative1.py"
+
+        python3 "$SRC/apply_homeonly8_applistnonnative1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly8_applistnonnative1.py" "$UPSTREAM"
+
+        APP="$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$APP"
+        grep -Fq 'case applist_request_register_non_native_app_type:' "$APP"
+        grep -Fq 'case applist_request_deregister_non_native_app_type:' "$APP"
+
+        # Preserve HOMEONLY7 and the CenRep descriptor ABI.
+        INI="$UPSTREAM/src/emu/common/src/ini.cpp"
+        grep -Fq 'struct ini_token {' "$INI"
+        ! grep -R -Fq '52 -> 26' "$UPSTREAM/src/emu/services/src/centralrepo"
+        ! grep -R -Fq '52/2' "$UPSTREAM/src/emu/services/src/centralrepo"
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY8-source.diff
+
+    - name: Incremental build HOMEONLY8
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/home8.strings"
+
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home8.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home8.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home8.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home8.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home8.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY8 BUILD AUDIT'
+          echo 'baseline=HOMEONLY7_CENREPQUOTED1'
+          echo 'device_root_cause=APPARC_OPCODE_0x42_UNCOMPLETED_BLOCKS_WIDGETREGISTRY_RENDEZVOUS'
+          echo 'fix=GENERIC_APPLIST_NON_NATIVE_TYPE_REGISTRATION'
+          echo 'opcode_0x42=HANDLED_AND_COMPLETED'
+          echo 'opcode_0x43=HANDLED_AND_COMPLETED'
+          echo 'widgetregistry_hardcode=NO'
+          echo 'input_pipeline=UNCHANGED'
+          echo 'cenrep_get_52_to_26=UNCHANGED_FORBIDDEN'
+          echo 'aiscutplugin=UNCHANGED'
+          echo 'panic_suppression=NO'
+          echo 'nativeboot=ABSENT'
+          echo 'compatboot=ABSENT'
+          echo 'java_j2me=REMOVED'
+        } > HOMEONLY8-BUILD-AUDIT.txt
+
+    - name: Save HOMEONLY8 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly8-applist-nonnative1-macos15-v1
+
+    - name: Package HOMEONLY8 IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY8-APPLIST-NONNATIVE1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-home8"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        ! /usr/bin/unzip -l "$IPA" | grep -Eiq '\.jar([[:space:]]|$)'
+        shasum -a 256 "$IPA" | tee HOMEONLY8-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY8 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY8-APPLIST-NONNATIVE1-IPA
+        path: upstream/EKA2L1-HOMEONLY8-APPLIST-NONNATIVE1-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY8 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY8-APPLIST-NONNATIVE1-AUDIT
+        path: |
+          HOMEONLY8-UPSTREAM-HEAD.txt
+          HOMEONLY8-SOURCE-HEAD.txt
+          HOMEONLY8-source.diff
+          HOMEONLY8-BUILD-AUDIT.txt
+          HOMEONLY8-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14

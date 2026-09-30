@@ -1,0 +1,193 @@
+name: Build HOMEONLY2 Clean MENUUI36 NOJAVA
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly2-menuui36-home.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore current B19 build container
+      id: b19
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Require B19 container
+      run: |
+        set -euo pipefail
+        test "${{ steps.b19.outputs.cache-hit }}" = "true"
+        test -d "$GITHUB_WORKSPACE/upstream/.git"
+        test -x "$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+
+    - name: Download validated MENUUI36 source audit
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        OUT="$RUNNER_TEMP/menuui36-audit"
+        rm -rf "$OUT"
+        mkdir -p "$OUT"
+        gh run download 35435737554           --repo "$GITHUB_REPOSITORY"           --name EKA2L1-SYMBIAN-SYSTEMAPPS1-MENUUI36-WINFOCUS1-NOJAVA-MANIC3-AUDIT           --dir "$OUT"
+        test -s "$OUT/MENUUI36-WINFOCUS1-source.diff"
+        grep -Fq 'java_j2me=REMOVED' "$OUT/MENUUI36-WINFOCUS1-BUILD-AUDIT.txt"
+
+    - name: Strip NativeBoot and restore exact MENUUI36 source
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        DIFF="$RUNNER_TEMP/menuui36-audit/MENUUI36-WINFOCUS1-source.diff"
+
+        echo "upstream_head=$(git -C "$UPSTREAM" rev-parse HEAD)" | tee HOMEONLY2-BASELINE.txt
+
+        # B19 is a working-tree continuation of MENUUI36. Return tracked source
+        # to its immutable Git HEAD, then recreate the exact device-validated
+        # MENUUI36 working tree from its archived cumulative source diff.
+        git -C "$UPSTREAM" reset --hard HEAD
+        git -C "$UPSTREAM" apply --check "$DIFF"
+        git -C "$UPSTREAM" apply "$DIFF"
+        git -C "$UPSTREAM" diff --check
+
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 KEY_FOCUS_TARGET:' "$UPSTREAM/src/emu/services/src/window/io.cpp"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI35 SIMULATE_EVENT:' "$UPSTREAM/src/emu/services/src/window/classes/plugins/animdll.cpp"
+        grep -R -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI30 STOCK_FEP:' "$UPSTREAM/src/emu/ios"
+
+        # Hard source gates: NativeBoot/CompatBoot must be absent before Home.
+        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu"
+        ! grep -R -Fq 'CompatBoot Menu Probe' "$UPSTREAM/src/emu"
+        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu"
+
+        echo 'baseline=MENUUI36_WINFOCUS1_NOJAVA_MANIC3_ARCHIVED_DIFF' >> HOMEONLY2-BASELINE.txt
+        echo 'nativeboot_source=ABSENT' >> HOMEONLY2-BASELINE.txt
+        echo 'compatboot_source=ABSENT' >> HOMEONLY2-BASELINE.txt
+
+    - name: Fetch Home-only source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly1           https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home-src"
+        git -C "$GITHUB_WORKSPACE/home-src" rev-parse HEAD | tee HOMEONLY2-SOURCE-HEAD.txt
+
+    - name: Apply Home-only patches
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 -m py_compile           "$SRC/apply_m3home1_homebridge.py"           "$SRC/apply_homeonly1_cenreptx1.py"           "$SRC/apply_homeonly1_cenrepdeleterange1.py"           "$SRC/apply_homeonly1_cenrepgetstringdiag1.py"           "$SRC/test_homeonly1_contract.py"
+
+        python3 "$SRC/apply_m3home1_homebridge.py" "$UPSTREAM"
+        python3 "$SRC/apply_homeonly1_cenreptx1.py" "$UPSTREAM"
+        python3 "$SRC/apply_homeonly1_cenrepdeleterange1.py" "$UPSTREAM"
+        python3 "$SRC/apply_homeonly1_cenrepgetstringdiag1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly1_contract.py" "$UPSTREAM"
+
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$UPSTREAM/src/emu/services/src/window/classes/wingroup.cpp"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$UPSTREAM/src/emu/ios/src/emu_bridge.mm"
+        grep -Fq '[HOMEONLY1][CEN_DELETE_RANGE]' "$UPSTREAM/src/emu/services/src/centralrepo/repo.cpp"
+        ! grep -R -Fq '[NBOOT2]' "$UPSTREAM/src/emu"
+        ! grep -R -Fq '[COMPATBOOT]' "$UPSTREAM/src/emu"
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY2-source.diff
+
+    - name: Incremental build HOMEONLY2
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/homeonly2.strings"
+
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/homeonly2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI35 SIMULATE_EVENT:' "$RUNNER_TEMP/homeonly2.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI33 KEYSOUND13:' "$RUNNER_TEMP/homeonly2.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/homeonly2.strings"
+        grep -Fq '[HOMEONLY1][CEN_DELETE_RANGE]' "$RUNNER_TEMP/homeonly2.strings"
+        grep -Fq '[HOMEONLY1][CEN_GET_STRING] phase=pre_write' "$RUNNER_TEMP/homeonly2.strings"
+
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/homeonly2.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/homeonly2.strings"
+        ! grep -Fq 'CompatBoot Menu Probe' "$RUNNER_TEMP/homeonly2.strings"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$RUNNER_TEMP/homeonly2.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY2 CLEAN BUILD AUDIT'
+          echo 'baseline=MENUUI36_WINFOCUS1_NOJAVA_MANIC3'
+          echo 'baseline_authority_run=35435737554'
+          echo 'menuui36_focus=PRESERVED'
+          echo 'menuui35_async_input=PRESERVED'
+          echo 'menuui33_keysound=PRESERVED'
+          echo 'menuui31_raw_input=PRESERVED'
+          echo 'menuui30_stockfep=PRESERVED'
+          echo 'java_j2me=REMOVED'
+          echo 'nativeboot_source=REMOVED'
+          echo 'compatboot_source=REMOVED'
+          echo 'nativeboot_binary_markers=ABSENT'
+          echo 'compatboot_binary_markers=ABSENT'
+          echo 'route=MENU3_TO_REAL_HOME'
+        } > HOMEONLY2-BUILD-AUDIT.txt
+
+    - name: Save clean HOMEONLY2 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly2-clean-menuui36-nojava-manic3-macos15-v1
+
+    - name: Package HOMEONLY2 unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY2-CLEAN-MENUUI36-NOJAVA-M3HOME3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-homeonly2-clean"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/homeonly2-ipa-list.txt"
+        ! grep -Ei '\.jar([[:space:]]|$)' "$RUNNER_TEMP/homeonly2-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee HOMEONLY2-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY2 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY2-CLEAN-MENUUI36-NOJAVA-M3HOME3-IPA
+        path: upstream/EKA2L1-HOMEONLY2-CLEAN-MENUUI36-NOJAVA-M3HOME3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY2 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY2-CLEAN-MENUUI36-NOJAVA-M3HOME3-AUDIT
+        path: |
+          HOMEONLY2-BASELINE.txt
+          HOMEONLY2-SOURCE-HEAD.txt
+          HOMEONLY2-source.diff
+          HOMEONLY2-BUILD-AUDIT.txt
+          HOMEONLY2-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14

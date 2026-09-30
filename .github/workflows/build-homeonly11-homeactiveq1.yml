@@ -1,0 +1,182 @@
+name: Build HOMEONLY11 Home ActiveScheduler Probe
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly11-homeactiveq1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore HOMEONLY10 cache
+      id: home10
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly10-mmfaudiops-paused1-macos15-v1
+
+    - name: Require HOMEONLY10 baseline
+      run: |
+        set -euo pipefail
+        test "${{ steps.home10.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        THREAD="$UPSTREAM/src/emu/kernel/src/thread.cpp"
+        FIFO="$UPSTREAM/src/emu/services/src/window/fifo.cpp"
+        AUDIO="$UPSTREAM/src/emu/services/src/audio/mmf/audio.cpp"
+
+        test -x "$BIN"
+        test -f "$THREAD"
+        test -f "$FIFO"
+        test -f "$AUDIO"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        grep -Fq '[HOMEONLY4][REQ_WAIT]' "$THREAD"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$FIFO"
+        grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$AUDIO"
+        grep -Fq '[HOMEONLY10][MMF_AUDIO_PS]' "$AUDIO"
+        ! grep -Fq '[HOMEONLY11][ACTIVEQ_WAIT]' "$THREAD"
+
+        strings "$BIN" > "$RUNNER_TEMP/home10.strings"
+        grep -Fq '[HOMEONLY10][MMF_AUDIO_PS]' "$RUNNER_TEMP/home10.strings"
+        grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$RUNNER_TEMP/home10.strings"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$RUNNER_TEMP/home10.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home10.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home10.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home10.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home10.strings"
+
+        git -C "$UPSTREAM" rev-parse HEAD | tee HOMEONLY11-UPSTREAM-HEAD.txt
+
+    - name: Fetch HOMEONLY11 source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly11-homeactiveq1           https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home11-src"
+        git -C "$GITHUB_WORKSPACE/home11-src" rev-parse HEAD | tee HOMEONLY11-SOURCE-HEAD.txt
+
+    - name: Apply Home ActiveScheduler diagnostic probe
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home11-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+
+        python3 -m py_compile           "$SRC/apply_homeonly11_homeactiveq1.py"           "$SRC/test_homeonly11_homeactiveq1.py"
+
+        python3 "$SRC/apply_homeonly11_homeactiveq1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly11_homeactiveq1.py" "$UPSTREAM"
+
+        THREAD="$UPSTREAM/src/emu/kernel/src/thread.cpp"
+        FIFO="$UPSTREAM/src/emu/services/src/window/fifo.cpp"
+        grep -Fq '[HOMEONLY11][ACTIVEQ_ARM]' "$THREAD"
+        grep -Fq '[HOMEONLY11][ACTIVEQ_WAIT]' "$THREAD"
+        grep -Fq '[HOMEONLY11][ACTIVEQ_ITEM]' "$THREAD"
+        grep -Fq 'homeonly11_arm_activeq_probe' "$FIFO"
+
+        # Preserve previous fixes and forbidden scope.
+        grep -Fq '[HOMEONLY10][MMF_AUDIO_PS]'           "$UPSTREAM/src/emu/services/src/audio/mmf/audio.cpp"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]'           "$UPSTREAM/src/emu/services/src/applist/applist.cpp"
+        grep -Fq 'struct ini_token {' "$UPSTREAM/src/emu/common/src/ini.cpp"
+        ! grep -R -Fq '52 -> 26' "$UPSTREAM/src/emu/services/src/centralrepo"
+        ! grep -R -Fq '52/2' "$UPSTREAM/src/emu/services/src/centralrepo"
+
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY11-source.diff
+
+    - name: Incremental build HOMEONLY11
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/home11.strings"
+
+        grep -Fq '[HOMEONLY11][ACTIVEQ_ARM]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY11][ACTIVEQ_WAIT]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY11][ACTIVEQ_ITEM]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY10][MMF_AUDIO_PS]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY9][MMF_AUDIO_PS]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY8][APPLIST_NONNATIVE]' "$RUNNER_TEMP/home11.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home11.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home11.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home11.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY11 BUILD AUDIT'
+          echo 'baseline=HOMEONLY10_MMFAUDIOPS_PAUSED1'
+          echo 'device_evidence=EVENTREADY_COMPLETES_BUT_HOME_REWAITS_WITHOUT_INPUT_GET'
+          echo 'change=DIAGNOSTIC_ONLY_HOME_ACTIVE_SCHEDULER_QUEUE'
+          echo 'activeq_directions=FORWARD_AND_BACKWARD'
+          echo 'probe_trigger=HOME_EVENTREADY_COMPLETION'
+          echo 'probe_budget=3_WAITS_PER_EVENT'
+          echo 'input_pipeline=UNCHANGED'
+          echo 'scheduler_semantics=UNCHANGED'
+          echo 'window_focus=UNCHANGED'
+          echo 'mmf_properties=UNCHANGED'
+          echo 'cenrep_get_52_to_26=UNCHANGED_FORBIDDEN'
+          echo 'panic_suppression=NO'
+          echo 'nativeboot=ABSENT'
+          echo 'compatboot=ABSENT'
+          echo 'java_j2me=REMOVED'
+        } > HOMEONLY11-BUILD-AUDIT.txt
+
+    - name: Save HOMEONLY11 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly11-homeactiveq1-macos15-v1
+
+    - name: Package HOMEONLY11 IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY11-HOMEACTIVEQ1-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-home11"
+
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        ! /usr/bin/unzip -l "$IPA" | grep -Eiq '\.jar([[:space:]]|$)'
+        shasum -a 256 "$IPA" | tee HOMEONLY11-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY11 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY11-HOMEACTIVEQ1-IPA
+        path: upstream/EKA2L1-HOMEONLY11-HOMEACTIVEQ1-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY11 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY11-HOMEACTIVEQ1-AUDIT
+        path: |
+          HOMEONLY11-UPSTREAM-HEAD.txt
+          HOMEONLY11-SOURCE-HEAD.txt
+          HOMEONLY11-source.diff
+          HOMEONLY11-BUILD-AUDIT.txt
+          HOMEONLY11-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14

@@ -1,0 +1,217 @@
+name: Build EKA2L1 NATIVEBOOT2 B24 FBSVTABLEABI1 NOJAVA MANIC3 IPA
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - nativeboot2-b24-fbsvtableabi1
+    paths:
+      - apply_nativeboot2_b20_cenresetall1.py
+      - test_nativeboot2_b20_cenresetall1.py
+      - apply_nativeboot2_b21_fbsfontalias1.py
+      - test_nativeboot2_b21_fbsfontalias1.py
+      - apply_nativeboot2_b22_fbsdefaulttypeface1.py
+      - test_nativeboot2_b22_fbsdefaulttypeface1.py
+      - apply_nativeboot2_b23_fbsfontspecv2abi1.py
+      - test_nativeboot2_b23_fbsfontspecv2abi1.py
+      - apply_nativeboot2_b24_fbsvtableabi1.py
+      - test_nativeboot2_b24_fbsvtableabi1.py
+      - .github/workflows/build-ios-nativeboot2-b24-fbsvtableabi1-nojava-manic3.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore B24 cache
+      id: b24_cache
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b24-fbsvtableabi1-nojava-manic3-macos15-v1
+
+    - name: Restore B19 baseline
+      id: b19_cache
+      if: steps.b24_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b19-salangabi1-nojava-manic3-macos15-v1
+
+    - name: Recreate B23, apply B24 and rebuild
+      if: steps.b24_cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        LOG="$GITHUB_WORKSPACE/eka2l1-nativeboot2-b24-fbsvtableabi1.log"
+        : > "$LOG"
+        exec > >(tee -a "$LOG") 2>&1
+
+        test "${{ steps.b19_cache.outputs.cache-hit }}" = "true"
+
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+
+        python3 -m py_compile           apply_nativeboot2_b20_cenresetall1.py test_nativeboot2_b20_cenresetall1.py           apply_nativeboot2_b21_fbsfontalias1.py test_nativeboot2_b21_fbsfontalias1.py           apply_nativeboot2_b22_fbsdefaulttypeface1.py test_nativeboot2_b22_fbsdefaulttypeface1.py           apply_nativeboot2_b23_fbsfontspecv2abi1.py test_nativeboot2_b23_fbsfontspecv2abi1.py           apply_nativeboot2_b24_fbsvtableabi1.py test_nativeboot2_b24_fbsvtableabi1.py
+
+        python3 apply_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 apply_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+
+        python3 apply_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+
+        # GREEN: B24 contract that failed on the exact recreated B23 baseline.
+        python3 test_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+
+        FONTCPP="$UPSTREAM/src/emu/services/src/fbs/impls/font.cpp"
+        FONTH="$UPSTREAM/src/emu/services/include/services/fbs/font.h"
+        FBSCPP="$UPSTREAM/src/emu/services/src/fbs/fbs.cpp"
+        STORECPP="$UPSTREAM/src/emu/services/src/fbs/impls/font_store.cpp"
+        REPOCPP="$UPSTREAM/src/emu/services/src/centralrepo/repo.cpp"
+        SA="$UPSTREAM/src/emu/services/src/sms/sa/sa.cpp"
+        SVC="$UPSTREAM/src/emu/kernel/src/svc.cpp"
+        ROOT="$UPSTREAM/src/emu/ios/app/RootViewController.mm"
+
+        grep -Fq 'static_assert(sizeof(bitmapfont_v1) == 96);' "$FONTH"
+        grep -Fq 'static_assert(sizeof(bitmapfont_v2) == 104);' "$FONTH"
+        grep -Fq '[NBOOT2][FBS_BITMAPFONT_ABI]' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_VTABLE_EXPORT]' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_VTABLE_RELOC]' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_VTABLE_SLOT]' "$FONTCPP"
+        grep -Fq 'lookup_no_relocate(97)' "$FONTCPP"
+        grep -Fq 'lookup(font_user, 97)' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_FONT_SPEC_ABI]' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_FONT_RETURN]' "$FONTCPP"
+        grep -Fq '[NBOOT2][FBS_DEFAULT_TYPEFACE]' "$FBSCPP"
+        grep -Fq '[NBOOT2][FBS_FONT_ALIAS]' "$FBSCPP"
+        grep -Fq 'system_default_typeface_name()' "$STORECPP"
+        grep -Fq '[NBOOT2][CEN_RESET_ALL_DONE]' "$REPOCPP"
+        grep -Fq '[NBOOT2][SA_LANG_ABI]' "$SA"
+        grep -Fq '[NBOOT2][DM_INIT_SET_INT]' "$SVC"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$ROOT"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        git -C "$UPSTREAM" diff --check
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        APP="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app"
+        BIN="$APP/eka2l1"
+        test -x "$BIN"
+
+        STRINGS_OUT="$RUNNER_TEMP/nativeboot2-b24-fbsvtableabi1.strings"
+        strings "$BIN" > "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_BITMAPFONT_ABI]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_VTABLE_EXPORT]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_VTABLE_RELOC]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_VTABLE_SLOT]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_FONT_SPEC_ABI]' "$STRINGS_OUT"
+        grep -Fq '[NBOOT2][FBS_FONT_RETURN]' "$STRINGS_OUT"
+        grep -Fq 'NATIVEBOOT2 EMUHUB1' "$STRINGS_OUT"
+        ! grep -Eiq 'phoneME|JAVA-STABLE1|MMAPI-DIAG2|GM-SYNTH1 renderer=gm-sf2' "$STRINGS_OUT"
+
+        {
+          echo 'NATIVEBOOT2 B24 FBSVTABLEABI1 BUILD AUDIT'
+          echo 'base_cache=NATIVEBOOT2_B19_SALANGABI1'
+          echo 'recreated_baseline=B20+B21+B22+B23'
+          echo 'device_evidence=B23_DECODEV2_OK_AKNCAP_KERN_EXEC3_PC_0xF0_R0_EQUALS_RETURNED_CBITMAPFONT'
+          echo 'behavior_change=NONE_DIAGNOSTIC_ONLY'
+          echo 'ordinal97=RAW_EXPORT_LOGGED'
+          echo 'relocation_compare=CURRENT_RELOCATE_VS_CODESEG_LOOKUP'
+          echo 'vtable_slots=20'
+          echo 'bitmapfont_v1_size=96'
+          echo 'bitmapfont_v2_size=104'
+          echo 'guest_vtable_mutation=NONE'
+          echo 'font_matcher=UNCHANGED'
+          echo 'appserver=UNCHANGED'
+          echo 'b23_fbsfontspecv2abi1=PRESERVED'
+          echo 'b22_fbsdefaulttypeface1=PRESERVED'
+          echo 'b21_fbsfontalias1=PRESERVED'
+          echo 'b20_cenresetall1=PRESERVED'
+          echo 'boot_owner=firmware_SYSSTART'
+          echo 'frontend=EMUHUB1_PRESERVED'
+          echo 'NOJAVA=PRESERVED'
+          echo 'MANIC3=PRESERVED'
+          echo 'TDD_RED_RUN=35563739250'
+        } > "$GITHUB_WORKSPACE/NATIVEBOOT2-B24-FBSVTABLEABI1-BUILD-AUDIT.txt"
+
+        git -C "$UPSTREAM" diff > "$GITHUB_WORKSPACE/NATIVEBOOT2-B24-FBSVTABLEABI1-source.diff"
+
+    - name: Verify restored B24 cache
+      if: steps.b24_cache.outputs.cache-hit == 'true'
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 test_nativeboot2_b24_fbsvtableabi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b23_fbsfontspecv2abi1.py "$UPSTREAM"
+        python3 test_nativeboot2_b22_fbsdefaulttypeface1.py "$UPSTREAM"
+        python3 test_nativeboot2_b21_fbsfontalias1.py "$UPSTREAM"
+        python3 test_nativeboot2_b20_cenresetall1.py "$UPSTREAM"
+        test -x "$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        echo 'NATIVEBOOT2 B24 FBSVTABLEABI1 cache_hit=true' > "$GITHUB_WORKSPACE/NATIVEBOOT2-B24-FBSVTABLEABI1-BUILD-AUDIT.txt"
+        : > "$GITHUB_WORKSPACE/NATIVEBOOT2-B24-FBSVTABLEABI1-source.diff"
+
+    - name: Save B24 cache
+      if: steps.b24_cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-nativeboot2-b24-fbsvtableabi1-nojava-manic3-macos15-v1
+
+    - name: Package unsigned IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-NATIVEBOOT2-B24-FBSVTABLEABI1-NOJAVA-MANIC3-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-nativeboot2-b24"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        /usr/bin/unzip -l "$IPA" > "$RUNNER_TEMP/nativeboot2-b24-ipa-list.txt"
+        grep -Fq 'Payload/EKA2L1.app/eka2l1' "$RUNNER_TEMP/nativeboot2-b24-ipa-list.txt"
+        ! grep -Ei '\\.jar([[:space:]]|$)' "$RUNNER_TEMP/nativeboot2-b24-ipa-list.txt"
+        shasum -a 256 "$IPA" | tee "$GITHUB_WORKSPACE/NATIVEBOOT2-B24-FBSVTABLEABI1-IPA-SHA256.txt"
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B24-FBSVTABLEABI1-NOJAVA-MANIC3-IPA
+        path: upstream/EKA2L1-NATIVEBOOT2-B24-FBSVTABLEABI1-NOJAVA-MANIC3-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B24-FBSVTABLEABI1-NOJAVA-MANIC3-AUDIT
+        path: |
+          NATIVEBOOT2-B24-FBSVTABLEABI1-BUILD-AUDIT.txt
+          NATIVEBOOT2-B24-FBSVTABLEABI1-source.diff
+          NATIVEBOOT2-B24-FBSVTABLEABI1-IPA-SHA256.txt
+        retention-days: 14
+
+    - name: Upload diagnostic log on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-NATIVEBOOT2-B24-FBSVTABLEABI1-diagnostic-log
+        path: eka2l1-nativeboot2-b24-fbsvtableabi1.log
+        if-no-files-found: warn
+        retention-days: 14

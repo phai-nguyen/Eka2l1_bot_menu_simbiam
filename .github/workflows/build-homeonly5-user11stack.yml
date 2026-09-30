@@ -1,0 +1,136 @@
+name: Build HOMEONLY5 USER11 Stack Trace
+
+"on":
+  push:
+    branches:
+      - codex/m3home-homeonly2-build
+    paths:
+      - ".github/workflows/build-homeonly5-user11stack.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+    - name: Checkout build host
+      uses: actions/checkout@v4
+
+    - name: Restore HOMEONLY4 cache
+      id: home4
+      uses: actions/cache/restore@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly4-eventwakeprobe-macos15-v1
+
+    - name: Require HOMEONLY4 baseline
+      run: |
+        set -euo pipefail
+        test "${{ steps.home4.outputs.cache-hit }}" = "true"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+        strings "$BIN" > "$RUNNER_TEMP/home4.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home4.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home4.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home4.strings"
+        grep -Fq '[M3HOME1][APPARC_REQUEST]' "$RUNNER_TEMP/home4.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home4.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home4.strings"
+
+    - name: Fetch HOMEONLY5 source
+      run: |
+        set -euo pipefail
+        git clone --depth 1 --branch codex/menu3-homeonly5           https://github.com/phai-nguyen/Eka2l1-nhanh-menuu3.git "$GITHUB_WORKSPACE/home5-src"
+        git -C "$GITHUB_WORKSPACE/home5-src" rev-parse HEAD | tee HOMEONLY5-SOURCE-HEAD.txt
+
+    - name: Apply HOMEONLY5 diagnostic delta
+      run: |
+        set -euo pipefail
+        SRC="$GITHUB_WORKSPACE/home5-src"
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        python3 -m py_compile           "$SRC/apply_homeonly5_user11stack1.py"           "$SRC/test_homeonly5_user11stack1.py"
+        python3 "$SRC/apply_homeonly5_user11stack1.py" "$UPSTREAM"
+        python3 "$SRC/test_homeonly5_user11stack1.py" "$UPSTREAM"
+        git -C "$UPSTREAM" diff --check
+        git -C "$UPSTREAM" diff > HOMEONLY5-source.diff
+
+    - name: Incremental build HOMEONLY5
+      run: |
+        set -euo pipefail
+        UPSTREAM="$GITHUB_WORKSPACE/upstream"
+        CMAKE_BIN="$UPSTREAM/.tools/cmake-3.31.6-macos-universal/CMake.app/Contents/bin/cmake"
+        "$CMAKE_BIN" --build "$UPSTREAM/build-ios-device" --target eka2l1 --parallel 4
+
+        BIN="$UPSTREAM/build-ios-device/src/emu/ios/eka2l1.app/eka2l1"
+        test -x "$BIN"
+        strings "$BIN" > "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY5][USER11_CONTEXT]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY5][USER11_FRAME]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY5][USER11_STACK]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY4][EVENT_WAKE]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq '[HOMEONLY3][HOME_EXIT_KEEP_MENU3]' "$RUNNER_TEMP/home5.strings"
+        grep -Fq 'SYMBIAN-SYSTEMAPPS1 MENUUI36 WG_FOCUS:' "$RUNNER_TEMP/home5.strings"
+        ! grep -Fq '[NBOOT2]' "$RUNNER_TEMP/home5.strings"
+        ! grep -Fq '[COMPATBOOT]' "$RUNNER_TEMP/home5.strings"
+        test ! -e "$UPSTREAM/src/emu/j2me"
+
+        {
+          echo 'HOMEONLY5 BUILD AUDIT'
+          echo 'baseline=HOMEONLY4'
+          echo 'target=HOME_UID_0x102750F0_USER_11'
+          echo 'probe=PANIC_PC_LR_REGS_STACK_MODULE_OFFSETS'
+          echo 'behavior_change=NONE'
+          echo 'panic_suppression=NO'
+          echo 'cenrep_change=NONE'
+          echo 'input_change=NONE'
+          echo 'nativeboot=ABSENT'
+          echo 'compatboot=ABSENT'
+          echo 'java_j2me=REMOVED'
+        } > HOMEONLY5-BUILD-AUDIT.txt
+
+    - name: Save HOMEONLY5 cache
+      uses: actions/cache/save@v4
+      with:
+        path: upstream
+        key: eka2l1-homeonly5-user11stack-macos15-v1
+
+    - name: Package HOMEONLY5 IPA
+      run: |
+        set -euo pipefail
+        APP="$GITHUB_WORKSPACE/upstream/build-ios-device/src/emu/ios/eka2l1.app"
+        IPA="$GITHUB_WORKSPACE/upstream/EKA2L1-HOMEONLY5-USER11STACK-unsigned.ipa"
+        STAGE="$RUNNER_TEMP/ipa-stage-home5"
+        rm -rf "$STAGE" "$IPA"
+        mkdir -p "$STAGE/Payload"
+        cp -R "$APP" "$STAGE/Payload/EKA2L1.app"
+        rm -rf "$STAGE/Payload/EKA2L1.app/_CodeSignature"
+        rm -f "$STAGE/Payload/EKA2L1.app/embedded.mobileprovision"
+        (cd "$STAGE" && /usr/bin/zip -qry "$IPA" Payload)
+        /usr/bin/unzip -t "$IPA" >/dev/null
+        ! /usr/bin/unzip -l "$IPA" | grep -Eiq '\.jar([[:space:]]|$)'
+        shasum -a 256 "$IPA" | tee HOMEONLY5-IPA-SHA256.txt
+
+    - name: Upload HOMEONLY5 IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY5-USER11STACK-IPA
+        path: upstream/EKA2L1-HOMEONLY5-USER11STACK-unsigned.ipa
+        retention-days: 14
+
+    - name: Upload HOMEONLY5 audit
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: EKA2L1-HOMEONLY5-USER11STACK-AUDIT
+        path: |
+          HOMEONLY5-SOURCE-HEAD.txt
+          HOMEONLY5-source.diff
+          HOMEONLY5-BUILD-AUDIT.txt
+          HOMEONLY5-IPA-SHA256.txt
+        if-no-files-found: warn
+        retention-days: 14
